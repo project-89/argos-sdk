@@ -8,11 +8,15 @@ We love your input! We want to make contributing to Argos SDK as easy and transp
 - Proposing new features
 - Becoming a maintainer
 
-## We Develop with Github
-We use GitHub to host code, to track issues and feature requests, as well as accept pull requests.
+## Package Publishing
 
-## We Use [Github Flow](https://guides.github.com/introduction/flow/index.html)
-Pull requests are the best way to propose changes to the codebase. We actively welcome your pull requests:
+While this is an open source project, the npm package `@project89/argos-sdk` is maintained and published by the Project89 team. This ensures package quality and security. If you have changes that you'd like to see published:
+
+1. Submit your changes via a pull request
+2. Once approved and merged, the Project89 team will handle the npm publishing
+3. Package versions follow semantic versioning (MAJOR.MINOR.PATCH)
+
+## Development Setup
 
 1. Fork the repo and create your branch from `main`.
 2. Install dependencies:
