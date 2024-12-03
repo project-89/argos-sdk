@@ -24,16 +24,9 @@
  */
 
 export { ArgosTracker } from './ArgosTracker';
-export { useArgosPresence } from './hooks/useArgosPresence';
-export type {
-  ArgosConfig,
-  ArgosUser,
-  PresenceData,
-  UserTags,
-  UserRole,
-  PresenceTrackerConfig,
-  EventHandler,
-  EventMap,
-  EventType,
-} from './types';
+export { PresenceTracker } from './PresenceTracker';
+export { EventEmitter } from './EventEmitter';
 export { ArgosError } from './errors';
+export { useArgosUser } from './hooks/useArgosUser';
+export { useArgosPresence } from './hooks/useArgosPresence';
+export * from './types';

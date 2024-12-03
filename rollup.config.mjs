@@ -22,8 +22,13 @@ export default {
     typescript({
       tsconfig: './tsconfig.json',
       declaration: true,
-      declarationDir: './dist/types',
+      declarationDir: './dist/types/lib/argos-sdk',
+      outDir: './dist',
       exclude: ['**/__tests__/**', '**/*.test.ts', '**/*.test.tsx'],
+      compilerOptions: {
+        sourceMap: true,
+        declarationMap: true,
+      },
     }),
     resolve(),
     commonjs(),

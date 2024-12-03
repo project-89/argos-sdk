@@ -4,6 +4,7 @@
     "module": "esnext",
     "lib": ["dom", "esnext"],
     "declaration": true,
+    "declarationMap": true,
     "sourceMap": true,
     "moduleResolution": "node",
     "skipLibCheck": true,
@@ -25,8 +26,7 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": [
-    "src/lib/argos-sdk/**/*",
-    "src/lib/argos-sdk/types/**/*"
+    "src/lib/argos-sdk/**/*"
   ],
   "exclude": [
     "node_modules",

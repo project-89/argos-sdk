@@ -3,9 +3,17 @@
   "version": "0.1.3",
   "private": false,
   "description": "🔍 Argos SDK - A toolkit for creating, managing, and interacting with distributed narratives in modern web applications. Built with TypeScript and React",
-  "main": "dist/index.js",
-  "module": "dist/index.esm.js",
-  "types": "dist/types/index.d.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.esm.js",
+  "types": "./dist/types/lib/argos-sdk/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/lib/argos-sdk/index.d.ts",
+      "import": "./dist/index.esm.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
   "files": [
     "dist",
     "README.md",
