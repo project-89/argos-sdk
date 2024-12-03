@@ -1,6 +1,6 @@
 {
   "name": "@project89/argos-sdk",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": false,
   "description": "🔍 Argos SDK - A toolkit for creating, managing, and interacting with distributed narratives in modern web applications. Built with TypeScript and React",
   "main": "./dist/index.js",
