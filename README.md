@@ -1,2 +1,3 @@
 # argos-sdk
-🔍 Argos SDK - A lightweight, privacy-first user tracking and fingerprinting toolkit for modern web applications
+🌌 Argos SDK - A reality interface toolkit for managing ARG states, user immersion, and cross domain tracking in immersive narrative experiences
+
