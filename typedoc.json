@@ -1,0 +1,20 @@
+{
+  "entryPoints": ["src/lib/oneirocom-sdk/index.ts"],
+  "out": "docs",
+  "name": "Argos SDK Documentation",
+  "includeVersion": true,
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "excludeExternals": true,
+  "theme": "default",
+  "plugin": ["typedoc-plugin-markdown"],
+  "readme": "README.md",
+  "sort": ["source-order"],
+  "categorizeByGroup": true,
+  "categoryOrder": [
+    "Core",
+    "Configuration",
+    "Types",
+    "*"
+  ]
+} 

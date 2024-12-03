@@ -1,0 +1,76 @@
+{
+  "name": "@project89/argos-sdk",
+  "version": "0.1.0",
+  "private": false,
+  "description": "🔍 Argos SDK - A lightweight, privacy-first user tracking and fingerprinting toolkit for modern web applications",
+  "main": "dist/index.js",
+  "module": "dist/index.esm.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rollup -c rollup.config.mjs",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "lint": "eslint src --ext .ts,.tsx",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm test && npm run lint",
+    "version": "git add -A src",
+    "postversion": "git push && git push --tags",
+    "docs": "typedoc --options typedoc.json",
+    "docs:watch": "typedoc --options typedoc.json --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/project89/argos-sdk.git"
+  },
+  "keywords": [
+    "analytics",
+    "tracking",
+    "fingerprinting",
+    "presence",
+    "user-tracking",
+    "privacy"
+  ],
+  "author": "Project89",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/project89/argos-sdk/issues"
+  },
+  "homepage": "https://github.com/project89/argos-sdk#readme",
+  "peerDependencies": {
+    "react": "^18.0.0"
+  },
+  "dependencies": {
+    "react": "^18.2.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.0",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-typescript": "^11.1.5",
+    "@testing-library/jest-dom": "^6.1.5",
+    "@testing-library/react": "^14.1.2",
+    "@testing-library/react-hooks": "^8.0.1",
+    "@types/jest": "^29.5.10",
+    "@types/node": "^20.10.0",
+    "@types/react": "^18.2.39",
+    "@types/react-dom": "^18.2.17",
+    "@typescript-eslint/eslint-plugin": "^6.13.1",
+    "@typescript-eslint/parser": "^6.13.1",
+    "eslint": "^8.54.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.1",
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "prettier": "^3.1.0",
+    "react-dom": "^18.2.0",
+    "react-test-renderer": "^18.2.0",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.3.2",
+    "typedoc": "^0.25.4",
+    "typedoc-plugin-markdown": "^3.17.1"
+  }
+}
