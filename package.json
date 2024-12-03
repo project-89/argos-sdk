@@ -2,7 +2,7 @@
   "name": "@project89/argos-sdk",
   "version": "0.1.0",
   "private": false,
-  "description": "🔍 Argos SDK - A lightweight, privacy-first user tracking and fingerprinting toolkit for modern web applications",
+  "description": "🔍 Argos SDK - A toolkit for creating, managing, and interacting with distributed narratives in modern web applications. Built with TypeScript and React",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
   "types": "dist/index.d.ts",
