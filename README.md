@@ -165,7 +165,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ## Community & Support
 
-- 🐦 Follow us on [Twitter](https://twitter.com/project89) for updates
+- 🐦 Follow us on [X](https://x.com/project89) for updates
 - 💬 Join our [Discord](https://discord.gg/project89) for support
 - 🌟 Star us on [GitHub](https://github.com/project-89/argos-sdk)
 
