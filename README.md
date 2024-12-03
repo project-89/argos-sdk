@@ -1,17 +1,16 @@
 # 🔍 Argos SDK
 
-A lightweight, privacy-first user tracking and fingerprinting toolkit for modern web applications. Built with TypeScript and React, with first-class support for Web3 applications.
+A powerful toolkit for creating, managing, and interacting with distributed narratives in modern web applications. Built with TypeScript and React.
 
 ## Features
 
-- 🔒 Privacy-first user tracking
-- 👥 Real-time user presence detection
-- 🎯 User fingerprinting
+- 🔄 Real-time state synchronization
+- 👥 User presence and interaction tracking
+- 🎯 User identity and fingerprinting
+- 🔒 Privacy-first architecture
 - ⚡ Lightweight and performant
-- 🔄 Real-time updates
 - 🛡️ TypeScript support
 - ⚛️ React hooks included
-- 💎 Web3-ready with wallet integration
 
 ## Installation
 
@@ -39,7 +38,7 @@ HEARTBEAT_INTERVAL=30000   # Presence update interval in milliseconds
 TEST_API_URL=http://localhost:3000  # Local test API endpoint
 ```
 
-## Examples
+## Quick Start
 
 ### Basic Usage
 ```typescript
@@ -83,7 +82,6 @@ function App() {
 ```typescript
 import { useArgosPresence, ArgosTracker } from '@project89/argos-sdk';
 
-// Add ethereum to window type
 declare global {
   interface Window {
     ethereum: any;
@@ -146,14 +144,27 @@ function App() {
 
 ## Configuration
 
+The SDK can be configured with various options to suit your needs:
+
 ```typescript
 interface ArgosConfig {
   baseUrl?: string;              // API endpoint
   heartbeatInterval?: number;    // Presence update interval (ms)
   debug?: boolean;               // Enable debug logging
-  metadata?: Record<string, any>; // Custom metadata (e.g., chain info)
+  metadata?: Record<string, any>; // Custom metadata
 }
 ```
+
+## Upcoming Features
+
+- 📚 Narrative Creation & Management
+- 🔗 Cross-Platform State Synchronization
+- 🎭 Character & Entity Management
+- 🌍 World State Management
+- 🎨 Interactive Story Elements
+- 📊 Analytics & Insights
+- 🤝 Multi-User Collaboration
+- 🔐 Decentralized Storage Integration
 
 ## Documentation
 
@@ -165,7 +176,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ## Community & Support
 
-- 🐦 Follow us on [X](https://x.com/project89) for updates
+- 🐦 Follow us on [Twitter](https://twitter.com/project89) for updates
 - 💬 Join our [Discord](https://discord.gg/project89) for support
 - 🌟 Star us on [GitHub](https://github.com/project-89/argos-sdk)
 
