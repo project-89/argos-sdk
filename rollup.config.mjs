@@ -1,28 +1,29 @@
-import typescript from "@rollup/plugin-typescript";
-import commonjs from "@rollup/plugin-commonjs";
-import resolve from "@rollup/plugin-node-resolve";
-import pkg from "./package.json" assert { type: "json" };
+import typescript from '@rollup/plugin-typescript';
+import commonjs from '@rollup/plugin-commonjs';
+import resolve from '@rollup/plugin-node-resolve';
+import pkg from './package.json' assert { type: 'json' };
 
 export default {
-  input: "src/lib/argos-sdk/index.ts",
+  input: 'src/lib/argos-sdk/index.ts',
   output: [
     {
       file: pkg.main,
-      format: "cjs",
+      format: 'cjs',
       sourcemap: true,
     },
     {
       file: pkg.module,
-      format: "esm",
+      format: 'esm',
       sourcemap: true,
     },
   ],
   external: [...Object.keys(pkg.peerDependencies || {})],
   plugins: [
     typescript({
-      tsconfig: "./tsconfig.json",
+      tsconfig: './tsconfig.json',
       declaration: true,
-      declarationDir: "dist",
+      declarationDir: './dist/types',
+      exclude: ['**/__tests__/**', '**/*.test.ts', '**/*.test.tsx'],
     }),
     resolve(),
     commonjs(),

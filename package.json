@@ -5,7 +5,7 @@
   "description": "🔍 Argos SDK - A toolkit for creating, managing, and interacting with distributed narratives in modern web applications. Built with TypeScript and React",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
-  "types": "dist/index.d.ts",
+  "types": "dist/types/index.d.ts",
   "files": [
     "dist",
     "README.md",
@@ -13,7 +13,8 @@
   ],
   "sideEffects": false,
   "scripts": {
-    "build": "rollup -c rollup.config.mjs",
+    "clean": "rm -rf dist",
+    "build": "npm run clean && rollup -c rollup.config.mjs",
     "test": "jest",
     "test:watch": "jest --watch",
     "lint": "eslint src --ext .ts,.tsx",
