@@ -1,0 +1,28 @@
+# Source
+src/
+examples/
+tests/
+
+# Config files
+.github/
+.vscode/
+.idea/
+.git/
+.gitignore
+.prettierrc
+.eslintrc
+.eslintignore
+jest.config.js
+jest.setup.js
+rollup.config.mjs
+tsconfig.json
+typedoc.json
+
+# Development
+node_modules/
+coverage/
+*.log
+.DS_Store
+
+# Documentation source
+docs/ 

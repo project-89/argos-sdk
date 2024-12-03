@@ -1,22 +1,23 @@
 import typescript from "@rollup/plugin-typescript";
 import commonjs from "@rollup/plugin-commonjs";
 import resolve from "@rollup/plugin-node-resolve";
+import pkg from "./package.json" assert { type: "json" };
 
 export default {
-  input: "src/lib/oneirocom-sdk/index.ts",
+  input: "src/lib/argos-sdk/index.ts",
   output: [
     {
-      file: "dist/index.js",
+      file: pkg.main,
       format: "cjs",
       sourcemap: true,
     },
     {
-      file: "dist/index.esm.js",
-      format: "es",
+      file: pkg.module,
+      format: "esm",
       sourcemap: true,
     },
   ],
-  external: ["react"],
+  external: [...Object.keys(pkg.peerDependencies || {})],
   plugins: [
     typescript({
       tsconfig: "./tsconfig.json",

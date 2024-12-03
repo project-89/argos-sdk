@@ -6,7 +6,7 @@ node_modules/
 # Build outputs
 dist/
 build/
-lib/
+/lib/
 coverage/
 
 # IDE and editor files
