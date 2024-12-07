@@ -30,3 +30,19 @@ export { ArgosError } from './errors';
 export { useArgosUser } from './hooks/useArgosUser';
 export { useArgosPresence } from './hooks/useArgosPresence';
 export * from './types';
+
+// Export API classes
+export { TagAPI } from './api/TagAPI';
+export { APIKeyAPI } from './api/APIKeyAPI';
+export { RealityStabilityAPI } from './api/RealityStabilityAPI';
+export { DebugAPI } from './api/DebugAPI';
+
+// Export types
+export type { TagValue, TagRule, TagRules } from './api/TagAPI';
+export type {
+  RegisterApiKeyRequest,
+  RegisterApiKeyResponse,
+} from './api/APIKeyAPI';
+export type { RealityStabilityResponse } from './api/RealityStabilityAPI';
+export type { CleanupResult } from './api/DebugAPI';
+export type { ApiResponse, ApiError } from './types/api';

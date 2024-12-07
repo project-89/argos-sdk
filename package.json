@@ -1,91 +1,39 @@
 {
-  "name": "@project89/argos-sdk",
-  "version": "0.1.4",
-  "private": false,
-  "description": "🔍 Argos SDK - A toolkit for creating, managing, and interacting with distributed narratives in modern web applications. Built with TypeScript and React",
-  "main": "./dist/index.js",
-  "module": "./dist/index.esm.js",
-  "types": "./dist/types/lib/argos-sdk/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/types/lib/argos-sdk/index.d.ts",
-      "import": "./dist/index.esm.js",
-      "require": "./dist/index.js",
-      "default": "./dist/index.js"
-    }
-  },
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
-  ],
-  "sideEffects": false,
+  "name": "@oneirocom/argos-sdk",
+  "version": "0.1.0",
+  "description": "SDK for interacting with the Argos API",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "clean": "rm -rf dist",
-    "build": "npm run clean && rollup -c rollup.config.mjs",
+    "build": "tsc",
     "test": "jest",
     "test:watch": "jest --watch",
-    "lint": "eslint src --ext .ts,.tsx",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\"",
     "prepare": "npm run build",
-    "prepublishOnly": "npm test && npm run lint",
-    "version": "git add -A src",
-    "postversion": "git push && git push --tags",
-    "docs": "typedoc --options typedoc.json",
-    "docs:watch": "typedoc --options typedoc.json --watch"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/project-89/argos-sdk.git"
+    "prepublishOnly": "npm test && npm run lint"
   },
   "keywords": [
-    "analytics",
-    "tracking",
-    "fingerprinting",
-    "presence",
-    "user-tracking",
-    "privacy",
-    "web-analytics",
-    "real-time",
-    "web3",
-    "blockchain",
-    "dapp"
+    "argos",
+    "sdk",
+    "api"
   ],
-  "author": "Project89",
+  "author": "Oneirocom",
   "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/project-89/argos-sdk/issues"
-  },
-  "homepage": "https://github.com/project-89/argos-sdk#readme",
-  "peerDependencies": {
-    "react": "^18.0.0"
-  },
-  "dependencies": {},
   "devDependencies": {
-    "@rollup/plugin-commonjs": "^25.0.0",
-    "@rollup/plugin-node-resolve": "^15.2.3",
-    "@rollup/plugin-typescript": "^11.1.5",
-    "@testing-library/jest-dom": "^6.1.5",
-    "@testing-library/react": "^14.1.2",
-    "@types/jest": "^29.5.10",
-    "@types/node": "^20.10.0",
-    "@types/react": "^18.2.39",
-    "@types/react-dom": "^18.2.17",
-    "@typescript-eslint/eslint-plugin": "^6.13.1",
-    "@typescript-eslint/parser": "^6.13.1",
-    "eslint": "^8.54.0",
-    "eslint-config-prettier": "^9.0.0",
-    "eslint-plugin-prettier": "^5.0.1",
-    "eslint-plugin-react": "^7.33.2",
-    "eslint-plugin-react-hooks": "^4.6.0",
-    "jest": "^29.7.0",
+    "@types/jest": "^29.5.0",
+    "@types/node": "^18.15.11",
+    "@typescript-eslint/eslint-plugin": "^5.57.1",
+    "@typescript-eslint/parser": "^5.57.1",
+    "eslint": "^8.37.0",
+    "jest": "^29.5.0",
     "jest-environment-jsdom": "^29.7.0",
-    "prettier": "^3.1.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-test-renderer": "^18.2.0",
-    "ts-jest": "^29.1.1",
-    "typescript": "~5.4.5",
-    "typedoc": "^0.25.4",
-    "typedoc-plugin-markdown": "^3.17.1"
+    "prettier": "^2.8.7",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.0.3"
+  },
+  "dependencies": {
+    "cross-fetch": "^3.1.5"
   }
 }
