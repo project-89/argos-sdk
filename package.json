@@ -1,5 +1,5 @@
 {
-  "name": "@oneirocom/argos-sdk",
+  "name": "@project89/argos-sdk",
   "version": "0.1.0",
   "description": "SDK for interacting with the Argos fingerprinting and tracking system",
   "type": "module",
@@ -82,14 +82,14 @@
     "tracking",
     "analytics"
   ],
-  "author": "Oneiro",
+  "author": "Project89",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/oneirocom/argos-sdk.git"
+    "url": "git+https://github.com/project89/argos-sdk.git"
   },
   "bugs": {
-    "url": "https://github.com/oneirocom/argos-sdk/issues"
+    "url": "https://github.com/project89/argos-sdk/issues"
   },
-  "homepage": "https://github.com/oneirocom/argos-sdk#readme"
+  "homepage": "https://github.com/project89/argos-sdk#readme"
 }
