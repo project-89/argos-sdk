@@ -196,3 +196,63 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 ## License
 
 MIT © [Project89](LICENSE)
+
+## React Integration
+
+The SDK provides a React context and hooks for easy integration:
+
+```tsx
+import { ArgosSDK, ArgosProvider, useArgosSDK, useArgosPresence } from '@project89/argos-sdk';
+
+// Initialize SDK
+const sdk = new ArgosSDK({
+  baseUrl: 'YOUR_API_ENDPOINT',
+  apiKey: 'YOUR_API_KEY',
+});
+
+// Wrap your app with the provider
+function App() {
+  return (
+    <ArgosProvider sdk={sdk}>
+      <YourApp />
+    </ArgosProvider>
+  );
+}
+
+// Use hooks in your components
+function YourComponent() {
+  // Get presence information
+  const { presence, isOnline } = useArgosPresence();
+
+  // Access the full SDK instance
+  const sdk = useArgosSDK();
+
+  // Example: Create a fingerprint
+  const handleCreateFingerprint = async () => {
+    const result = await sdk.fingerprint.createFingerprint({
+      userAgent: navigator.userAgent,
+      ip: '',
+      metadata: {
+        language: navigator.language,
+        platform: navigator.platform
+      }
+    });
+  };
+
+  return (
+    <div>
+      <div>Online Status: {isOnline ? 'Online' : 'Offline'}</div>
+      <div>Last Presence: {presence?.timestamp}</div>
+    </div>
+  );
+}
+```
+
+The `ArgosProvider` automatically handles:
+- Presence tracking
+- Initial fingerprint creation
+- Online/offline status
+
+Available hooks:
+- `useArgosSDK()`: Access the full SDK instance
+- `useArgosPresence()`: Get presence and online status
