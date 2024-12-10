@@ -24,11 +24,8 @@ export default {
   plugins: [
     typescript({
       tsconfig: './tsconfig.json',
-      declaration: true,
-      declarationDir: './dist',
+      declaration: false,
       exclude: ['**/__tests__/**', '**/*.test.ts'],
-      outDir: './dist',
-      rootDir: './src',
     }),
     resolve(),
     commonjs(),
