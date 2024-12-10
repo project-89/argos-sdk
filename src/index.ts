@@ -11,3 +11,4 @@ export * from './api/RoleAPI';
 export * from './api/TagAPI';
 export * from './api/VisitAPI';
 export * from './types/api';
+export * from './context/ArgosContext';

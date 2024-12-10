@@ -36,6 +36,9 @@
     "@rollup/plugin-commonjs": "^28.0.1",
     "@rollup/plugin-node-resolve": "^15.3.0",
     "@rollup/plugin-typescript": "^12.1.1",
+    "@testing-library/jest-dom": "^6.1.5",
+    "@testing-library/react": "^14.1.2",
+    "@testing-library/user-event": "^14.5.1",
     "@types/jest": "^29.5.11",
     "@types/jsdom": "^21.1.7",
     "@types/node": "^20.10.6",
@@ -92,7 +95,8 @@
       "node"
     ],
     "testMatch": [
-      "<rootDir>/src/__tests__/**/*.test.ts"
+      "<rootDir>/src/__tests__/**/*.test.ts",
+      "<rootDir>/src/__tests__/**/*.test.tsx"
     ],
     "transformIgnorePatterns": [
       "node_modules/(?!(cross-fetch|firebase-admin)/)"
@@ -107,6 +111,7 @@
     "dist/**/*.js.map",
     "dist/**/*.d.ts",
     "dist/**/*.d.ts.map",
+    "dist/**/*.tsx",
     "README.md",
     "LICENSE"
   ],

@@ -47,7 +47,64 @@ While this is an open source project, the npm package `@project89/argos-sdk` is 
    ```bash
    npm run lint
    ```
-8. Issue that pull request!
+8. Build the package locally to verify your changes:
+   ```bash
+   npm run build
+   ```
+9. Issue that pull request!
+
+## TypeScript Guidelines
+
+The Argos SDK is written in TypeScript and we maintain strict type safety throughout the codebase:
+
+1. Always define proper interfaces for your data structures
+2. Use strict type checking (no `any` unless absolutely necessary)
+3. Document your types with JSDoc comments
+4. Ensure your changes maintain backward compatibility of types
+5. Update type declarations if you modify the public API
+
+Example of good type usage:
+
+```typescript
+/**
+ * Configuration for fingerprint creation
+ */
+interface FingerprintConfig {
+  /** User agent string from the browser */
+  userAgent: string;
+  /** IP address of the client */
+  ip: string;
+  /** Optional metadata for the fingerprint */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Creates a new fingerprint
+ * @param config - The fingerprint configuration
+ * @returns A promise that resolves with the fingerprint response
+ */
+async function createFingerprint(config: FingerprintConfig): Promise<ApiResponse<Fingerprint>> {
+  // Implementation
+}
+```
+
+## Build Process
+
+The SDK uses a two-step build process:
+
+1. Rollup bundles the code into ESM and CJS formats
+2. TypeScript generates type declarations
+
+Key build files:
+- `rollup.config.mjs` - Configures the bundle generation
+- `tsconfig.json` - TypeScript configuration
+- `package.json` - Defines build scripts and package structure
+
+When making changes:
+1. Ensure your code builds without errors: `npm run build`
+2. Test both ESM and CJS builds
+3. Verify type declarations are generated correctly
+4. Check the bundle size remains reasonable
 
 ## Any contributions you make will be under the MIT Software License
 In short, when you submit code changes, your submissions are understood to be under the same [MIT License](http://choosealicense.com/licenses/mit/) that covers the project. Feel free to contact the maintainers if that's a concern.
@@ -63,6 +120,7 @@ We use GitHub issues to track public bugs. Report a bug by [opening a new issue]
 - Steps to reproduce
   - Be specific!
   - Give sample code if you can.
+  - Include TypeScript types if relevant
 - What you expected would happen
 - What actually happens
 - Notes (possibly including why you think this might be happening, or stuff you tried that didn't work)

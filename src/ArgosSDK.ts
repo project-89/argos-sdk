@@ -1,16 +1,18 @@
-import { CacheService, CacheConfig } from "./services/CacheService";
-import { QueueService, QueueConfig } from "./services/QueueService";
-import { EventService } from "./services/EventService";
-import { LogService, LogLevel, LogConfig } from "./services/LogService";
-import { BaseAPI, BaseAPIConfig } from "./api/BaseAPI";
-import { FingerprintAPI } from "./api/FingerprintAPI";
-import { VisitAPI } from "./api/VisitAPI";
-import { RoleAPI } from "./api/RoleAPI";
-import { TagAPI } from "./api/TagAPI";
-import { PriceAPI } from "./api/PriceAPI";
-import { RealityStabilityAPI } from "./api/RealityStabilityAPI";
-import { APIKeyAPI } from "./api/APIKeyAPI";
-import { DebugAPI } from "./api/DebugAPI";
+import { CacheService, CacheConfig } from './services/CacheService';
+import { QueueService, QueueConfig } from './services/QueueService';
+import { EventService } from './services/EventService';
+import { LogService, LogLevel, LogConfig } from './services/LogService';
+import { BaseAPI, BaseAPIConfig } from './api/BaseAPI';
+import { FingerprintAPI } from './api/FingerprintAPI';
+import { VisitAPI } from './api/VisitAPI';
+import { RoleAPI } from './api/RoleAPI';
+import { TagAPI } from './api/TagAPI';
+import { PriceAPI } from './api/PriceAPI';
+import { RealityStabilityAPI } from './api/RealityStabilityAPI';
+import { APIKeyAPI } from './api/APIKeyAPI';
+import { DebugAPI } from './api/DebugAPI';
+import { ArgosTracker } from './ArgosTracker';
+import { PresenceTracker } from './PresenceTracker';
 
 export interface ArgosSDKConfig extends BaseAPIConfig {
   cache?: CacheConfig;
@@ -27,6 +29,10 @@ export class ArgosSDK {
   public readonly queue: QueueService;
   public readonly events: EventService;
   public readonly log: LogService;
+
+  // Core trackers
+  public readonly tracker: ArgosTracker;
+  public readonly presence: PresenceTracker;
 
   // APIs
   public readonly fingerprint: FingerprintAPI;
@@ -57,6 +63,10 @@ export class ArgosSDK {
         apiKey: this.apiKeyString,
       };
 
+      // Initialize core trackers
+      this.tracker = new ArgosTracker(apiConfig);
+      this.presence = new PresenceTracker();
+
       // Initialize API instances
       this.fingerprint = new FingerprintAPI(apiConfig);
       this.visit = new VisitAPI(apiConfig);
@@ -72,66 +82,66 @@ export class ArgosSDK {
 
       this.setupEventListeners();
       this.log.info(
-        "ArgosSDK initialized successfully",
+        'ArgosSDK initialized successfully',
         { baseUrl: this.baseUrl },
-        "SDK"
+        'SDK'
       );
     } catch (error) {
       const errorMessage =
         error instanceof Error
           ? error.message
-          : "Unknown error during initialization";
+          : 'Unknown error during initialization';
       throw new Error(`Failed to initialize ArgosSDK: ${errorMessage}`);
     }
   }
 
   private setupEventListeners(): void {
     // Log API errors
-    this.events.subscribe("api:error", (error: Error) => {
-      this.log.error("API Error", error, "API");
+    this.events.subscribe('api:error', (error: Error) => {
+      this.log.error('API Error', error, 'API');
     });
 
     // Log offline mode changes
-    this.events.subscribe("network:offline", () => {
+    this.events.subscribe('network:offline', () => {
       this.log.warn(
-        "Network is offline. Requests will be queued.",
+        'Network is offline. Requests will be queued.',
         null,
-        "Network"
+        'Network'
       );
     });
 
-    this.events.subscribe("network:online", () => {
+    this.events.subscribe('network:online', () => {
       this.log.info(
-        "Network is back online. Processing queued requests...",
+        'Network is back online. Processing queued requests...',
         null,
-        "Network"
+        'Network'
       );
     });
 
     // Log cache hits/misses
     this.events.subscribe(
-      "cache:hit",
+      'cache:hit',
       (data: { key: string; value: unknown }) => {
-        this.log.debug("Cache hit", data, "Cache");
+        this.log.debug('Cache hit', data, 'Cache');
       }
     );
 
-    this.events.subscribe("cache:miss", (data: { key: string }) => {
-      this.log.debug("Cache miss", data, "Cache");
+    this.events.subscribe('cache:miss', (data: { key: string }) => {
+      this.log.debug('Cache miss', data, 'Cache');
     });
 
     // Log queued requests
     this.events.subscribe(
-      "request:queued",
+      'request:queued',
       (data: { endpoint: string; method: string; body?: unknown }) => {
-        this.log.info("Request queued for offline processing", data, "Queue");
+        this.log.info('Request queued for offline processing', data, 'Queue');
       }
     );
   }
 
   // Public methods for SDK state
   isOnline(): boolean {
-    return typeof navigator !== "undefined" ? navigator.onLine : true;
+    return typeof navigator !== 'undefined' ? navigator.onLine : true;
   }
 
   getQueueSize(): number {
@@ -140,21 +150,22 @@ export class ArgosSDK {
 
   clearCache(): void {
     this.cache.clear();
-    this.events.emit("cache:cleared");
+    this.events.emit('cache:cleared');
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getDebugInfo(): Record<string, any> {
     return {
       online: this.isOnline(),
       queueSize: this.getQueueSize(),
       eventListeners: {
-        error: this.events.listenerCount("api:error"),
+        error: this.events.listenerCount('api:error'),
         network:
-          this.events.listenerCount("network:offline") +
-          this.events.listenerCount("network:online"),
+          this.events.listenerCount('network:offline') +
+          this.events.listenerCount('network:online'),
         cache:
-          this.events.listenerCount("cache:hit") +
-          this.events.listenerCount("cache:miss"),
+          this.events.listenerCount('cache:hit') +
+          this.events.listenerCount('cache:miss'),
       },
       logs: this.log.getLogs(),
       apis: {
@@ -176,9 +187,9 @@ export class ArgosSDK {
       this.queue.destroy();
       this.log.clearLogs();
       this.cache.clear();
-      this.log.info("ArgosSDK destroyed successfully", null, "SDK");
+      this.log.info('ArgosSDK destroyed successfully', null, 'SDK');
     } catch (error) {
-      this.log.error("Error during SDK destruction", error, "SDK");
+      this.log.error('Error during SDK destruction', error, 'SDK');
     }
   }
 }
