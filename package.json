@@ -1,18 +1,20 @@
 {
   "name": "@project89/argos-sdk",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "description": "SDK for interacting with the Argos fingerprinting and tracking system",
   "type": "module",
-  "main": "dist/index.js",
-  "module": "dist/index.esm.js",
-  "types": "dist/index.d.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.esm.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.esm.js",
-      "require": "./dist/index.js"
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js"
     }
   },
+  "sideEffects": false,
   "scripts": {
     "build": "rm -rf dist && tsc --emitDeclarationOnly && rollup -c rollup.config.mjs",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
