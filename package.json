@@ -1,12 +1,20 @@
 {
   "name": "@project89/argos-sdk",
-  "version": "0.1.0",
+  "version": "0.1.6",
   "description": "SDK for interacting with the Argos fingerprinting and tracking system",
   "type": "module",
   "main": "dist/index.js",
+  "module": "dist/index.esm.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.esm.js",
+      "require": "./dist/index.js"
+    }
+  },
   "scripts": {
-    "build": "tsc",
+    "build": "rollup -c rollup.config.mjs && tsc --emitDeclarationOnly --declaration --declarationDir dist",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
     "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
@@ -23,6 +31,9 @@
     "react": "^18.0.0"
   },
   "devDependencies": {
+    "@rollup/plugin-commonjs": "^28.0.1",
+    "@rollup/plugin-node-resolve": "^15.3.0",
+    "@rollup/plugin-typescript": "^12.1.1",
     "@types/jest": "^29.5.11",
     "@types/jsdom": "^21.1.7",
     "@types/node": "^20.10.6",
@@ -40,6 +51,7 @@
     "jsdom": "^25.0.1",
     "prettier": "^3.1.1",
     "react": "^18.2.0",
+    "rollup": "^4.28.1",
     "ts-jest": "^29.1.1",
     "typedoc": "^0.25.4",
     "typescript": "^5.3.3"

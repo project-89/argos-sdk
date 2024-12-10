@@ -4,7 +4,7 @@ import resolve from '@rollup/plugin-node-resolve';
 import pkg from './package.json' assert { type: 'json' };
 
 export default {
-  input: 'src/lib/argos-sdk/index.ts',
+  input: 'src/index.ts',
   output: [
     {
       file: pkg.main,
@@ -17,18 +17,15 @@ export default {
       sourcemap: true,
     },
   ],
-  external: [...Object.keys(pkg.peerDependencies || {})],
+  external: [
+    ...Object.keys(pkg.dependencies || {}),
+    ...Object.keys(pkg.peerDependencies || {}),
+  ],
   plugins: [
     typescript({
       tsconfig: './tsconfig.json',
-      declaration: true,
-      declarationDir: './dist/types/lib/argos-sdk',
-      outDir: './dist',
-      exclude: ['**/__tests__/**', '**/*.test.ts', '**/*.test.tsx'],
-      compilerOptions: {
-        sourceMap: true,
-        declarationMap: true,
-      },
+      declaration: false,
+      exclude: ['**/__tests__/**', '**/*.test.ts'],
     }),
     resolve(),
     commonjs(),
