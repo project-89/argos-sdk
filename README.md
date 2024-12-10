@@ -11,8 +11,10 @@ A powerful SDK for tracking and managing user interactions, fingerprinting, and 
 - 🔍 Debug Information
 - 🔑 API Key Management
 - 🌡️ Reality Stability Monitoring
-- 🛡️ TypeScript Support
+- 🛡️ Full TypeScript Support with Bundled Type Declarations
 - ⚡ Lightweight and Performant
+- 🔄 Automatic Queue Management for Offline Support
+- 📝 Comprehensive Logging System
 
 ## Installation
 
@@ -27,33 +29,59 @@ pnpm add @project89/argos-sdk
 ## Quick Start
 
 ```typescript
-import { ArgosTracker } from '@project89/argos-sdk';
+import { ArgosSDK } from '@project89/argos-sdk';
 
-// Initialize the tracker
-const tracker = new ArgosTracker({
+// Initialize the SDK with TypeScript type checking
+const sdk = new ArgosSDK({
   baseUrl: 'YOUR_API_ENDPOINT',
-  apiKey: 'YOUR_API_KEY'
+  apiKey: 'YOUR_API_KEY',
+  // Optional configuration
+  cache: {
+    enabled: true,
+    ttl: 3600
+  },
+  queue: {
+    retryLimit: 3,
+    retryDelay: 1000
+  },
+  log: {
+    level: 'info',
+    enabled: true
+  }
 });
 
-// Create a fingerprint
-const fingerprint = await tracker.fingerprint.createFingerprint({
+// TypeScript example with full type inference
+interface CustomMetadata {
+  language: string;
+  platform: string;
+  customField?: string;
+}
+
+// Create a fingerprint with type-safe metadata
+const fingerprint = await sdk.fingerprint.createFingerprint({
   userAgent: navigator.userAgent,
   ip: '127.0.0.1',
   metadata: {
     language: navigator.language,
     platform: navigator.platform
-  }
+  } as CustomMetadata
 });
 
-// Track a visit
-await tracker.visit.createVisit({
+// Track a visit with type checking
+await sdk.visit.createVisit({
   fingerprintId: fingerprint.data.id,
   url: window.location.href,
   timestamp: new Date().toISOString()
 });
 
-// Manage user roles
-await tracker.role.addRoles(fingerprint.data.id, ['user']);
+// Manage user roles with type safety
+await sdk.role.addRoles(fingerprint.data.id, ['user']);
+
+// Check online status
+const isOnline: boolean = sdk.isOnline();
+
+// Get queue size for pending operations
+const queueSize: number = sdk.getQueueSize();
 ```
 
 ## API Reference
@@ -94,24 +122,55 @@ The SDK provides several APIs for different functionalities:
 
 ## Configuration
 
-The SDK can be configured with various options:
+The SDK supports comprehensive configuration options:
 
 ```typescript
-interface BaseAPIConfig {
+interface ArgosSDKConfig {
+  // Required configuration
   baseUrl: string;  // API endpoint
   apiKey: string;   // Your API key
+
+  // Optional cache configuration
+  cache?: {
+    enabled?: boolean;  // Enable/disable caching
+    ttl?: number;       // Cache TTL in seconds
+  };
+
+  // Optional queue configuration
+  queue?: {
+    retryLimit?: number;  // Number of retry attempts
+    retryDelay?: number;  // Delay between retries in ms
+  };
+
+  // Optional logging configuration
+  log?: {
+    level?: 'debug' | 'info' | 'warn' | 'error';
+    enabled?: boolean;
+  };
 }
 ```
 
+## Type Support
+
+The package includes built-in TypeScript declarations. No additional `@types` package is required. All types are automatically available when importing from `@project89/argos-sdk`.
+
 ## Error Handling
 
-All API methods return a Promise with an `ApiResponse` type that includes success status and error information:
+All API methods return a Promise with a fully typed `ApiResponse`:
 
 ```typescript
 interface ApiResponse<T> {
   success: boolean;
   data?: T;
   error?: string;
+}
+
+// Example with type inference
+const response = await sdk.fingerprint.getFingerprint(id);
+if (response.success) {
+  const fingerprint = response.data; // Fully typed fingerprint data
+} else {
+  console.error(response.error);
 }
 ```
 

@@ -1,6 +1,6 @@
 {
   "name": "@project89/argos-sdk",
-  "version": "0.1.8",
+  "version": "0.1.7",
   "description": "SDK for interacting with the Argos fingerprinting and tracking system",
   "type": "module",
   "main": "dist/index.js",
@@ -14,7 +14,7 @@
     }
   },
   "scripts": {
-    "build": "rollup -c rollup.config.mjs && tsc --emitDeclarationOnly --declaration --declarationDir dist",
+    "build": "rm -rf dist && rollup -c rollup.config.mjs",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
     "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
