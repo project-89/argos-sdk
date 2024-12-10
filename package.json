@@ -2,16 +2,14 @@
   "name": "@project89/argos-sdk",
   "version": "0.1.14",
   "description": "SDK for interacting with the Argos fingerprinting and tracking system",
-  "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.esm.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
       "import": "./dist/index.esm.js",
-      "require": "./dist/index.cjs",
-      "default": "./dist/index.js"
+      "types": "./dist/index.d.ts"
     }
   },
   "sideEffects": false,
