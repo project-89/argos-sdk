@@ -1,5 +1,5 @@
 {
-  "name": "temp-check",
+  "name": "test-types",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -10,6 +10,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@project89/argos-sdk": "^0.1.7"
+    "@project89/argos-sdk": "^0.1.7",
+    "@types/node": "^22.10.1",
+    "typescript": "^5.7.2"
   }
 }
