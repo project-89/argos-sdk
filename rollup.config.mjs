@@ -27,6 +27,8 @@ export default {
       declaration: true,
       declarationDir: './dist',
       exclude: ['**/__tests__/**', '**/*.test.ts'],
+      outDir: './dist',
+      rootDir: './src',
     }),
     resolve(),
     commonjs(),
