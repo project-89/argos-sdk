@@ -3,19 +3,37 @@ import { ApiResponse, APIKeyData } from '../types/api';
 
 export interface CreateAPIKeyRequest {
   name: string;
-  permissions: string[];
+  expiresAt?: string;
 }
 
 export interface UpdateAPIKeyRequest {
   name?: string;
-  permissions?: string[];
+  expiresAt?: string;
 }
 
 export class APIKeyAPI extends BaseAPI {
-  constructor(config?: BaseAPIConfig) {
+  constructor(config: BaseAPIConfig) {
     super(config);
   }
 
+  /**
+   * Validate an API key (public endpoint)
+   */
+  public async validateAPIKey(apiKey: string): Promise<ApiResponse<boolean>> {
+    try {
+      return await this.fetchApi<boolean>('/api-key/validate', {
+        method: 'POST',
+        body: JSON.stringify({ apiKey }),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to validate API key: ${message}`);
+    }
+  }
+
+  /**
+   * Create an API key (protected endpoint - requires API key)
+   */
   public async createAPIKey(
     request: CreateAPIKeyRequest
   ): Promise<ApiResponse<APIKeyData>> {
@@ -30,6 +48,9 @@ export class APIKeyAPI extends BaseAPI {
     }
   }
 
+  /**
+   * Get API key by ID (protected endpoint - requires API key)
+   */
   public async getAPIKey(id: string): Promise<ApiResponse<APIKeyData>> {
     try {
       return await this.fetchApi<APIKeyData>(`/api-key/${id}`, {
@@ -41,6 +62,9 @@ export class APIKeyAPI extends BaseAPI {
     }
   }
 
+  /**
+   * List all API keys (protected endpoint - requires API key)
+   */
   public async listAPIKeys(): Promise<ApiResponse<APIKeyData[]>> {
     try {
       return await this.fetchApi<APIKeyData[]>('/api-key', {
@@ -52,6 +76,9 @@ export class APIKeyAPI extends BaseAPI {
     }
   }
 
+  /**
+   * Update an API key (protected endpoint - requires API key)
+   */
   public async updateAPIKey(
     id: string,
     request: UpdateAPIKeyRequest
@@ -67,6 +94,9 @@ export class APIKeyAPI extends BaseAPI {
     }
   }
 
+  /**
+   * Delete an API key (protected endpoint - requires API key)
+   */
   public async deleteAPIKey(id: string): Promise<void> {
     try {
       await this.fetchApi(`/api-key/${id}`, {

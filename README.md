@@ -199,10 +199,14 @@ MIT © [Project89](LICENSE)
 
 ## React Integration
 
-The SDK provides a React context and hooks for easy integration:
+The SDK provides a React context and hooks for seamless integration with React applications. Here's a comprehensive guide on how to use the React features:
+
+### Setting up the Provider
+
+First, wrap your application with the `ArgosProvider`:
 
 ```tsx
-import { ArgosSDK, ArgosProvider, useArgosSDK, useArgosPresence } from '@project89/argos-sdk';
+import { ArgosSDK, ArgosProvider } from '@project89/argos-sdk';
 
 // Initialize SDK
 const sdk = new ArgosSDK({
@@ -210,7 +214,6 @@ const sdk = new ArgosSDK({
   apiKey: 'YOUR_API_KEY',
 });
 
-// Wrap your app with the provider
 function App() {
   return (
     <ArgosProvider sdk={sdk}>
@@ -218,41 +221,223 @@ function App() {
     </ArgosProvider>
   );
 }
+```
 
-// Use hooks in your components
-function YourComponent() {
-  // Get presence information
-  const { presence, isOnline } = useArgosPresence();
+The `ArgosProvider` automatically handles:
+- User presence tracking
+- Initial fingerprint creation
+- Online/offline status monitoring
+- Event queueing for offline operations
 
-  // Access the full SDK instance
+### Using the Hooks
+
+The SDK provides two main hooks for accessing functionality within your components:
+
+#### useArgosSDK
+
+The `useArgosSDK` hook provides access to the full SDK instance:
+
+```tsx
+import { useArgosSDK } from '@project89/argos-sdk';
+
+function TrackingComponent() {
   const sdk = useArgosSDK();
 
-  // Example: Create a fingerprint
-  const handleCreateFingerprint = async () => {
-    const result = await sdk.fingerprint.createFingerprint({
-      userAgent: navigator.userAgent,
-      ip: '',
-      metadata: {
-        language: navigator.language,
-        platform: navigator.platform
-      }
+  const handleUserAction = async () => {
+    // Create a visit
+    await sdk.visit.createVisit({
+      url: window.location.href,
+      timestamp: new Date().toISOString()
     });
+
+    // Add user roles
+    await sdk.role.addRoles('user-id', ['premium']);
   };
+
+  return <button onClick={handleUserAction}>Track Action</button>;
+}
+```
+
+#### useArgosPresence
+
+The `useArgosPresence` hook provides presence-related information:
+
+```tsx
+import { useArgosPresence } from '@project89/argos-sdk';
+
+function PresenceIndicator() {
+  const { presence, isOnline } = useArgosPresence();
 
   return (
     <div>
-      <div>Online Status: {isOnline ? 'Online' : 'Offline'}</div>
-      <div>Last Presence: {presence?.timestamp}</div>
+      <div>Connection Status: {isOnline ? '🟢 Online' : '🔴 Offline'}</div>
+      <div>Last Active: {presence?.timestamp}</div>
+      <div>Current Page: {presence?.currentPage}</div>
     </div>
   );
 }
 ```
 
-The `ArgosProvider` automatically handles:
-- Presence tracking
-- Initial fingerprint creation
-- Online/offline status
+### TypeScript Support
 
-Available hooks:
-- `useArgosSDK()`: Access the full SDK instance
-- `useArgosPresence()`: Get presence and online status
+All hooks and components are fully typed:
+
+```tsx
+import { useArgosSDK, type FingerprintData } from '@project89/argos-sdk';
+
+function TypedComponent() {
+  const sdk = useArgosSDK();
+
+  const handleFingerprint = async () => {
+    const response = await sdk.fingerprint.createFingerprint({
+      userAgent: navigator.userAgent,
+      ip: '',
+      metadata: {
+        language: navigator.language,
+        platform: navigator.platform,
+        // TypeScript will enforce the correct metadata shape
+        customField: 'value'
+      }
+    });
+
+    if (response.success) {
+      const fingerprint: FingerprintData = response.data;
+      // Work with the typed fingerprint data
+    }
+  };
+
+  return <button onClick={handleFingerprint}>Create Fingerprint</button>;
+}
+```
+
+### Best Practices
+
+1. **Provider Placement**: Place the `ArgosProvider` as high as possible in your component tree to ensure all components have access to the SDK.
+
+2. **Error Handling**: Always handle potential errors when making SDK calls:
+
+```tsx
+function ErrorHandlingComponent() {
+  const sdk = useArgosSDK();
+  const [error, setError] = useState<string | null>(null);
+
+  const handleAction = async () => {
+    try {
+      const response = await sdk.visit.createVisit({
+        url: window.location.href,
+        timestamp: new Date().toISOString()
+      });
+
+      if (!response.success) {
+        setError(response.error || 'Unknown error occurred');
+      }
+    } catch (err) {
+      setError('Failed to track visit');
+    }
+  };
+
+  return (
+    <div>
+      {error && <div className="error">{error}</div>}
+      <button onClick={handleAction}>Track Visit</button>
+    </div>
+  );
+}
+```
+
+3. **Offline Support**: The SDK automatically handles offline scenarios, but you can check the online status:
+
+```tsx
+function OfflineAwareComponent() {
+  const { isOnline } = useArgosPresence();
+  const sdk = useArgosSDK();
+
+  const handleAction = async () => {
+    // The SDK will automatically queue operations when offline
+    await sdk.visit.createVisit({
+      url: window.location.href,
+      timestamp: new Date().toISOString()
+    });
+  };
+
+  return (
+    <div>
+      {!isOnline && <div>Currently offline - actions will be queued</div>}
+      <button onClick={handleAction}>
+        {isOnline ? 'Track Now' : 'Queue Track Action'}
+      </button>
+    </div>
+  );
+}
+```
+
+## API Authentication
+
+The SDK supports both public and protected operations, with rate limiting applied to all endpoints:
+
+### Public Operations (No API Key Required)
+These operations can be used without an API key:
+- Basic fingerprint creation and retrieval
+- Listing available roles
+- API key validation
+- Basic tracking operations
+
+```typescript
+// Initialize SDK without API key for public operations
+const sdk = new ArgosSDK({
+  baseUrl: 'YOUR_API_ENDPOINT'
+});
+
+// Create a fingerprint (public operation)
+const fingerprint = await sdk.fingerprint.createFingerprint({
+  userAgent: navigator.userAgent,
+  ip: '127.0.0.1',
+  metadata: {
+    language: navigator.language,
+    platform: navigator.platform
+  }
+});
+
+// List available roles (public operation)
+const roles = await sdk.role.listAvailableRoles();
+```
+
+### Protected Operations (API Key Required)
+These operations require an API key:
+- Role management (except listing available roles)
+- Tag management
+- API key management (except validation)
+- Debug operations
+- Advanced fingerprint operations
+- Administrative operations
+
+```typescript
+// Initialize SDK with API key for protected operations
+const sdk = new ArgosSDK({
+  baseUrl: 'YOUR_API_ENDPOINT',
+  apiKey: 'YOUR_API_KEY'  // Required for protected operations
+});
+
+// Manage roles (protected operation)
+await sdk.role.addRoles(fingerprintId, ['admin']);
+
+// Manage tags (protected operation)
+await sdk.tag.updateTags(fingerprintId, ['vip', 'beta-tester']);
+```
+
+### Rate Limiting
+All operations, whether public or protected, are subject to rate limiting. The SDK will handle rate limit responses appropriately, but you should be aware of these limits when making multiple requests.
+
+### Self-Hosted Usage
+If you're self-hosting the Argos server:
+1. Clone and set up the Argos server repository
+2. Configure your server's base URL in the SDK
+3. Generate an API key for protected operations
+4. Configure rate limits as needed
+
+### Managed Service Usage
+If you're using the managed Argos service:
+1. Sign up for an account (coming soon)
+2. Generate an API key from the dashboard for protected operations
+3. Use the provided base URL and your API key
+4. Be aware of the service's rate limits

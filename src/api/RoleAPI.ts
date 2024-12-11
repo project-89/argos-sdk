@@ -14,10 +14,27 @@ export interface RoleUpdateRequest {
 export type RoleResponse = ApiResponse<RoleData>;
 
 export class RoleAPI extends BaseAPI {
-  constructor(config?: BaseAPIConfig) {
+  constructor(config: BaseAPIConfig) {
     super(config);
   }
 
+  /**
+   * List available roles (public endpoint)
+   */
+  public async listAvailableRoles(): Promise<ApiResponse<string[]>> {
+    try {
+      return await this.fetchApi<string[]>('/roles', {
+        method: 'GET',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to list roles: ${message}`);
+    }
+  }
+
+  /**
+   * Add roles to a fingerprint (protected endpoint - requires API key)
+   */
   public async addRoles(
     fingerprintId: string,
     roles: string[]
@@ -36,6 +53,9 @@ export class RoleAPI extends BaseAPI {
     }
   }
 
+  /**
+   * Get roles for a fingerprint (protected endpoint - requires API key)
+   */
   public async getRoles(fingerprintId: string): Promise<ApiResponse<RoleData>> {
     try {
       return await this.fetchApi<RoleData>(`/role/${fingerprintId}`, {
@@ -47,6 +67,9 @@ export class RoleAPI extends BaseAPI {
     }
   }
 
+  /**
+   * Remove roles from a fingerprint (protected endpoint - requires API key)
+   */
   public async removeRoles(
     fingerprintId: string,
     roles: string[]

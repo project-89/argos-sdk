@@ -1,195 +1,131 @@
-import { CacheService, CacheConfig } from './services/CacheService';
-import { QueueService, QueueConfig } from './services/QueueService';
-import { EventService } from './services/EventService';
-import { LogService, LogLevel, LogConfig } from './services/LogService';
-import { BaseAPI, BaseAPIConfig } from './api/BaseAPI';
-import { FingerprintAPI } from './api/FingerprintAPI';
-import { VisitAPI } from './api/VisitAPI';
+import { BaseAPIConfig } from './api/BaseAPI';
+import { FingerprintAPI, CreateFingerprintRequest } from './api/FingerprintAPI';
+import { VisitAPI, VisitData, PresenceData } from './api/VisitAPI';
 import { RoleAPI } from './api/RoleAPI';
-import { TagAPI } from './api/TagAPI';
-import { PriceAPI } from './api/PriceAPI';
-import { RealityStabilityAPI } from './api/RealityStabilityAPI';
 import { APIKeyAPI } from './api/APIKeyAPI';
-import { DebugAPI } from './api/DebugAPI';
-import { ArgosTracker } from './ArgosTracker';
-import { PresenceTracker } from './PresenceTracker';
+import { Logger } from './utils/logger';
+import { ApiResponse, FingerprintData, RoleData } from './types/api';
 
-export interface ArgosSDKConfig extends BaseAPIConfig {
-  cache?: CacheConfig;
-  queue?: QueueConfig;
-  log?: LogConfig;
+export type ArgosEventType = 'visit' | 'presence';
+
+export interface ArgosSDKConfig {
+  baseUrl: string;
+  apiKey?: string;
+  debug?: boolean;
 }
 
 export class ArgosSDK {
-  private readonly baseUrl: string;
-  private readonly apiKeyString: string;
-
-  // Services
-  public readonly cache: CacheService;
-  public readonly queue: QueueService;
-  public readonly events: EventService;
-  public readonly log: LogService;
-
-  // Core trackers
-  public readonly tracker: ArgosTracker;
-  public readonly presence: PresenceTracker;
-
-  // APIs
-  public readonly fingerprint: FingerprintAPI;
-  public readonly visit: VisitAPI;
-  public readonly role: RoleAPI;
-  public readonly tag: TagAPI;
-  public readonly price: PriceAPI;
-  public readonly realityStability: RealityStabilityAPI;
-  public readonly apiKeys: APIKeyAPI;
-  public readonly debug: DebugAPI;
+  private config: ArgosSDKConfig;
+  private log: Logger;
+  private fingerprintAPI: FingerprintAPI;
+  private visitAPI: VisitAPI;
+  private roleAPI: RoleAPI;
+  private apiKeyAPI: APIKeyAPI;
 
   constructor(config: ArgosSDKConfig) {
-    try {
-      this.baseUrl = config.baseUrl;
-      this.apiKeyString = config.apiKey;
+    this.config = config;
+    this.log = new Logger(config.debug);
 
-      // Initialize services
-      this.cache = new CacheService(config.cache || { ttl: 5 * 60 * 1000 }); // 5 minutes default TTL
-      this.queue = new QueueService(
-        config.queue || { maxRetries: 3, retryDelay: 1000 }
-      );
-      this.events = new EventService();
-      this.log = new LogService(config.log || { minLevel: LogLevel.INFO });
+    const apiConfig: BaseAPIConfig = {
+      baseUrl: config.baseUrl,
+      apiKey: config.apiKey,
+    };
 
-      // Initialize base API configuration
-      const apiConfig: BaseAPIConfig = {
-        baseUrl: this.baseUrl,
-        apiKey: this.apiKeyString,
-      };
+    this.fingerprintAPI = new FingerprintAPI(apiConfig);
+    this.visitAPI = new VisitAPI(apiConfig);
+    this.roleAPI = new RoleAPI(apiConfig);
+    this.apiKeyAPI = new APIKeyAPI(apiConfig);
 
-      // Initialize core trackers
-      this.tracker = new ArgosTracker(apiConfig);
-      this.presence = new PresenceTracker();
-
-      // Initialize API instances
-      this.fingerprint = new FingerprintAPI(apiConfig);
-      this.visit = new VisitAPI(apiConfig);
-      this.role = new RoleAPI(apiConfig);
-      this.tag = new TagAPI(apiConfig);
-      this.price = new PriceAPI(apiConfig);
-      this.realityStability = new RealityStabilityAPI(apiConfig);
-      this.apiKeys = new APIKeyAPI(apiConfig);
-      this.debug = new DebugAPI(apiConfig);
-
-      // Initialize base API with configuration
-      BaseAPI.initialize(apiConfig);
-
-      this.setupEventListeners();
-      this.log.info(
-        'ArgosSDK initialized successfully',
-        { baseUrl: this.baseUrl },
-        'SDK'
-      );
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : 'Unknown error during initialization';
-      throw new Error(`Failed to initialize ArgosSDK: ${errorMessage}`);
-    }
+    this.setupEventListeners();
+    this.log.info('ArgosSDK initialized');
   }
 
   private setupEventListeners(): void {
-    // Log API errors
-    this.events.subscribe('api:error', (error: Error) => {
-      this.log.error('API Error', error, 'API');
-    });
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', () => {
+        this.log.info('Connection restored');
+      });
 
-    // Log offline mode changes
-    this.events.subscribe('network:offline', () => {
-      this.log.warn(
-        'Network is offline. Requests will be queued.',
-        null,
-        'Network'
-      );
-    });
-
-    this.events.subscribe('network:online', () => {
-      this.log.info(
-        'Network is back online. Processing queued requests...',
-        null,
-        'Network'
-      );
-    });
-
-    // Log cache hits/misses
-    this.events.subscribe(
-      'cache:hit',
-      (data: { key: string; value: unknown }) => {
-        this.log.debug('Cache hit', data, 'Cache');
-      }
-    );
-
-    this.events.subscribe('cache:miss', (data: { key: string }) => {
-      this.log.debug('Cache miss', data, 'Cache');
-    });
-
-    // Log queued requests
-    this.events.subscribe(
-      'request:queued',
-      (data: { endpoint: string; method: string; body?: unknown }) => {
-        this.log.info('Request queued for offline processing', data, 'Queue');
-      }
-    );
-  }
-
-  // Public methods for SDK state
-  isOnline(): boolean {
-    return typeof navigator !== 'undefined' ? navigator.onLine : true;
-  }
-
-  getQueueSize(): number {
-    return this.queue.getQueueSize();
-  }
-
-  clearCache(): void {
-    this.cache.clear();
-    this.events.emit('cache:cleared');
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getDebugInfo(): Record<string, any> {
-    return {
-      online: this.isOnline(),
-      queueSize: this.getQueueSize(),
-      eventListeners: {
-        error: this.events.listenerCount('api:error'),
-        network:
-          this.events.listenerCount('network:offline') +
-          this.events.listenerCount('network:online'),
-        cache:
-          this.events.listenerCount('cache:hit') +
-          this.events.listenerCount('cache:miss'),
-      },
-      logs: this.log.getLogs(),
-      apis: {
-        fingerprint: !!this.fingerprint,
-        visit: !!this.visit,
-        role: !!this.role,
-        tag: !!this.tag,
-        price: !!this.price,
-        realityStability: !!this.realityStability,
-        apiKeys: !!this.apiKeys,
-        debug: !!this.debug,
-      },
-    };
-  }
-
-  destroy(): void {
-    try {
-      this.events.removeAllListeners();
-      this.queue.destroy();
-      this.log.clearLogs();
-      this.cache.clear();
-      this.log.info('ArgosSDK destroyed successfully', null, 'SDK');
-    } catch (error) {
-      this.log.error('Error during SDK destruction', error, 'SDK');
+      window.addEventListener('offline', () => {
+        this.log.warn('Connection lost');
+      });
     }
+  }
+
+  /**
+   * Public Methods - No API Key Required
+   */
+
+  public async identify(
+    request: CreateFingerprintRequest
+  ): Promise<ApiResponse<FingerprintData>> {
+    this.log.info('Identifying user', request);
+    return this.fingerprintAPI.createFingerprint(request);
+  }
+
+  public async getIdentity(id: string): Promise<ApiResponse<FingerprintData>> {
+    return this.fingerprintAPI.getFingerprint(id);
+  }
+
+  public async track(
+    event: ArgosEventType,
+    data: Omit<VisitData, 'id'> | PresenceData
+  ): Promise<ApiResponse<void>> {
+    this.log.info(`Tracking event: ${event}`, data);
+
+    switch (event) {
+      case 'visit':
+        return this.visitAPI.createVisit(data as Omit<VisitData, 'id'>);
+      case 'presence':
+        return this.visitAPI.updatePresence(data as PresenceData);
+      default:
+        throw new Error(`Unknown event type: ${event}`);
+    }
+  }
+
+  /**
+   * Protected Methods - Require API Key
+   */
+
+  public async validateAPIKey(apiKey: string): Promise<ApiResponse<boolean>> {
+    if (!this.config.apiKey) {
+      throw new Error('API key required for this operation');
+    }
+    return this.apiKeyAPI.validateAPIKey(apiKey);
+  }
+
+  public async getRoles(fingerprintId: string): Promise<ApiResponse<RoleData>> {
+    if (!this.config.apiKey) {
+      throw new Error('API key required for this operation');
+    }
+    return this.roleAPI.getRoles(fingerprintId);
+  }
+
+  public async addRoles(
+    fingerprintId: string,
+    roles: string[]
+  ): Promise<ApiResponse<RoleData>> {
+    if (!this.config.apiKey) {
+      throw new Error('API key required for this operation');
+    }
+    return this.roleAPI.addRoles(fingerprintId, roles);
+  }
+
+  public async removeRoles(
+    fingerprintId: string,
+    roles: string[]
+  ): Promise<ApiResponse<RoleData>> {
+    if (!this.config.apiKey) {
+      throw new Error('API key required for this operation');
+    }
+    return this.roleAPI.removeRoles(fingerprintId, roles);
+  }
+
+  /**
+   * Utility Methods
+   */
+
+  public isOnline(): boolean {
+    return typeof window !== 'undefined' ? navigator.onLine : true;
   }
 }

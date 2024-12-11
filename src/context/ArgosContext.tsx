@@ -1,44 +1,37 @@
-import React, { createContext, useContext, ReactNode, useEffect } from 'react';
-import { ArgosSDK } from '../ArgosSDK';
-import { PresenceData } from '../PresenceTracker';
+import React, {
+  createContext,
+  useContext,
+  ReactNode,
+  useEffect,
+  useState,
+} from 'react';
+import { ArgosSDK, ArgosSDKConfig } from '../ArgosSDK';
 
 interface ArgosContextType {
   sdk: ArgosSDK;
-  presence: PresenceData | null;
   isOnline: boolean;
 }
 
 interface ArgosProviderProps {
-  sdk: ArgosSDK;
+  config: ArgosSDKConfig;
   children: ReactNode;
 }
 
-const ArgosContext = createContext<ArgosContextType | undefined>(undefined);
+export const ArgosContext = createContext<ArgosContextType | undefined>(
+  undefined
+);
 
-export function ArgosProvider({ sdk, children }: ArgosProviderProps) {
-  const [presence, setPresence] = React.useState<PresenceData | null>(null);
+export function ArgosProvider({ config, children }: ArgosProviderProps) {
+  const [sdk] = useState(() => new ArgosSDK(config));
+  const [isOnline, setIsOnline] = useState(sdk.isOnline());
+  const [fingerprintId, setFingerprintId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Start presence tracking
-    const tracker = sdk.presence;
-
-    function handlePresence(data: PresenceData) {
-      setPresence(data);
-    }
-
-    function handleError(error: Error) {
-      console.error('Presence tracking error:', error);
-    }
-
-    tracker.on('presence', handlePresence);
-    tracker.on('error', handleError);
-    tracker.start();
-
-    // Start fingerprint tracking
+    // Initialize fingerprinting
     const userAgent =
       typeof navigator !== 'undefined' ? navigator.userAgent : '';
-    sdk.fingerprint
-      .createFingerprint({
+    sdk
+      .identify({
         userAgent,
         ip: '', // Will be set by server
         metadata: {
@@ -46,19 +39,54 @@ export function ArgosProvider({ sdk, children }: ArgosProviderProps) {
           platform: typeof navigator !== 'undefined' ? navigator.platform : '',
         },
       })
+      .then((response) => {
+        if (response.success && response.data) {
+          setFingerprintId(response.data.id);
+          // Start tracking visit
+          return sdk.track('visit', {
+            fingerprintId: response.data.id,
+            url: typeof window !== 'undefined' ? window.location.href : '',
+            timestamp: new Date().toISOString(),
+          });
+        }
+      })
       .catch(console.error);
 
+    // Start presence tracking
+    const interval = setInterval(() => {
+      if (fingerprintId) {
+        sdk
+          .track('presence', {
+            fingerprintId,
+            currentPage:
+              typeof window !== 'undefined' ? window.location.pathname : '',
+            timestamp: new Date().toISOString(),
+          })
+          .catch(console.error);
+      }
+    }, 30000);
+
+    // Handle online/offline events
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
+    }
+
     return () => {
-      tracker.stop();
-      tracker.off('presence', handlePresence);
-      tracker.off('error', handleError);
+      clearInterval(interval);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+      }
     };
-  }, [sdk]);
+  }, [sdk, fingerprintId]);
 
   const value = {
     sdk,
-    presence,
-    isOnline: sdk.isOnline(),
+    isOnline,
   };
 
   return (
@@ -80,7 +108,6 @@ export function useArgosPresence() {
     throw new Error('useArgosPresence must be used within an ArgosProvider');
   }
   return {
-    presence: context.presence,
     isOnline: context.isOnline,
   };
 }

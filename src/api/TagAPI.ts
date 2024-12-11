@@ -6,7 +6,7 @@ export interface UpdateTagsRequest {
 }
 
 export class TagAPI extends BaseAPI {
-  constructor(config?: BaseAPIConfig) {
+  constructor(config: BaseAPIConfig) {
     super(config);
   }
 

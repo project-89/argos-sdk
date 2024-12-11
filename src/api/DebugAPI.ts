@@ -2,7 +2,7 @@ import { BaseAPI, BaseAPIConfig } from './BaseAPI';
 import { ApiResponse, DebugData } from '../types/api';
 
 export class DebugAPI extends BaseAPI {
-  constructor(config?: BaseAPIConfig) {
+  constructor(config: BaseAPIConfig) {
     super(config);
   }
 

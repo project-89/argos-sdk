@@ -2,7 +2,7 @@ import { BaseAPI, BaseAPIConfig } from './BaseAPI';
 import { ApiResponse, RealityStabilityData } from '../types/api';
 
 export class RealityStabilityAPI extends BaseAPI {
-  constructor(config?: BaseAPIConfig) {
+  constructor(config: BaseAPIConfig) {
     super(config);
   }
 

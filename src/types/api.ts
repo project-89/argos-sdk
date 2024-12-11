@@ -78,9 +78,9 @@ export interface DebugData {
 
 export interface APIKeyData {
   id: string;
-  key: string;
   name: string;
-  permissions: string[];
+  key: string;
+  expiresAt: string;
   createdAt: string;
   updatedAt: string;
 }

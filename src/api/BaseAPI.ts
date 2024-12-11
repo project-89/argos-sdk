@@ -1,65 +1,61 @@
 import { ApiResponse } from '../types/api';
+import { isPublicEndpoint, HttpMethod } from '../constants/endpoints';
 
 export interface BaseAPIConfig {
   baseUrl: string;
-  apiKey: string;
+  apiKey?: string;
 }
 
 export class BaseAPI {
-  private static baseUrl: string;
-  private static apiKey: string;
+  protected baseUrl: string;
+  protected apiKey?: string;
 
-  constructor(config?: BaseAPIConfig | string) {
-    if (config) {
-      if (typeof config === 'string') {
-        BaseAPI.initialize({ baseUrl: '', apiKey: config });
-      } else {
-        BaseAPI.initialize(config);
-      }
-    }
-  }
-
-  public static initialize(config: BaseAPIConfig) {
-    BaseAPI.baseUrl = config.baseUrl;
-    BaseAPI.apiKey = config.apiKey;
+  constructor(config: BaseAPIConfig) {
+    this.baseUrl = config.baseUrl;
+    this.apiKey = config.apiKey;
   }
 
   protected async fetchApi<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
-    if (!BaseAPI.baseUrl || !BaseAPI.apiKey) {
-      throw new Error('BaseAPI not initialized. Call initialize() first.');
+    const url = `${this.baseUrl}${endpoint}`;
+    const method = (options.method || 'GET') as HttpMethod;
+    const isPublic = isPublicEndpoint(endpoint, method);
+
+    if (!isPublic && !this.apiKey) {
+      throw new Error('API key required for this operation');
     }
 
-    const url = `${BaseAPI.baseUrl}${endpoint}`;
     const headers = {
       'Content-Type': 'application/json',
-      'X-API-Key': BaseAPI.apiKey,
-      ...options.headers,
+      ...(options.headers || {}),
+      ...(!isPublic && this.apiKey ? { 'X-API-Key': this.apiKey } : {}),
     };
 
-    try {
-      const response = await fetch(url, {
-        ...options,
-        headers,
-      });
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || data.message || 'API request failed');
+    if (!response.ok) {
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('Retry-After');
+        throw new Error(
+          `Rate limit exceeded. Try again in ${retryAfter} seconds`
+        );
       }
 
-      return {
-        success: true,
-        data: data.data as T,
-      };
-    } catch (error) {
-      if (error instanceof Error) {
-        throw error;
-      }
-      throw new Error('Unknown error occurred');
+      const error = await response.json().catch(() => ({
+        error: response.statusText || 'API request failed',
+      }));
+      throw new Error(error.error || 'API request failed');
     }
+
+    const data = await response.json();
+    return {
+      success: true,
+      data: data as T,
+    };
   }
 }

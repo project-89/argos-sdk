@@ -1,31 +1,56 @@
 import { BaseAPI, BaseAPIConfig } from './BaseAPI';
 import { ApiResponse, VisitData } from '../types/api';
 
+export type { VisitData } from '../types/api';
+
+export interface PresenceData {
+  fingerprintId: string;
+  currentPage: string;
+  timestamp?: string;
+}
+
 export class VisitAPI extends BaseAPI {
-  constructor(config?: BaseAPIConfig) {
+  constructor(config: BaseAPIConfig) {
     super(config);
   }
 
-  public async createVisit(visit: VisitData): Promise<ApiResponse<VisitData>> {
+  /**
+   * Create a visit (public endpoint)
+   */
+  public async createVisit(
+    visit: Omit<VisitData, 'id'>
+  ): Promise<ApiResponse<void>> {
     try {
-      return await this.fetchApi<VisitData>('/visit', {
+      await this.fetchApi<void>('/visit', {
         method: 'POST',
-        body: JSON.stringify(visit),
+        body: JSON.stringify({
+          ...visit,
+          timestamp: visit.timestamp || new Date().toISOString(),
+        }),
       });
+      return { success: true, data: undefined };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to create visit: ${message}`);
     }
   }
 
-  public async getVisits(): Promise<ApiResponse<VisitData[]>> {
+  /**
+   * Update presence (public endpoint)
+   */
+  public async updatePresence(data: PresenceData): Promise<ApiResponse<void>> {
     try {
-      return await this.fetchApi<VisitData[]>('/visit', {
-        method: 'GET',
+      await this.fetchApi<void>('/presence', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...data,
+          timestamp: data.timestamp || new Date().toISOString(),
+        }),
       });
+      return { success: true, data: undefined };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to get visits: ${message}`);
+      throw new Error(`Failed to update presence: ${message}`);
     }
   }
 }

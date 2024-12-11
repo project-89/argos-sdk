@@ -1,39 +1,47 @@
 import { BaseAPI, BaseAPIConfig } from './api/BaseAPI';
-import { ArgosUser } from './types/api';
+import { FingerprintData, ApiResponse } from './types/api';
+import { CreateFingerprintRequest } from './api/FingerprintAPI';
 
 export class ArgosTracker extends BaseAPI {
-  private user: ArgosUser | null = null;
-
   constructor(config: BaseAPIConfig) {
     super(config);
   }
 
-  public getUser(): ArgosUser | null {
-    return this.user;
-  }
-
-  public async setUser(user: ArgosUser): Promise<void> {
-    const response = await this.fetchApi<ArgosUser>('/user', {
+  public async identify(
+    request: CreateFingerprintRequest
+  ): Promise<ApiResponse<FingerprintData>> {
+    return this.fetchApi<FingerprintData>('/fingerprint', {
       method: 'POST',
-      body: JSON.stringify(user),
+      body: JSON.stringify(request),
     });
-    this.user = response.data;
   }
 
-  public async updateUser(user: ArgosUser): Promise<void> {
-    const response = await this.fetchApi<ArgosUser>(`/user/${user.id}`, {
-      method: 'PUT',
-      body: JSON.stringify(user),
+  public async getIdentity(id: string): Promise<ApiResponse<FingerprintData>> {
+    return this.fetchApi<FingerprintData>(`/fingerprint/${id}`, {
+      method: 'GET',
     });
-    this.user = response.data;
   }
 
-  public async deleteUser(): Promise<void> {
-    if (!this.user) return;
-
-    await this.fetchApi(`/user/${this.user.id}`, {
-      method: 'DELETE',
-    });
-    this.user = null;
+  public async track(
+    event: string,
+    data: Record<string, any>
+  ): Promise<ApiResponse<any>> {
+    switch (event) {
+      case 'visit':
+        return this.fetchApi('/visit', {
+          method: 'POST',
+          body: JSON.stringify({
+            ...data,
+            timestamp: new Date().toISOString(),
+          }),
+        });
+      case 'presence':
+        return this.fetchApi('/presence', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        });
+      default:
+        throw new Error(`Unknown event type: ${event}`);
+    }
   }
 }

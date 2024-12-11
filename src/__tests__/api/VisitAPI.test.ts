@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 import { VisitAPI } from '../../api/VisitAPI';
-import { VisitData } from '../../types/api';
+
 import {
   createMockFetchApi,
   mockBaseAPI,
@@ -28,20 +28,23 @@ describe('VisitAPI', () => {
 
   describe('createVisit', () => {
     it('should create visit', async () => {
-      const mockVisit: VisitData = {
-        id: 'test-id',
+      const visitRequest = {
         fingerprintId: 'test-fingerprint',
         url: 'http://test.com',
         timestamp: new Date().toISOString(),
       };
 
-      mockFetchApi.mockResolvedValueOnce(mockResponse(mockVisit));
+      mockFetchApi.mockResolvedValueOnce(mockResponse(undefined));
 
-      const result = await api.createVisit(mockVisit);
-      expect(result.data).toEqual(mockVisit);
+      const result = await api.createVisit(visitRequest);
+      expect(result.success).toBe(true);
+      expect(result.data).toBeUndefined();
       expect(mockFetchApi).toHaveBeenCalledWith('/visit', {
         method: 'POST',
-        body: JSON.stringify(mockVisit),
+        body: JSON.stringify({
+          ...visitRequest,
+          timestamp: visitRequest.timestamp,
+        }),
       });
     });
 
@@ -51,7 +54,6 @@ describe('VisitAPI', () => {
 
       await expect(
         api.createVisit({
-          id: 'test-id',
           fingerprintId: 'test-fingerprint',
           url: 'http://test.com',
           timestamp: new Date().toISOString(),
@@ -60,23 +62,26 @@ describe('VisitAPI', () => {
     });
   });
 
-  describe('getVisits', () => {
-    it('should get visits', async () => {
-      const mockVisits: VisitData[] = [
-        {
-          id: 'test-id',
-          fingerprintId: 'test-fingerprint',
-          url: 'http://test.com',
-          timestamp: new Date().toISOString(),
-        },
-      ];
+  describe('updatePresence', () => {
+    it('should update presence', async () => {
+      const timestamp = new Date().toISOString();
+      const presenceData = {
+        fingerprintId: 'test-fingerprint',
+        currentPage: '/test-page',
+        timestamp,
+      };
 
-      mockFetchApi.mockResolvedValueOnce(mockResponse(mockVisits));
+      mockFetchApi.mockResolvedValueOnce(mockResponse(undefined));
 
-      const result = await api.getVisits();
-      expect(result.data).toEqual(mockVisits);
-      expect(mockFetchApi).toHaveBeenCalledWith('/visit', {
-        method: 'GET',
+      const result = await api.updatePresence(presenceData);
+      expect(result.success).toBe(true);
+      expect(result.data).toBeUndefined();
+      expect(mockFetchApi).toHaveBeenCalledWith('/presence', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...presenceData,
+          timestamp,
+        }),
       });
     });
 
@@ -84,9 +89,13 @@ describe('VisitAPI', () => {
       const error = new Error('API Error');
       mockFetchApi.mockRejectedValueOnce(error);
 
-      await expect(api.getVisits()).rejects.toThrow(
-        'Failed to get visits: API Error'
-      );
+      await expect(
+        api.updatePresence({
+          fingerprintId: 'test-fingerprint',
+          currentPage: '/test-page',
+          timestamp: new Date().toISOString(),
+        })
+      ).rejects.toThrow('Failed to update presence: API Error');
     });
   });
 });

@@ -13,10 +13,13 @@ export interface UpdateFingerprintRequest {
 }
 
 export class FingerprintAPI extends BaseAPI {
-  constructor(config?: BaseAPIConfig) {
+  constructor(config: BaseAPIConfig) {
     super(config);
   }
 
+  /**
+   * Create a fingerprint (public endpoint)
+   */
   public async createFingerprint(
     request: CreateFingerprintRequest
   ): Promise<ApiResponse<FingerprintData>> {
@@ -31,6 +34,9 @@ export class FingerprintAPI extends BaseAPI {
     }
   }
 
+  /**
+   * Get fingerprint by ID (public endpoint)
+   */
   public async getFingerprint(
     id: string
   ): Promise<ApiResponse<FingerprintData>> {
@@ -44,6 +50,9 @@ export class FingerprintAPI extends BaseAPI {
     }
   }
 
+  /**
+   * Update fingerprint (protected endpoint - requires API key)
+   */
   public async updateFingerprint(
     id: string,
     request: UpdateFingerprintRequest
@@ -59,6 +68,9 @@ export class FingerprintAPI extends BaseAPI {
     }
   }
 
+  /**
+   * Delete fingerprint (protected endpoint - requires API key)
+   */
   public async deleteFingerprint(id: string): Promise<void> {
     try {
       await this.fetchApi(`/fingerprint/${id}`, {

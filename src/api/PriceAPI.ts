@@ -2,7 +2,7 @@ import { BaseAPI, BaseAPIConfig } from './BaseAPI';
 import { ApiResponse, PriceData } from '../types/api';
 
 export class PriceAPI extends BaseAPI {
-  constructor(config?: BaseAPIConfig) {
+  constructor(config: BaseAPIConfig) {
     super(config);
   }
 

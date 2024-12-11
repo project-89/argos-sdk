@@ -1,6 +1,6 @@
 export * from './ArgosSDK';
 export * from './ArgosTracker';
-export * from './PresenceTracker';
+export type { PresenceData } from './api/VisitAPI';
 export * from './api/APIKeyAPI';
 export * from './api/BaseAPI';
 export * from './api/DebugAPI';
