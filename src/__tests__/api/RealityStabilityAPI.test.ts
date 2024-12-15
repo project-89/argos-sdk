@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 import { RealityStabilityAPI } from '../../api/RealityStabilityAPI';
-import { RealityStabilityData } from '../../types/api';
+import type { RealityStabilityData } from '../../types/api';
 import {
   createMockFetchApi,
   mockBaseAPI,
@@ -29,10 +29,14 @@ describe('RealityStabilityAPI', () => {
   describe('getCurrentStability', () => {
     it('should get current stability', async () => {
       const expectedResponse: RealityStabilityData = {
-        stabilityIndex: 0.85,
-        currentPrice: 100,
-        priceChange: 5,
-        timestamp: new Date().toISOString(),
+        index: 0.85,
+        timestamp: Date.now(),
+        metadata: { test: true },
+        factors: {
+          priceStability: 0.9,
+          networkActivity: 0.8,
+          socialSentiment: 0.85,
+        },
       };
 
       mockFetchApi.mockResolvedValueOnce(mockResponse(expectedResponse));

@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 import { PriceAPI } from '../../api/PriceAPI';
-import { PriceData } from '../../types/api';
+import type { PriceData } from '../../types/api';
 import {
   createMockFetchApi,
   mockBaseAPI,
@@ -29,10 +29,8 @@ describe('PriceAPI', () => {
   describe('getCurrentPrice', () => {
     it('should get current price', async () => {
       const expectedResponse: PriceData = {
-        id: 'test-id',
-        amount: 100,
-        currency: 'USD',
-        timestamp: new Date().toISOString(),
+        usd: 100,
+        usd_24h_change: 5,
       };
 
       mockFetchApi.mockResolvedValueOnce(mockResponse(expectedResponse));
@@ -58,16 +56,12 @@ describe('PriceAPI', () => {
     it('should get price history without date range', async () => {
       const expectedResponse: PriceData[] = [
         {
-          id: 'test-id-1',
-          amount: 100,
-          currency: 'USD',
-          timestamp: new Date().toISOString(),
+          usd: 100,
+          usd_24h_change: 5,
         },
         {
-          id: 'test-id-2',
-          amount: 110,
-          currency: 'USD',
-          timestamp: new Date().toISOString(),
+          usd: 110,
+          usd_24h_change: 10,
         },
       ];
 
@@ -83,16 +77,12 @@ describe('PriceAPI', () => {
     it('should get price history with date range', async () => {
       const expectedResponse: PriceData[] = [
         {
-          id: 'test-id-1',
-          amount: 100,
-          currency: 'USD',
-          timestamp: new Date().toISOString(),
+          usd: 100,
+          usd_24h_change: 5,
         },
         {
-          id: 'test-id-2',
-          amount: 110,
-          currency: 'USD',
-          timestamp: new Date().toISOString(),
+          usd: 110,
+          usd_24h_change: 10,
         },
       ];
 

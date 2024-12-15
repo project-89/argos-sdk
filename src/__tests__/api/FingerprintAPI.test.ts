@@ -30,9 +30,12 @@ describe('FingerprintAPI', () => {
     it('should create fingerprint', async () => {
       const mockFingerprintData: FingerprintData = {
         id: 'test-id',
-        userAgent: 'test-user-agent',
-        ip: '127.0.0.1',
-        metadata: {},
+        fingerprint: 'test-fingerprint',
+        metadata: {
+          userAgent: 'test-user-agent',
+          language: 'en-US',
+          platform: 'test-platform',
+        },
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -40,17 +43,23 @@ describe('FingerprintAPI', () => {
       mockFetchApi.mockResolvedValueOnce(mockResponse(mockFingerprintData));
 
       const result = await api.createFingerprint({
-        userAgent: 'test-user-agent',
-        ip: '127.0.0.1',
-        metadata: {},
+        fingerprint: 'test-fingerprint',
+        metadata: {
+          userAgent: 'test-user-agent',
+          language: 'en-US',
+          platform: 'test-platform',
+        },
       });
       expect(result.data).toEqual(mockFingerprintData);
-      expect(mockFetchApi).toHaveBeenCalledWith('/fingerprint', {
+      expect(mockFetchApi).toHaveBeenCalledWith('/fingerprint/register', {
         method: 'POST',
         body: JSON.stringify({
-          userAgent: 'test-user-agent',
-          ip: '127.0.0.1',
-          metadata: {},
+          fingerprint: 'test-fingerprint',
+          metadata: {
+            userAgent: 'test-user-agent',
+            language: 'en-US',
+            platform: 'test-platform',
+          },
         }),
       });
     });
@@ -61,9 +70,12 @@ describe('FingerprintAPI', () => {
 
       await expect(
         api.createFingerprint({
-          userAgent: 'test-user-agent',
-          ip: '127.0.0.1',
-          metadata: {},
+          fingerprint: 'test-fingerprint',
+          metadata: {
+            userAgent: 'test-user-agent',
+            language: 'en-US',
+            platform: 'test-platform',
+          },
         })
       ).rejects.toThrow('Failed to create fingerprint: API Error');
     });
@@ -73,9 +85,12 @@ describe('FingerprintAPI', () => {
     it('should get fingerprint', async () => {
       const mockFingerprintData: FingerprintData = {
         id: 'test-id',
-        userAgent: 'test-user-agent',
-        ip: '127.0.0.1',
-        metadata: {},
+        fingerprint: 'test-fingerprint',
+        metadata: {
+          userAgent: 'test-user-agent',
+          language: 'en-US',
+          platform: 'test-platform',
+        },
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -103,9 +118,12 @@ describe('FingerprintAPI', () => {
     it('should update fingerprint', async () => {
       const mockFingerprintData: FingerprintData = {
         id: 'test-id',
-        userAgent: 'updated-user-agent',
-        ip: '127.0.0.1',
-        metadata: { updated: true },
+        fingerprint: 'test-fingerprint',
+        metadata: {
+          userAgent: 'updated-user-agent',
+          language: 'en-US',
+          platform: 'test-platform',
+        },
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -113,15 +131,21 @@ describe('FingerprintAPI', () => {
       mockFetchApi.mockResolvedValueOnce(mockResponse(mockFingerprintData));
 
       const result = await api.updateFingerprint('test-id', {
-        userAgent: 'updated-user-agent',
-        metadata: { updated: true },
+        metadata: {
+          userAgent: 'updated-user-agent',
+          language: 'en-US',
+          platform: 'test-platform',
+        },
       });
       expect(result.data).toEqual(mockFingerprintData);
       expect(mockFetchApi).toHaveBeenCalledWith('/fingerprint/test-id', {
         method: 'PUT',
         body: JSON.stringify({
-          userAgent: 'updated-user-agent',
-          metadata: { updated: true },
+          metadata: {
+            userAgent: 'updated-user-agent',
+            language: 'en-US',
+            platform: 'test-platform',
+          },
         }),
       });
     });
@@ -132,30 +156,13 @@ describe('FingerprintAPI', () => {
 
       await expect(
         api.updateFingerprint('test-id', {
-          userAgent: 'updated-user-agent',
-          metadata: { updated: true },
+          metadata: {
+            userAgent: 'updated-user-agent',
+            language: 'en-US',
+            platform: 'test-platform',
+          },
         })
       ).rejects.toThrow('Failed to update fingerprint: API Error');
-    });
-  });
-
-  describe('deleteFingerprint', () => {
-    it('should delete fingerprint', async () => {
-      mockFetchApi.mockResolvedValueOnce(mockResponse(undefined));
-
-      await api.deleteFingerprint('test-id');
-      expect(mockFetchApi).toHaveBeenCalledWith('/fingerprint/test-id', {
-        method: 'DELETE',
-      });
-    });
-
-    it('should handle errors', async () => {
-      const error = new Error('API Error');
-      mockFetchApi.mockRejectedValueOnce(error);
-
-      await expect(api.deleteFingerprint('test-id')).rejects.toThrow(
-        'Failed to delete fingerprint: API Error'
-      );
     });
   });
 });

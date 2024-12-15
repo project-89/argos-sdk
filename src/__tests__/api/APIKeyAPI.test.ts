@@ -1,6 +1,5 @@
 import { jest } from '@jest/globals';
-import { APIKeyAPI } from '../../api/APIKeyAPI';
-import { APIKeyData } from '../../types/api';
+import { APIKeyAPI, APIKeyData } from '../../api/APIKeyAPI';
 import {
   createMockFetchApi,
   mockBaseAPI,
@@ -35,6 +34,7 @@ describe('APIKeyAPI', () => {
       expect(mockFetchApi).toHaveBeenCalledWith('/api-key/validate', {
         method: 'POST',
         body: JSON.stringify({ apiKey: 'test-key' }),
+        isPublic: true,
       });
     });
 
@@ -48,12 +48,39 @@ describe('APIKeyAPI', () => {
     });
   });
 
+  describe('registerInitialApiKey', () => {
+    it('should register initial API key', async () => {
+      const mockResponse = {
+        key: 'new-api-key',
+        fingerprintId: 'test-fingerprint',
+      };
+
+      mockFetchApi.mockResolvedValueOnce({ success: true, data: mockResponse });
+
+      const result = await api.registerInitialApiKey('test-fingerprint', {
+        source: 'test',
+      });
+      expect(result.data).toEqual(mockResponse);
+      expect(mockFetchApi).toHaveBeenCalledWith('/api-key/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          fingerprintId: 'test-fingerprint',
+          name: 'fingerprint-test-fingerprint',
+          metadata: { source: 'test' },
+        }),
+        isPublic: true,
+      });
+    });
+  });
+
   describe('createAPIKey', () => {
     it('should create API key', async () => {
       const mockAPIKeyData: APIKeyData = {
         id: 'test-id',
         name: 'test-key',
         key: 'api-key-123',
+        fingerprintId: 'test-fingerprint',
+        enabled: true,
         expiresAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -94,6 +121,8 @@ describe('APIKeyAPI', () => {
         id: 'test-id',
         name: 'test-key',
         key: 'api-key-123',
+        fingerprintId: 'test-fingerprint',
+        enabled: true,
         expiresAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -125,6 +154,8 @@ describe('APIKeyAPI', () => {
           id: 'test-id',
           name: 'test-key',
           key: 'api-key-123',
+          fingerprintId: 'test-fingerprint',
+          enabled: true,
           expiresAt: new Date().toISOString(),
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -156,6 +187,8 @@ describe('APIKeyAPI', () => {
         id: 'test-id',
         name: 'updated-key',
         key: 'api-key-123',
+        fingerprintId: 'test-fingerprint',
+        enabled: true,
         expiresAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),

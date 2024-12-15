@@ -1,15 +1,15 @@
-import { BaseAPI, BaseAPIConfig } from './BaseAPI';
-import { ApiResponse, FingerprintData } from '../types/api';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { BaseAPI, BaseAPIConfig } from "./BaseAPI";
+import { ApiResponse, FingerprintData } from "../types/api";
 
 export interface CreateFingerprintRequest {
-  userAgent: string;
-  ip: string;
-  metadata: Record<string, any>;
+  fingerprint: string;
+  metadata?: Record<string, any>;
 }
 
 export interface UpdateFingerprintRequest {
-  userAgent?: string;
   metadata?: Record<string, any>;
+  tags?: Record<string, number>;
 }
 
 export class FingerprintAPI extends BaseAPI {
@@ -24,8 +24,8 @@ export class FingerprintAPI extends BaseAPI {
     request: CreateFingerprintRequest
   ): Promise<ApiResponse<FingerprintData>> {
     try {
-      return await this.fetchApi<FingerprintData>('/fingerprint', {
-        method: 'POST',
+      return await this.fetchApi<FingerprintData>("/fingerprint/register", {
+        method: "POST",
         body: JSON.stringify(request),
       });
     } catch (error) {
@@ -42,7 +42,7 @@ export class FingerprintAPI extends BaseAPI {
   ): Promise<ApiResponse<FingerprintData>> {
     try {
       return await this.fetchApi<FingerprintData>(`/fingerprint/${id}`, {
-        method: 'GET',
+        method: "GET",
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -51,7 +51,7 @@ export class FingerprintAPI extends BaseAPI {
   }
 
   /**
-   * Update fingerprint (protected endpoint - requires API key)
+   * Update fingerprint data (protected endpoint - requires API key)
    */
   public async updateFingerprint(
     id: string,
@@ -59,26 +59,12 @@ export class FingerprintAPI extends BaseAPI {
   ): Promise<ApiResponse<FingerprintData>> {
     try {
       return await this.fetchApi<FingerprintData>(`/fingerprint/${id}`, {
-        method: 'PUT',
+        method: "PUT",
         body: JSON.stringify(request),
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to update fingerprint: ${message}`);
-    }
-  }
-
-  /**
-   * Delete fingerprint (protected endpoint - requires API key)
-   */
-  public async deleteFingerprint(id: string): Promise<void> {
-    try {
-      await this.fetchApi(`/fingerprint/${id}`, {
-        method: 'DELETE',
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to delete fingerprint: ${message}`);
     }
   }
 }

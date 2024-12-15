@@ -3,9 +3,11 @@ import { FingerprintData, RoleData } from '../types/api';
 // Mock data
 export const mockFingerprintData: FingerprintData = {
   id: 'test-id',
-  userAgent: 'test-agent',
-  ip: '127.0.0.1',
-  metadata: {},
+  fingerprint: 'test-fingerprint',
+  metadata: {
+    userAgent: 'test-agent',
+    ip: '127.0.0.1',
+  },
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };

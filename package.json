@@ -1,6 +1,6 @@
 {
   "name": "@project89/argos-sdk",
-  "version": "0.1.17",
+  "version": "0.1.30",
   "description": "SDK for interacting with the Argos fingerprinting and tracking system",
   "main": "./dist/index.js",
   "module": "./dist/index.esm.js",
@@ -57,7 +57,7 @@
     "rollup": "^4.28.1",
     "ts-jest": "^29.1.1",
     "typedoc": "^0.25.4",
-    "typescript": "^5.3.3"
+    "typescript": "^5.7.2"
   },
   "jest": {
     "preset": "ts-jest/presets/default-esm",

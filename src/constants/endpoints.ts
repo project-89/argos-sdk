@@ -8,18 +8,15 @@ export type EndpointConfig = {
 // List of endpoints that don't require API key authentication
 export const PUBLIC_ENDPOINTS: EndpointConfig[] = [
   // Fingerprint endpoints
-  { path: '/fingerprint', methods: ['POST'] },
+  { path: '/fingerprint/register', methods: ['POST'] },
   { path: /^\/fingerprint\/[^/]+$/, methods: ['GET'] },
 
-  // Role endpoints
-  { path: '/roles', methods: ['GET'] },
+  // Visit endpoints
+  { path: '/visit/log', methods: ['POST'] },
+  { path: '/visit/presence', methods: ['POST'] },
 
   // API Key endpoints
-  { path: '/api-key/validate', methods: ['POST'] },
-
-  // Basic tracking endpoints
-  { path: '/visit', methods: ['POST'] },
-  { path: '/presence', methods: ['POST'] },
+  { path: '/apiKey/validate', methods: ['POST'] },
 ];
 
 // Helper function to check if an endpoint is public
@@ -27,16 +24,13 @@ export function isPublicEndpoint(
   endpoint: string,
   method: HttpMethod
 ): boolean {
-  return PUBLIC_ENDPOINTS.some((config) => {
+  const matchingEndpoint = PUBLIC_ENDPOINTS.find((config) => {
     // Check if the path matches (either string equality or regex test)
-    const pathMatches =
-      config.path instanceof RegExp
-        ? config.path.test(endpoint)
-        : endpoint === config.path;
-
-    // Check if the method is allowed
-    const methodMatches = config.methods.includes(method);
-
-    return pathMatches && methodMatches;
+    return config.path instanceof RegExp
+      ? config.path.test(endpoint)
+      : endpoint === config.path;
   });
+
+  // If no matching endpoint is found, or the method is not allowed, return false
+  return matchingEndpoint ? matchingEndpoint.methods.includes(method) : false;
 }

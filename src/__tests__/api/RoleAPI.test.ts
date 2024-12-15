@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 import { RoleAPI } from '../../api/RoleAPI';
-import { RoleData } from '../../types/api';
+import type { RoleData } from '../../types/api';
 import {
   createMockFetchApi,
   mockBaseAPI,
@@ -24,6 +24,29 @@ describe('RoleAPI', () => {
 
   afterEach(() => {
     jest.resetAllMocks();
+  });
+
+  describe('listAvailableRoles', () => {
+    it('should list available roles', async () => {
+      const expectedRoles = ['user', 'admin', 'moderator'];
+
+      mockFetchApi.mockResolvedValueOnce(mockResponse(expectedRoles));
+
+      const result = await api.listAvailableRoles();
+      expect(result.data).toEqual(expectedRoles);
+      expect(mockFetchApi).toHaveBeenCalledWith('/roles', {
+        method: 'GET',
+      });
+    });
+
+    it('should handle errors', async () => {
+      const error = new Error('API Error');
+      mockFetchApi.mockRejectedValueOnce(error);
+
+      await expect(api.listAvailableRoles()).rejects.toThrow(
+        'Failed to list roles: API Error'
+      );
+    });
   });
 
   describe('addRoles', () => {

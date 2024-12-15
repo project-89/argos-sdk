@@ -1,5 +1,5 @@
-import { BaseAPI, BaseAPIConfig } from './BaseAPI';
-import { ApiResponse, RoleData } from '../types/api';
+import { BaseAPI, BaseAPIConfig } from "./BaseAPI";
+import { ApiResponse, RoleData } from "../types/api";
 
 export interface RoleCreateRequest {
   name: string;
@@ -23,8 +23,8 @@ export class RoleAPI extends BaseAPI {
    */
   public async listAvailableRoles(): Promise<ApiResponse<string[]>> {
     try {
-      return await this.fetchApi<string[]>('/roles', {
-        method: 'GET',
+      return await this.fetchApi<string[]>("/roles", {
+        method: "GET",
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -40,8 +40,8 @@ export class RoleAPI extends BaseAPI {
     roles: string[]
   ): Promise<ApiResponse<RoleData>> {
     try {
-      return await this.fetchApi<RoleData>('/role', {
-        method: 'POST',
+      return await this.fetchApi<RoleData>("/role", {
+        method: "POST",
         body: JSON.stringify({
           fingerprintId,
           roles,
@@ -59,7 +59,7 @@ export class RoleAPI extends BaseAPI {
   public async getRoles(fingerprintId: string): Promise<ApiResponse<RoleData>> {
     try {
       return await this.fetchApi<RoleData>(`/role/${fingerprintId}`, {
-        method: 'GET',
+        method: "GET",
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -75,8 +75,8 @@ export class RoleAPI extends BaseAPI {
     roles: string[]
   ): Promise<ApiResponse<RoleData>> {
     try {
-      return await this.fetchApi<RoleData>('/role', {
-        method: 'DELETE',
+      return await this.fetchApi<RoleData>("/role", {
+        method: "DELETE",
         body: JSON.stringify({
           fingerprintId,
           roles,

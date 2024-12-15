@@ -1,131 +1,134 @@
-import { BaseAPIConfig } from './api/BaseAPI';
-import { FingerprintAPI, CreateFingerprintRequest } from './api/FingerprintAPI';
-import { VisitAPI, VisitData, PresenceData } from './api/VisitAPI';
-import { RoleAPI } from './api/RoleAPI';
-import { APIKeyAPI } from './api/APIKeyAPI';
-import { Logger } from './utils/logger';
-import { ApiResponse, FingerprintData, RoleData } from './types/api';
+import { BaseAPIConfig } from "./api/BaseAPI";
+import { FingerprintAPI, CreateFingerprintRequest } from "./api/FingerprintAPI";
+import { VisitAPI } from "./api/VisitAPI";
+import { ApiResponse, FingerprintData } from "./types/api";
+import { APIKeyAPI } from "./api/APIKeyAPI";
 
-export type ArgosEventType = 'visit' | 'presence';
-
-export interface ArgosSDKConfig {
-  baseUrl: string;
-  apiKey?: string;
+export interface ArgosSDKConfig extends BaseAPIConfig {
   debug?: boolean;
 }
 
 export class ArgosSDK {
-  private config: ArgosSDKConfig;
-  private log: Logger;
   private fingerprintAPI: FingerprintAPI;
   private visitAPI: VisitAPI;
-  private roleAPI: RoleAPI;
   private apiKeyAPI: APIKeyAPI;
+  private debug: boolean;
 
   constructor(config: ArgosSDKConfig) {
-    this.config = config;
-    this.log = new Logger(config.debug);
+    this.debug = config.debug || false;
+    this.fingerprintAPI = new FingerprintAPI(config);
+    this.visitAPI = new VisitAPI(config);
+    this.apiKeyAPI = new APIKeyAPI(config);
 
-    const apiConfig: BaseAPIConfig = {
-      baseUrl: config.baseUrl,
-      apiKey: config.apiKey,
-    };
-
-    this.fingerprintAPI = new FingerprintAPI(apiConfig);
-    this.visitAPI = new VisitAPI(apiConfig);
-    this.roleAPI = new RoleAPI(apiConfig);
-    this.apiKeyAPI = new APIKeyAPI(apiConfig);
-
-    this.setupEventListeners();
-    this.log.info('ArgosSDK initialized');
-  }
-
-  private setupEventListeners(): void {
-    if (typeof window !== 'undefined') {
-      window.addEventListener('online', () => {
-        this.log.info('Connection restored');
-      });
-
-      window.addEventListener('offline', () => {
-        this.log.warn('Connection lost');
+    if (this.debug) {
+      console.log("[Argos] Initialized with config:", {
+        ...config,
+        apiKey: config.apiKey ? "[REDACTED]" : undefined,
       });
     }
   }
 
   /**
-   * Public Methods - No API Key Required
+   * Set the API key for subsequent requests
    */
+  public setApiKey(apiKey: string) {
+    this.fingerprintAPI = new FingerprintAPI({ ...this.getConfig(), apiKey });
+    this.visitAPI = new VisitAPI({ ...this.getConfig(), apiKey });
+    this.apiKeyAPI = new APIKeyAPI({ ...this.getConfig(), apiKey });
+  }
 
+  /**
+   * Get the current SDK configuration
+   */
+  private getConfig(): ArgosSDKConfig {
+    return {
+      baseUrl: this.fingerprintAPI["baseUrl"],
+      apiKey: this.fingerprintAPI["apiKey"],
+      debug: this.debug,
+    };
+  }
+
+  /**
+   * Register a new API key for a fingerprint
+   */
+  public async registerApiKey(
+    fingerprintId: string,
+    metadata?: Record<string, any>
+  ): Promise<ApiResponse<{ key: string; fingerprintId: string }>> {
+    return this.apiKeyAPI.registerInitialApiKey(fingerprintId, metadata);
+  }
+
+  /**
+   * Create an additional API key (requires existing API key)
+   */
+  public async createApiKey(
+    name: string
+  ): Promise<ApiResponse<{ key: string }>> {
+    return this.apiKeyAPI.createAPIKey({ name });
+  }
+
+  /**
+   * Check if the client is online
+   */
+  public isOnline(): boolean {
+    return typeof navigator !== "undefined" && navigator.onLine;
+  }
+
+  /**
+   * Create or get a fingerprint
+   */
   public async identify(
     request: CreateFingerprintRequest
   ): Promise<ApiResponse<FingerprintData>> {
-    this.log.info('Identifying user', request);
     return this.fingerprintAPI.createFingerprint(request);
   }
 
+  /**
+   * Get fingerprint by ID
+   */
   public async getIdentity(id: string): Promise<ApiResponse<FingerprintData>> {
     return this.fingerprintAPI.getFingerprint(id);
   }
 
+  /**
+   * Update fingerprint metadata
+   */
+  public async updateFingerprint(
+    id: string,
+    data: { metadata: Record<string, any> }
+  ): Promise<ApiResponse<FingerprintData>> {
+    return this.fingerprintAPI.updateFingerprint(id, data);
+  }
+
+  /**
+   * Track an event (visit or presence)
+   */
   public async track(
-    event: ArgosEventType,
-    data: Omit<VisitData, 'id'> | PresenceData
+    event: "visit" | "presence",
+    data: {
+      fingerprintId: string;
+      url?: string;
+      referrer?: string;
+      status?: "online" | "offline";
+      timestamp: number;
+    }
   ): Promise<ApiResponse<void>> {
-    this.log.info(`Tracking event: ${event}`, data);
-
-    switch (event) {
-      case 'visit':
-        return this.visitAPI.createVisit(data as Omit<VisitData, 'id'>);
-      case 'presence':
-        return this.visitAPI.updatePresence(data as PresenceData);
-      default:
-        throw new Error(`Unknown event type: ${event}`);
+    if (event === "visit" && data.url) {
+      return this.visitAPI.createVisit({
+        fingerprintId: data.fingerprintId,
+        url: data.url,
+        referrer: data.referrer,
+        timestamp: data.timestamp,
+      });
+    } else if (event === "presence" && data.status) {
+      return this.visitAPI.updatePresence({
+        fingerprintId: data.fingerprintId,
+        status: data.status,
+        timestamp: data.timestamp,
+      });
     }
-  }
-
-  /**
-   * Protected Methods - Require API Key
-   */
-
-  public async validateAPIKey(apiKey: string): Promise<ApiResponse<boolean>> {
-    if (!this.config.apiKey) {
-      throw new Error('API key required for this operation');
-    }
-    return this.apiKeyAPI.validateAPIKey(apiKey);
-  }
-
-  public async getRoles(fingerprintId: string): Promise<ApiResponse<RoleData>> {
-    if (!this.config.apiKey) {
-      throw new Error('API key required for this operation');
-    }
-    return this.roleAPI.getRoles(fingerprintId);
-  }
-
-  public async addRoles(
-    fingerprintId: string,
-    roles: string[]
-  ): Promise<ApiResponse<RoleData>> {
-    if (!this.config.apiKey) {
-      throw new Error('API key required for this operation');
-    }
-    return this.roleAPI.addRoles(fingerprintId, roles);
-  }
-
-  public async removeRoles(
-    fingerprintId: string,
-    roles: string[]
-  ): Promise<ApiResponse<RoleData>> {
-    if (!this.config.apiKey) {
-      throw new Error('API key required for this operation');
-    }
-    return this.roleAPI.removeRoles(fingerprintId, roles);
-  }
-
-  /**
-   * Utility Methods
-   */
-
-  public isOnline(): boolean {
-    return typeof window !== 'undefined' ? navigator.onLine : true;
+    throw new Error(
+      `Invalid event type or missing required data for event: ${event}`
+    );
   }
 }

@@ -1,6 +1,7 @@
-import { BaseAPI, BaseAPIConfig } from './api/BaseAPI';
-import { FingerprintData, ApiResponse } from './types/api';
-import { CreateFingerprintRequest } from './api/FingerprintAPI';
+import { BaseAPI, BaseAPIConfig } from "./api/BaseAPI";
+import { CreateFingerprintRequest } from "./api/FingerprintAPI";
+import { FingerprintData } from "./types/api";
+import { ApiResponse } from "./types/api";
 
 export class ArgosTracker extends BaseAPI {
   constructor(config: BaseAPIConfig) {
@@ -10,15 +11,15 @@ export class ArgosTracker extends BaseAPI {
   public async identify(
     request: CreateFingerprintRequest
   ): Promise<ApiResponse<FingerprintData>> {
-    return this.fetchApi<FingerprintData>('/fingerprint', {
-      method: 'POST',
+    return this.fetchApi<FingerprintData>("/fingerprint", {
+      method: "POST",
       body: JSON.stringify(request),
     });
   }
 
   public async getIdentity(id: string): Promise<ApiResponse<FingerprintData>> {
     return this.fetchApi<FingerprintData>(`/fingerprint/${id}`, {
-      method: 'GET',
+      method: "GET",
     });
   }
 
@@ -27,17 +28,17 @@ export class ArgosTracker extends BaseAPI {
     data: Record<string, any>
   ): Promise<ApiResponse<any>> {
     switch (event) {
-      case 'visit':
-        return this.fetchApi('/visit', {
-          method: 'POST',
+      case "visit":
+        return this.fetchApi("/visit", {
+          method: "POST",
           body: JSON.stringify({
             ...data,
             timestamp: new Date().toISOString(),
           }),
         });
-      case 'presence':
-        return this.fetchApi('/presence', {
-          method: 'POST',
+      case "presence":
+        return this.fetchApi("/presence", {
+          method: "POST",
           body: JSON.stringify(data),
         });
       default:

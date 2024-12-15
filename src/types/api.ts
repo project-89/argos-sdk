@@ -1,45 +1,78 @@
-export interface ApiResponse<T> {
+export interface ApiResponse<T = any> {
   success: boolean;
   data: T;
   error?: string;
 }
 
 export interface ApiError {
-  message: string;
-  code: string;
-  status?: number;
+  success: false;
+  error: string;
+  details?: any;
 }
 
-export type UserRole = 'user' | 'premium' | 'vip' | 'admin';
-
-export interface UserTags {
-  experience: number;
-  missions_completed: number;
-  first_visit: string;
-}
-
-export interface ArgosUser {
-  id: string;
-  fingerprintId: string;
-  roles: UserRole[];
-  tags: UserTags;
-  createdAt: string;
-  updatedAt: string;
+export interface ApiSuccess<T> {
+  success: true;
+  data: T;
 }
 
 export interface FingerprintData {
   id: string;
-  userAgent: string;
-  ip: string;
-  metadata: Record<string, any>;
+  fingerprint: string;
+  metadata?: Record<string, any>;
+  roles?: string[];
+  tags?: Record<string, number>;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface TagData {
+export interface VisitData {
+  id: string;
   fingerprintId: string;
-  tags: string[];
-  timestamp: string;
+  url: string;
+  title?: string;
+  referrer?: string;
+  timestamp: number;
+}
+
+export interface PresenceData {
+  fingerprintId: string;
+  status: "online" | "offline";
+  lastUpdated: number;
+  metadata?: Record<string, any>;
+}
+
+export interface APIKeyData {
+  id: string;
+  key: string;
+  name: string;
+  fingerprintId: string;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface PriceData {
+  usd: number;
+  usd_24h_change: number;
+}
+
+export interface StabilityData {
+  index: number;
+  timestamp: number;
+  metadata: Record<string, any>;
+}
+
+export interface RealityStabilityData {
+  index: number;
+  timestamp: number;
+  metadata: Record<string, any>;
+  factors?: {
+    priceStability?: number;
+    networkActivity?: number;
+    socialSentiment?: number;
+  };
 }
 
 export interface RoleData {
@@ -48,46 +81,50 @@ export interface RoleData {
   timestamp: string;
 }
 
-export interface VisitData {
-  id: string;
+export interface TagData {
   fingerprintId: string;
-  url: string;
-  referrer?: string;
-  timestamp: string;
-}
-
-export interface VisitStatsData {
-  total: number;
-  unique: number;
-  byDate: Record<string, number>;
-}
-
-export interface RealityStabilityData {
-  stabilityIndex: number;
-  currentPrice: number;
-  priceChange: number;
-  timestamp: string;
+  tags: Record<string, number>;
 }
 
 export interface DebugData {
   message: string;
-  timestamp: string;
-  level: string;
+  timestamp: number;
+  data?: Record<string, any>;
+}
+
+// Request Types
+export interface CreateFingerprintRequest {
+  fingerprint: string;
   metadata?: Record<string, any>;
 }
 
-export interface APIKeyData {
-  id: string;
-  name: string;
-  key: string;
-  expiresAt: string;
-  createdAt: string;
-  updatedAt: string;
+export interface UpdateFingerprintRequest {
+  metadata?: Record<string, any>;
+  tags?: Record<string, number>;
 }
 
-export interface PriceData {
-  id: string;
-  amount: number;
-  currency: string;
-  timestamp: string;
+export interface CreateVisitRequest {
+  fingerprintId: string;
+  url: string;
+  title?: string;
+  referrer?: string;
+  timestamp?: number;
+}
+
+export interface UpdatePresenceRequest {
+  fingerprintId: string;
+  status: "online" | "offline";
+  metadata?: Record<string, any>;
+}
+
+export interface CreateAPIKeyRequest {
+  name: string;
+  fingerprintId: string;
+  metadata?: Record<string, any>;
+}
+
+export interface UpdateAPIKeyRequest {
+  name?: string;
+  metadata?: Record<string, any>;
+  enabled?: boolean;
 }

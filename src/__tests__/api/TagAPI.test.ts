@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 import { TagAPI } from '../../api/TagAPI';
-import { TagData } from '../../types/api';
+import type { TagData } from '../../types/api';
 import {
   createMockFetchApi,
   mockBaseAPI,
@@ -33,8 +33,7 @@ describe('TagAPI', () => {
     it('should update tags', async () => {
       const expectedResponse: TagData = {
         fingerprintId: mockFingerprintId,
-        tags: mockTags,
-        timestamp: new Date().toISOString(),
+        tags: { 'test-tag': 1 },
       };
 
       mockFetchApi.mockResolvedValueOnce(mockResponse(expectedResponse));
@@ -65,8 +64,7 @@ describe('TagAPI', () => {
     it('should get tags', async () => {
       const expectedResponse: TagData = {
         fingerprintId: mockFingerprintId,
-        tags: ['test-tag'],
-        timestamp: new Date().toISOString(),
+        tags: { 'test-tag': 1 },
       };
 
       mockFetchApi.mockResolvedValueOnce(mockResponse(expectedResponse));

@@ -27,7 +27,7 @@ export const mockBaseAPI = () => ({
   })),
 });
 
-class MockHeaders implements Headers {
+class MockHeaders {
   private headers: Map<string, string>;
 
   constructor(init?: Record<string, string>) {
@@ -58,28 +58,25 @@ class MockHeaders implements Headers {
   forEach(
     callbackfn: (value: string, key: string, parent: Headers) => void
   ): void {
-    this.headers.forEach((value, key) => callbackfn(value, key, this));
+    this.headers.forEach((value, key) =>
+      callbackfn(value, key, this as unknown as Headers)
+    );
   }
 
-  *entries(): IterableIterator<[string, string]> {
-    yield* this.headers.entries();
+  entries(): IterableIterator<[string, string]> {
+    return this.headers.entries();
   }
 
-  *keys(): IterableIterator<string> {
-    yield* this.headers.keys();
+  keys(): IterableIterator<string> {
+    return this.headers.keys();
   }
 
-  *values(): IterableIterator<string> {
-    yield* this.headers.values();
+  values(): IterableIterator<string> {
+    return this.headers.values();
   }
 
   [Symbol.iterator](): IterableIterator<[string, string]> {
     return this.entries();
-  }
-
-  getSetCookie(): string[] {
-    const cookies = this.get('set-cookie');
-    return cookies ? cookies.split(', ') : [];
   }
 }
 
@@ -98,7 +95,7 @@ export const createMockResponse = (options: {
     body = {},
   } = options;
 
-  return {
+  const mockResponse = {
     ok,
     status,
     statusText,
@@ -114,5 +111,8 @@ export const createMockResponse = (options: {
     formData: () => Promise.resolve(new FormData()),
     arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
     clone: () => createMockResponse(options),
-  } as Response;
+    bytes: () => Promise.resolve(new Uint8Array()),
+  };
+
+  return mockResponse as unknown as Response;
 };

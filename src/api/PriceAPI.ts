@@ -1,5 +1,5 @@
-import { BaseAPI, BaseAPIConfig } from './BaseAPI';
-import { ApiResponse, PriceData } from '../types/api';
+import { BaseAPI, BaseAPIConfig } from "./BaseAPI";
+import { ApiResponse, PriceData } from "../types/api";
 
 export class PriceAPI extends BaseAPI {
   constructor(config: BaseAPIConfig) {
@@ -8,8 +8,8 @@ export class PriceAPI extends BaseAPI {
 
   public async getCurrentPrice(): Promise<ApiResponse<PriceData>> {
     try {
-      return await this.fetchApi<PriceData>('/price/current', {
-        method: 'GET',
+      return await this.fetchApi<PriceData>("/price/current", {
+        method: "GET",
       });
     } catch (error) {
       throw new Error(
@@ -25,13 +25,13 @@ export class PriceAPI extends BaseAPI {
     endDate?: string
   ): Promise<ApiResponse<PriceData[]>> {
     try {
-      let endpoint = '/price/history';
+      let endpoint = "/price/history";
       if (startDate && endDate) {
         endpoint += `?startDate=${startDate}&endDate=${endDate}`;
       }
 
       return await this.fetchApi<PriceData[]>(endpoint, {
-        method: 'GET',
+        method: "GET",
       });
     } catch (error) {
       throw new Error(

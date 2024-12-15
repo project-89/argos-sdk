@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 import { DebugAPI } from '../../api/DebugAPI';
-import { DebugData } from '../../types/api';
+import type { DebugData } from '../../types/api';
 import {
   createMockFetchApi,
   mockBaseAPI,
@@ -30,9 +30,8 @@ describe('DebugAPI', () => {
     it('should get debug info', async () => {
       const expectedResponse: DebugData = {
         message: 'test message',
-        level: 'info',
-        timestamp: new Date().toISOString(),
-        metadata: { test: true },
+        timestamp: Date.now(),
+        data: { test: true },
       };
 
       mockFetchApi.mockResolvedValueOnce(mockResponse(expectedResponse));
