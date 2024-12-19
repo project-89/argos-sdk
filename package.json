@@ -1,132 +1,75 @@
 {
-  "name": "@project89/argos-sdk",
+  "name": "@oneirocom/argos-sdk",
   "version": "0.1.30",
-  "description": "SDK for interacting with the Argos fingerprinting and tracking system",
+  "description": "Argos SDK for tracking and analytics",
   "main": "./dist/index.js",
   "module": "./dist/index.esm.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts",
+      "module": "./dist/index.esm.js",
       "import": "./dist/index.esm.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
     }
   },
-  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "rm -rf dist && tsc --emitDeclarationOnly && rollup -c rollup.config.mjs",
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
-    "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
-    "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
-    "lint": "eslint src --ext .ts",
-    "format": "prettier --write \"src/**/*.ts\"",
+    "build": "rollup -c",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "lint": "eslint src --ext .ts,.tsx",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
     "prepare": "npm run build",
     "prepublishOnly": "npm test && npm run lint",
-    "docs": "typedoc"
+    "preversion": "npm run lint",
+    "version": "npm run format && git add -A src",
+    "postversion": "git push && git push --tags"
   },
-  "dependencies": {
-    "cross-fetch": "^4.0.0"
-  },
-  "peerDependencies": {
-    "react": "^18.0.0"
-  },
-  "devDependencies": {
-    "@rollup/plugin-commonjs": "^28.0.1",
-    "@rollup/plugin-node-resolve": "^15.3.0",
-    "@rollup/plugin-typescript": "^12.1.1",
-    "@testing-library/jest-dom": "^6.1.5",
-    "@testing-library/react": "^14.1.2",
-    "@testing-library/user-event": "^14.5.1",
-    "@types/jest": "^29.5.11",
-    "@types/jsdom": "^21.1.7",
-    "@types/node": "^20.10.6",
-    "@types/react": "^18.2.0",
-    "@typescript-eslint/eslint-plugin": "^6.16.0",
-    "@typescript-eslint/parser": "^6.16.0",
-    "eslint": "^8.56.0",
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-prettier": "^5.1.2",
-    "eslint-plugin-react": "^7.37.2",
-    "eslint-plugin-react-hooks": "^5.1.0",
-    "firebase-admin": "^11.11.1",
-    "jest": "^29.7.0",
-    "jest-environment-jsdom": "^29.7.0",
-    "jsdom": "^25.0.1",
-    "prettier": "^3.1.1",
-    "react": "^18.2.0",
-    "rollup": "^4.28.1",
-    "ts-jest": "^29.1.1",
-    "typedoc": "^0.25.4",
-    "typescript": "^5.7.2"
-  },
-  "jest": {
-    "preset": "ts-jest/presets/default-esm",
-    "testEnvironment": "jsdom",
-    "setupFilesAfterEnv": [
-      "<rootDir>/src/__tests__/setup.ts"
-    ],
-    "moduleNameMapper": {
-      "^@/(.*)$": "<rootDir>/src/$1",
-      "^(\\.{1,2}/.*)\\.js$": "$1"
-    },
-    "transform": {
-      "^.+\\.tsx?$": [
-        "ts-jest",
-        {
-          "useESM": true,
-          "tsconfig": {
-            "module": "ESNext"
-          }
-        }
-      ]
-    },
-    "extensionsToTreatAsEsm": [
-      ".ts",
-      ".tsx"
-    ],
-    "moduleFileExtensions": [
-      "ts",
-      "tsx",
-      "js",
-      "jsx",
-      "json",
-      "node"
-    ],
-    "testMatch": [
-      "<rootDir>/src/__tests__/**/*.test.ts",
-      "<rootDir>/src/__tests__/**/*.test.tsx"
-    ],
-    "transformIgnorePatterns": [
-      "node_modules/(?!(cross-fetch|firebase-admin)/)"
-    ],
-    "moduleDirectories": [
-      "node_modules",
-      "src"
-    ]
-  },
-  "files": [
-    "dist/**/*.js",
-    "dist/**/*.js.map",
-    "dist/**/*.d.ts",
-    "dist/**/*.d.ts.map",
-    "dist/**/*.tsx",
-    "README.md",
-    "LICENSE"
-  ],
-  "keywords": [
-    "argos",
-    "fingerprinting",
-    "tracking",
-    "analytics"
-  ],
-  "author": "Project89",
-  "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/project89/argos-sdk.git"
+    "url": "git+https://github.com/oneirocom/argos-sdk.git"
   },
+  "keywords": [
+    "analytics",
+    "tracking",
+    "sdk"
+  ],
+  "author": "Oneiro",
+  "license": "MIT",
   "bugs": {
-    "url": "https://github.com/project89/argos-sdk/issues"
+    "url": "https://github.com/oneirocom/argos-sdk/issues"
   },
-  "homepage": "https://github.com/project89/argos-sdk#readme"
+  "homepage": "https://github.com/oneirocom/argos-sdk#readme",
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-typescript": "^11.1.5",
+    "@testing-library/react": "^14.1.2",
+    "@types/jest": "^29.5.11",
+    "@types/node": "^20.10.5",
+    "@types/react": "^18.2.45",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.1.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "prettier": "^3.1.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "rollup": "^4.9.1",
+    "rollup-plugin-dts": "^6.1.0",
+    "rollup-plugin-peer-deps-external": "^2.2.4",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.3.3"
+  },
+  "peerDependencies": {
+    "react": ">=16.8.0",
+    "react-dom": ">=16.8.0"
+  }
 }

@@ -1,8 +1,13 @@
-import { BaseAPIConfig } from "./api/BaseAPI";
-import { FingerprintAPI, CreateFingerprintRequest } from "./api/FingerprintAPI";
-import { VisitAPI } from "./api/VisitAPI";
-import { ApiResponse, FingerprintData } from "./types/api";
-import { APIKeyAPI } from "./api/APIKeyAPI";
+import { BaseAPIConfig } from './api/BaseAPI';
+import { FingerprintAPI, CreateFingerprintRequest } from './api/FingerprintAPI';
+import { VisitAPI } from './api/VisitAPI';
+import {
+  ApiResponse,
+  FingerprintData,
+  PresenceData,
+  VisitData,
+} from './types/api';
+import { APIKeyAPI } from './api/APIKeyAPI';
 
 export interface ArgosSDKConfig extends BaseAPIConfig {
   debug?: boolean;
@@ -13,17 +18,19 @@ export class ArgosSDK {
   private visitAPI: VisitAPI;
   private apiKeyAPI: APIKeyAPI;
   private debug: boolean;
+  private apiKey?: string;
 
   constructor(config: ArgosSDKConfig) {
     this.debug = config.debug || false;
+    this.apiKey = config.apiKey;
     this.fingerprintAPI = new FingerprintAPI(config);
     this.visitAPI = new VisitAPI(config);
     this.apiKeyAPI = new APIKeyAPI(config);
 
     if (this.debug) {
-      console.log("[Argos] Initialized with config:", {
+      console.log('[Argos] Initialized with config:', {
         ...config,
-        apiKey: config.apiKey ? "[REDACTED]" : undefined,
+        apiKey: config.apiKey ? '[REDACTED]' : undefined,
       });
     }
   }
@@ -31,10 +38,26 @@ export class ArgosSDK {
   /**
    * Set the API key for subsequent requests
    */
-  public setApiKey(apiKey: string) {
-    this.fingerprintAPI = new FingerprintAPI({ ...this.getConfig(), apiKey });
-    this.visitAPI = new VisitAPI({ ...this.getConfig(), apiKey });
-    this.apiKeyAPI = new APIKeyAPI({ ...this.getConfig(), apiKey });
+  public setApiKey(apiKey: string | undefined) {
+    this.apiKey = apiKey;
+    const config = this.getConfig();
+    this.fingerprintAPI = new FingerprintAPI(config);
+    this.visitAPI = new VisitAPI(config);
+    this.apiKeyAPI = new APIKeyAPI(config);
+
+    if (this.debug) {
+      console.log(
+        '[Argos] API key updated:',
+        apiKey ? '[REDACTED]' : 'undefined'
+      );
+    }
+  }
+
+  /**
+   * Get the current API key
+   */
+  public getApiKey(): string | undefined {
+    return this.apiKey;
   }
 
   /**
@@ -42,8 +65,8 @@ export class ArgosSDK {
    */
   private getConfig(): ArgosSDKConfig {
     return {
-      baseUrl: this.fingerprintAPI["baseUrl"],
-      apiKey: this.fingerprintAPI["apiKey"],
+      baseUrl: this.fingerprintAPI['baseUrl'],
+      apiKey: this.apiKey,
       debug: this.debug,
     };
   }
@@ -68,10 +91,17 @@ export class ArgosSDK {
   }
 
   /**
+   * Validate an API key
+   */
+  public async validateAPIKey(apiKey: string): Promise<ApiResponse<boolean>> {
+    return this.apiKeyAPI.validateAPIKey(apiKey);
+  }
+
+  /**
    * Check if the client is online
    */
   public isOnline(): boolean {
-    return typeof navigator !== "undefined" && navigator.onLine;
+    return typeof navigator !== 'undefined' && navigator.onLine;
   }
 
   /**
@@ -100,35 +130,49 @@ export class ArgosSDK {
     return this.fingerprintAPI.updateFingerprint(id, data);
   }
 
+  private handleError(error: unknown): void {
+    if (this.debug) {
+      console.error('[Argos] Error:', error);
+    }
+  }
+
   /**
    * Track an event (visit or presence)
    */
   public async track(
-    event: "visit" | "presence",
-    data: {
-      fingerprintId: string;
-      url?: string;
-      referrer?: string;
-      status?: "online" | "offline";
-      timestamp: number;
-    }
+    event: 'visit',
+    data: VisitData
+  ): Promise<ApiResponse<void>>;
+  public async track(
+    event: 'presence',
+    data: PresenceData
+  ): Promise<ApiResponse<void>>;
+  public async track(
+    event: string,
+    data: VisitData | PresenceData
   ): Promise<ApiResponse<void>> {
-    if (event === "visit" && data.url) {
-      return this.visitAPI.createVisit({
-        fingerprintId: data.fingerprintId,
-        url: data.url,
-        referrer: data.referrer,
-        timestamp: data.timestamp,
-      });
-    } else if (event === "presence" && data.status) {
-      return this.visitAPI.updatePresence({
-        fingerprintId: data.fingerprintId,
-        status: data.status,
-        timestamp: data.timestamp,
-      });
+    try {
+      if (this.debug) {
+        console.log('[Argos] Tracking event:', event, data);
+      }
+
+      let response: ApiResponse<void>;
+
+      if (event === 'visit') {
+        response = await this.visitAPI.createVisit(data as VisitData);
+      } else if (event === 'presence') {
+        response = await this.visitAPI.updatePresence(data as PresenceData);
+      } else {
+        throw new Error(`Unknown event type: ${event}`);
+      }
+
+      if (this.debug) {
+        console.log('[Argos] Track response:', response);
+      }
+      return response;
+    } catch (error) {
+      this.handleError(error);
+      throw error;
     }
-    throw new Error(
-      `Invalid event type or missing required data for event: ${event}`
-    );
   }
 }

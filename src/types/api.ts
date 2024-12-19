@@ -26,19 +26,31 @@ export interface FingerprintData {
 }
 
 export interface VisitData {
-  id: string;
   fingerprintId: string;
   url: string;
-  title?: string;
-  referrer?: string;
+  referrer: string;
   timestamp: number;
+  title: string;
+  path: string;
+  hostname: string;
+  metadata: {
+    userAgent: string;
+    language: string;
+    platform: string;
+    [key: string]: any;
+  };
 }
 
 export interface PresenceData {
   fingerprintId: string;
-  status: "online" | "offline";
-  lastUpdated: number;
-  metadata?: Record<string, any>;
+  status: 'online' | 'offline';
+  timestamp: number;
+  metadata?: {
+    url?: string;
+    path?: string;
+    title?: string;
+    [key: string]: any;
+  };
 }
 
 export interface APIKeyData {
@@ -106,14 +118,17 @@ export interface UpdateFingerprintRequest {
 export interface CreateVisitRequest {
   fingerprintId: string;
   url: string;
-  title?: string;
-  referrer?: string;
-  timestamp?: number;
+  referrer: string;
+  timestamp: number;
+  title: string;
+  path: string;
+  hostname: string;
+  metadata?: Record<string, any>;
 }
 
 export interface UpdatePresenceRequest {
   fingerprintId: string;
-  status: "online" | "offline";
+  status: 'online' | 'offline';
   metadata?: Record<string, any>;
 }
 

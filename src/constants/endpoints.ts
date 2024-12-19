@@ -1,36 +1,35 @@
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
+import { HttpMethod } from '../api/BaseAPI';
 
-export type EndpointConfig = {
-  path: string | RegExp;
+interface Endpoint {
+  path: string;
   methods: HttpMethod[];
-};
+}
 
-// List of endpoints that don't require API key authentication
-export const PUBLIC_ENDPOINTS: EndpointConfig[] = [
-  // Fingerprint endpoints
+export const PUBLIC_ENDPOINTS: Endpoint[] = [
   { path: '/fingerprint/register', methods: ['POST'] },
-  { path: /^\/fingerprint\/[^/]+$/, methods: ['GET'] },
-
-  // Visit endpoints
-  { path: '/visit/log', methods: ['POST'] },
-  { path: '/visit/presence', methods: ['POST'] },
-
-  // API Key endpoints
-  { path: '/apiKey/validate', methods: ['POST'] },
+  { path: '/fingerprint', methods: ['GET'] },
+  { path: '/roles', methods: ['GET'] },
+  { path: '/api-key/validate', methods: ['POST'] },
+  { path: '/api-key/register', methods: ['POST'] },
 ];
 
-// Helper function to check if an endpoint is public
-export function isPublicEndpoint(
-  endpoint: string,
-  method: HttpMethod
-): boolean {
-  const matchingEndpoint = PUBLIC_ENDPOINTS.find((config) => {
-    // Check if the path matches (either string equality or regex test)
-    return config.path instanceof RegExp
-      ? config.path.test(endpoint)
-      : endpoint === config.path;
-  });
+export const isPublicEndpoint = (path: string, method: HttpMethod): boolean => {
+  // First check for exact matches
+  const exactMatch = PUBLIC_ENDPOINTS.find(
+    (endpoint) => endpoint.path === path && endpoint.methods.includes(method)
+  );
+  if (exactMatch) {
+    return true;
+  }
 
-  // If no matching endpoint is found, or the method is not allowed, return false
-  return matchingEndpoint ? matchingEndpoint.methods.includes(method) : false;
-}
+  // Then check for /fingerprint/* GET requests, excluding /fingerprint/register
+  if (
+    method === 'GET' &&
+    path.startsWith('/fingerprint/') &&
+    path !== '/fingerprint/register'
+  ) {
+    return true;
+  }
+
+  return false;
+};

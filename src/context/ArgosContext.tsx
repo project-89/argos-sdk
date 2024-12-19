@@ -1,13 +1,19 @@
 import React, {
   createContext,
   useContext,
-  ReactNode,
   useEffect,
   useState,
   useCallback,
-} from "react";
-import { ArgosSDK, ArgosSDKConfig } from "../ArgosSDK";
-import { FingerprintData } from "../types/api";
+} from 'react';
+import { ArgosSDK } from '../ArgosSDK';
+import { FingerprintData } from '../types/api';
+import { log } from '../utils/logger';
+import { SecureStorage } from '../utils/storage';
+
+const STORAGE_KEYS = {
+  FINGERPRINT_ID: 'argos_fingerprint_id',
+  API_KEY: 'argos_api_key',
+} as const;
 
 interface ArgosContextType {
   sdk: ArgosSDK;
@@ -16,30 +22,19 @@ interface ArgosContextType {
   fingerprint: FingerprintData | null;
   isLoading: boolean;
   error: Error | null;
-  updateMetadata: (metadata: Record<string, any>) => Promise<void>;
 }
 
 interface ArgosProviderProps {
-  config: ArgosSDKConfig;
-  children: ReactNode;
-  onError?: (error: Error) => void;
+  children: React.ReactNode;
+  config: {
+    baseUrl: string;
+    debug?: boolean;
+  };
   debug?: boolean;
+  onError?: (error: Error) => void;
 }
 
-const STORAGE_KEYS = {
-  FINGERPRINT_ID: "argos_fp_id",
-  API_KEY: "argos_api_key",
-} as const;
-
-const log = (debug: boolean, ...args: any[]) => {
-  if (debug) {
-    console.log("[Argos]", ...args);
-  }
-};
-
-export const ArgosContext = createContext<ArgosContextType | undefined>(
-  undefined
-);
+const ArgosContext = createContext<ArgosContextType | null>(null);
 
 export function ArgosProvider({
   config,
@@ -48,20 +43,23 @@ export function ArgosProvider({
   debug = false,
 }: ArgosProviderProps) {
   const [sdk] = useState(() => new ArgosSDK({ ...config, debug }));
+  const [storage] = useState(() => new SecureStorage(debug));
   const [isOnline, setIsOnline] = useState(sdk.isOnline());
   const [fingerprintId, setFingerprintId] = useState<string | null>(null);
   const [fingerprint, setFingerprint] = useState<FingerprintData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [isApiKeyReady, setIsApiKeyReady] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  const presenceIntervalDuration = 30000; // 30 seconds
 
   const handleError = useCallback(
-    (error: Error, silent = false) => {
-      setError(error);
-      if (onError && !silent) {
-        onError(error);
-      } else if (debug || !silent) {
-        console.error("[Argos]", error);
-      }
+    (err: unknown) => {
+      const errorObj = err instanceof Error ? err : new Error(String(err));
+      setError(errorObj);
+      onError?.(errorObj);
+      log(debug, 'Error:', errorObj);
     },
     [onError, debug]
   );
@@ -69,69 +67,69 @@ export function ArgosProvider({
   const ensureApiKey = useCallback(
     async (id: string) => {
       try {
-        // Check for stored API key
-        const storedApiKey = localStorage.getItem(STORAGE_KEYS.API_KEY);
-        if (storedApiKey) {
-          log(debug, "Found stored API key");
-          sdk.setApiKey(storedApiKey);
-          return;
-        }
+        // Clear any existing state
+        sdk.setApiKey(undefined);
+        setIsApiKeyReady(false);
+        storage.remove(STORAGE_KEYS.API_KEY);
 
-        // Register new API key
-        log(debug, "Registering new API key");
+        log(debug, 'Registering new API key for fingerprint:', id);
         const response = await sdk.registerApiKey(id, {
-          source: "web-sdk",
-          createdAt: new Date().toISOString(),
+          userAgent: navigator.userAgent,
+          timestamp: Date.now(),
         });
 
-        if (response.success && response.data.key) {
-          log(debug, "API key registration successful");
-          localStorage.setItem(STORAGE_KEYS.API_KEY, response.data.key);
-          sdk.setApiKey(response.data.key);
+        if (response.success && response.data) {
+          const { key } = response.data;
+          storage.set(STORAGE_KEYS.API_KEY, key, 60); // Expires in 60 minutes
+          sdk.setApiKey(key);
+          log(debug, 'New API key registered and stored securely');
+          setIsApiKeyReady(true);
+          return true;
         }
-      } catch (error) {
-        handleError(
-          error instanceof Error
-            ? error
-            : new Error("Failed to ensure API key"),
-          true
-        );
+
+        throw new Error('Failed to register API key');
+      } catch (err) {
+        handleError(err);
+        sdk.setApiKey(undefined);
+        setIsApiKeyReady(false);
+        return false;
+      }
+    },
+    [sdk, debug, handleError, storage]
+  );
+
+  const trackVisit = useCallback(
+    async (id: string) => {
+      try {
+        if (!id) return;
+        log(debug, 'Tracking initial visit');
+        await sdk.track('visit', {
+          fingerprintId: id,
+          url: window.location.href || '',
+          referrer: document.referrer || '',
+          timestamp: Date.now(),
+          title: document.title || window.location.pathname || '',
+          path: window.location.pathname || '',
+          hostname: window.location.hostname || '',
+          metadata: {
+            userAgent: navigator.userAgent || '',
+            language: navigator.language || '',
+            platform: navigator.platform || '',
+          },
+        });
+        log(debug, 'Visit tracked successfully');
+      } catch (err) {
+        handleError(err);
       }
     },
     [sdk, debug, handleError]
-  );
-
-  const updateMetadata = useCallback(
-    async (metadata: Record<string, any>) => {
-      if (!fingerprintId) {
-        throw new Error("No fingerprint ID available");
-      }
-
-      try {
-        log(debug, "Updating fingerprint metadata:", metadata);
-        const response = await sdk.updateFingerprint(fingerprintId, {
-          metadata,
-        });
-        if (response.success) {
-          log(debug, "Metadata update successful");
-          setFingerprint(response.data);
-        }
-      } catch (error) {
-        handleError(
-          error instanceof Error
-            ? error
-            : new Error("Failed to update metadata")
-        );
-      }
-    },
-    [fingerprintId, sdk, debug, handleError]
   );
 
   const initializeFingerprint = useCallback(async () => {
     try {
       setIsLoading(true);
       const visitorId = crypto.randomUUID();
-      log(debug, "Initializing fingerprint with visitor ID:", visitorId);
+      log(debug, 'Initializing fingerprint with visitor ID:', visitorId);
 
       const response = await sdk.identify({
         fingerprint: visitorId,
@@ -140,167 +138,193 @@ export function ArgosProvider({
           language: navigator.language,
           platform: navigator.platform,
           url: window.location.href,
-          referrer: document.referrer,
+          referrer: document.referrer || '',
           timestamp: Date.now(),
         },
       });
 
       if (response.success && response.data) {
-        log(debug, "Fingerprint registered successfully:", response.data);
+        log(debug, 'Fingerprint registered successfully:', response.data);
         const id = response.data.id;
         setFingerprintId(id);
         setFingerprint(response.data);
         localStorage.setItem(STORAGE_KEYS.FINGERPRINT_ID, id);
 
-        // Ensure API key is available
-        await ensureApiKey(id);
-
-        // Start tracking visit
-        log(debug, "Tracking initial visit");
-        await sdk.track("visit", {
-          fingerprintId: id,
-          url: window.location.href,
-          referrer: document.referrer,
-          timestamp: Date.now(),
-        });
-        log(debug, "Initial visit tracked successfully");
+        // Ensure API key is available BEFORE tracking visit
+        const hasApiKey = await ensureApiKey(id);
+        if (hasApiKey) {
+          await trackVisit(id);
+        }
+      } else {
+        throw new Error('Failed to register fingerprint');
       }
-    } catch (error) {
-      handleError(
-        error instanceof Error
-          ? error
-          : new Error("Failed to initialize fingerprint")
-      );
+    } catch (err) {
+      handleError(err);
     } finally {
       setIsLoading(false);
     }
-  }, [sdk, handleError, debug, ensureApiKey]);
+  }, [sdk, debug, handleError, ensureApiKey, trackVisit]);
 
-  // Initialize fingerprinting
+  // Initialization effect
   useEffect(() => {
-    const storedFingerprintId = localStorage.getItem(
-      STORAGE_KEYS.FINGERPRINT_ID
-    );
+    let isMounted = true;
 
-    if (storedFingerprintId) {
-      log(debug, "Found stored fingerprint ID:", storedFingerprintId);
-      setFingerprintId(storedFingerprintId);
-
-      // Ensure API key is available
-      ensureApiKey(storedFingerprintId);
-
-      sdk
-        .getIdentity(storedFingerprintId)
-        .then((response) => {
-          if (response.success) {
-            log(debug, "Retrieved stored fingerprint data:", response.data);
-            setFingerprint(response.data);
-          } else {
-            log(debug, "Stored fingerprint not found, creating new one");
-            initializeFingerprint();
-          }
-        })
-        .catch((error) => {
-          log(debug, "Error retrieving stored fingerprint:", error);
-          initializeFingerprint();
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
-    } else {
-      log(debug, "No stored fingerprint found, creating new one");
-      initializeFingerprint();
-    }
-  }, [sdk, initializeFingerprint, debug, ensureApiKey]);
-
-  // Handle presence tracking
-  useEffect(() => {
-    if (!fingerprintId) return;
-
-    const trackPresence = async () => {
+    (async () => {
       try {
-        log(debug, "Tracking presence:", {
-          fingerprintId,
-          status: isOnline ? "online" : "offline",
-        });
-        await sdk.track("presence", {
-          fingerprintId,
-          status: isOnline ? "online" : "offline",
-          timestamp: Date.now(),
-        });
-        log(debug, "Presence tracked successfully");
-      } catch (error) {
-        // Don't show errors for presence tracking failures unless in debug mode
-        handleError(
-          error instanceof Error
-            ? error
-            : new Error("Failed to track presence"),
-          !debug
+        const storedFingerprintId = localStorage.getItem(
+          STORAGE_KEYS.FINGERPRINT_ID
         );
-      }
-    };
+        const storedApiKey = storage.get(STORAGE_KEYS.API_KEY);
 
-    const PRESENCE_INTERVAL = 30000; // 30 seconds
-    log(
-      debug,
-      `Starting presence tracking with ${PRESENCE_INTERVAL}ms interval`
-    );
-    const interval = setInterval(trackPresence, PRESENCE_INTERVAL);
-    trackPresence(); // Initial presence tracking
+        if (storedFingerprintId) {
+          log(debug, 'Found stored fingerprint ID:', storedFingerprintId);
+          setFingerprintId(storedFingerprintId);
+
+          // First validate the fingerprint
+          const identityResponse = await sdk.getIdentity(storedFingerprintId);
+          if (identityResponse.success) {
+            log(
+              debug,
+              'Retrieved stored fingerprint data:',
+              identityResponse.data
+            );
+            if (isMounted) {
+              setFingerprint(identityResponse.data);
+
+              // Only after confirming fingerprint, handle API key
+              if (!storedApiKey) {
+                const hasApiKey = await ensureApiKey(storedFingerprintId);
+                if (!hasApiKey) throw new Error('Failed to ensure API key');
+              } else {
+                sdk.setApiKey(storedApiKey);
+                setIsApiKeyReady(true);
+              }
+
+              await trackVisit(storedFingerprintId);
+            }
+          } else {
+            log(
+              debug,
+              'Stored fingerprint not found or invalid, creating new one'
+            );
+            await initializeFingerprint();
+          }
+        } else {
+          log(debug, 'No stored fingerprint found, creating new one');
+          await initializeFingerprint();
+        }
+      } catch (err) {
+        log(debug, 'Error during initialization:', err);
+        await initializeFingerprint();
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+          setIsInitialized(true);
+        }
+      }
+    })();
 
     return () => {
-      log(debug, "Stopping presence tracking");
-      clearInterval(interval);
+      isMounted = false;
     };
-  }, [sdk, fingerprintId, isOnline, debug, handleError]);
+  }, [sdk, debug, initializeFingerprint, ensureApiKey, trackVisit, storage]);
 
   // Handle online/offline status
   useEffect(() => {
-    const handleOnline = () => {
-      log(debug, "Device went online");
-      setIsOnline(true);
-    };
-    const handleOffline = () => {
-      log(debug, "Device went offline");
-      setIsOnline(false);
-    };
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
 
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
 
     return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
-  }, [debug]);
+  }, []);
 
-  const value = {
+  // Handle presence tracking after full initialization
+  useEffect(() => {
+    if (!isInitialized || !fingerprintId || !isApiKeyReady) {
+      log(debug, 'Not starting presence tracking - initialization incomplete');
+      return;
+    }
+
+    log(debug, 'Starting presence tracking every 30 seconds');
+    let isCancelled = false;
+
+    const trackPresence = async () => {
+      if (isCancelled) return;
+      try {
+        log(debug, 'Tracking presence');
+        await sdk.track('presence', {
+          fingerprintId,
+          status: isOnline ? 'online' : 'offline',
+          timestamp: Date.now(),
+          metadata: {
+            url: window.location.href,
+            path: window.location.pathname,
+            title: document.title || window.location.pathname,
+            userAgent: navigator.userAgent,
+            language: navigator.language,
+            platform: navigator.platform,
+          },
+        });
+        log(debug, 'Presence tracked successfully');
+      } catch (err) {
+        handleError(err);
+      }
+    };
+
+    trackPresence();
+    const presenceInterval = setInterval(
+      trackPresence,
+      presenceIntervalDuration
+    );
+
+    return () => {
+      log(debug, 'Stopping presence tracking');
+      isCancelled = true;
+      clearInterval(presenceInterval);
+    };
+  }, [
     sdk,
-    isOnline,
+    debug,
     fingerprintId,
-    fingerprint,
-    isLoading,
-    error,
-    updateMetadata,
-  };
+    isOnline,
+    handleError,
+    isApiKeyReady,
+    isInitialized,
+  ]);
 
   return (
-    <ArgosContext.Provider value={value}>{children}</ArgosContext.Provider>
+    <ArgosContext.Provider
+      value={{
+        sdk,
+        isOnline,
+        fingerprintId,
+        fingerprint,
+        isLoading,
+        error,
+      }}
+    >
+      {children}
+    </ArgosContext.Provider>
   );
 }
 
-export function useArgosSDK() {
+export const useArgosSDK = () => {
   const context = useContext(ArgosContext);
   if (!context) {
-    throw new Error("useArgosSDK must be used within an ArgosProvider");
+    throw new Error('useArgosSDK must be used within an ArgosProvider');
   }
   return context.sdk;
-}
+};
 
-export function useArgosPresence() {
+export const useArgosPresence = () => {
   const context = useContext(ArgosContext);
   if (!context) {
-    throw new Error("useArgosPresence must be used within an ArgosProvider");
+    throw new Error('useArgosPresence must be used within an ArgosProvider');
   }
   return {
     isOnline: context.isOnline,
@@ -308,6 +332,5 @@ export function useArgosPresence() {
     fingerprint: context.fingerprint,
     isLoading: context.isLoading,
     error: context.error,
-    updateMetadata: context.updateMetadata,
   };
-}
+};
