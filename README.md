@@ -1,6 +1,6 @@
 # Argos SDK
 
-The Argos SDK provides fingerprinting and tracking capabilities for web applications.
+The Argos SDK provides fingerprinting, presence tracking, and visit analytics for web applications.
 
 ## Installation
 
@@ -15,30 +15,29 @@ import { ArgosSDK } from '@project89/argos-sdk';
 
 const sdk = new ArgosSDK({
   baseUrl: 'https://api.example.com',
-  apiKey: 'your-api-key', // Optional - only needed for protected endpoints
   debug: true // Optional - enables debug logging
 });
 
-// Identify a user
-const response = await sdk.identify({
-  userAgent: navigator.userAgent,
-  ip: '', // Will be set by server
+// Create a fingerprint
+const response = await sdk.createFingerprint({
+  fingerprint: 'generated-fingerprint-hash',
   metadata: {
     language: navigator.language,
     platform: navigator.platform
   }
 });
 
-// Track a visit
-await sdk.track('visit', {
+// Log a visit
+await sdk.createVisit({
   fingerprintId: response.data.id,
-  url: window.location.href
+  url: window.location.href,
+  title: document.title
 });
 
-// Track presence
-await sdk.track('presence', {
+// Update presence
+await sdk.updatePresence({
   fingerprintId: response.data.id,
-  currentPage: window.location.pathname
+  status: 'active'
 });
 ```
 
@@ -51,7 +50,10 @@ import { ArgosProvider } from '@project89/argos-sdk';
 
 function App() {
   return (
-    <ArgosProvider config={{ baseUrl: 'https://api.example.com' }}>
+    <ArgosProvider config={{ 
+      baseUrl: 'https://api.example.com',
+      debug: true // Optional - enables debug logging
+    }}>
       <YourApp />
     </ArgosProvider>
   );
@@ -68,10 +70,11 @@ function YourComponent() {
   const { isOnline } = useArgosPresence();
 
   useEffect(() => {
-    // Example: Track custom event
-    sdk.track('visit', {
+    // Example: Log a visit
+    sdk.createVisit({
       fingerprintId: 'user-fingerprint-id',
-      url: window.location.href
+      url: window.location.href,
+      title: document.title
     });
   }, [sdk]);
 
@@ -87,77 +90,82 @@ function YourComponent() {
 
 ### Core SDK Methods
 
-#### `identify(request: CreateFingerprintRequest): Promise<ApiResponse<FingerprintData>>`
-Creates or retrieves a fingerprint for the current user.
+#### `createFingerprint(request: CreateFingerprintRequest): Promise<ApiResponse<FingerprintData>>`
+Creates a new fingerprint for the current user.
 
-#### `track(event: ArgosEventType, data: VisitData | PresenceData): Promise<ApiResponse<void>>`
-Tracks user events (visit or presence).
+#### `createVisit(request: CreateVisitRequest): Promise<ApiResponse<VisitData>>`
+Logs a visit for the given fingerprint.
 
-#### `isOnline(): boolean`
-Checks if the client is currently online.
+#### `updatePresence(request: UpdatePresenceRequest): Promise<ApiResponse<PresenceData>>`
+Updates presence status for a fingerprint.
 
-### Protected API Methods (Require API Key)
-
-#### `validateAPIKey(apiKey: string): Promise<ApiResponse<boolean>>`
-Validates an API key.
-
-#### `getRoles(fingerprintId: string): Promise<ApiResponse<RoleData>>`
-Gets roles for a fingerprint.
-
-#### `addRoles(fingerprintId: string, roles: string[]): Promise<ApiResponse<RoleData>>`
-Adds roles to a fingerprint.
-
-#### `removeRoles(fingerprintId: string, roles: string[]): Promise<ApiResponse<RoleData>>`
-Removes roles from a fingerprint.
+#### `getVisitHistory(fingerprintId: string, options?: { limit?: number, offset?: number, startDate?: string, endDate?: string }): Promise<ApiResponse<{ visits: VisitData[] }>>`
+Retrieves visit history for a fingerprint.
 
 ### React Hooks
 
 #### `useArgosSDK()`
-Provides access to the SDK instance within React components.
+Provides access to the SDK instance within React components. This is the primary hook for all SDK functionality.
 
 #### `useArgosPresence()`
-Provides real-time presence information.
+Provides real-time presence tracking and online status information.
 
 ### Types
 
 ```typescript
 interface ArgosSDKConfig {
   baseUrl: string;
-  apiKey?: string;
   debug?: boolean;
 }
 
 interface CreateFingerprintRequest {
-  userAgent: string;
-  ip: string;
-  metadata: Record<string, any>;
+  fingerprint: string;
+  metadata?: Record<string, any>;
 }
 
 interface FingerprintData {
   id: string;
-  userAgent: string;
-  ip: string;
-  metadata: Record<string, any>;
+  fingerprint: string;
+  roles: string[];
   createdAt: string;
-  updatedAt: string;
+  metadata: Record<string, any>;
+}
+
+interface CreateVisitRequest {
+  fingerprintId: string;
+  url: string;
+  title?: string;
+  metadata?: Record<string, any>;
 }
 
 interface VisitData {
+  id: string;
   fingerprintId: string;
   url: string;
-  timestamp?: string;
+  title: string;
+  timestamp: string;
+  site: {
+    domain: string;
+    visitCount: number;
+  };
+}
+
+interface UpdatePresenceRequest {
+  fingerprintId: string;
+  status: 'active' | 'inactive';
+  metadata?: Record<string, any>;
 }
 
 interface PresenceData {
-  fingerprintId: string;
-  currentPage: string;
-  timestamp?: string;
+  success: boolean;
+  timestamp: string;
 }
 
 interface ApiResponse<T> {
   success: boolean;
-  data: T;
+  data?: T;
   error?: string;
+  message?: string;
 }
 ```
 
@@ -165,30 +173,30 @@ interface ApiResponse<T> {
 
 ```typescript
 try {
-  const response = await sdk.identify({
-    userAgent: navigator.userAgent,
-    ip: '',
+  const response = await sdk.createFingerprint({
+    fingerprint: 'generated-fingerprint-hash',
     metadata: {}
   });
 } catch (error) {
-  console.error('Failed to identify user:', error);
+  console.error('Failed to create fingerprint:', error);
 }
 ```
 
-## Rate Limiting
+## Debug Mode
 
-The SDK automatically handles rate limiting by throwing an error with retry information when limits are exceeded:
+When debug mode is enabled, the SDK will log detailed information about:
+- API requests and responses
+- Presence tracking events
+- Fingerprint creation and updates
+- Visit logging
+- Error details
 
+Enable debug mode in the SDK configuration:
 ```typescript
-try {
-  await sdk.track('visit', visitData);
-} catch (error) {
-  if (error.message.includes('Rate limit exceeded')) {
-    // Handle rate limiting
-    const retryAfter = parseInt(error.message.match(/\d+/)[0], 10);
-    console.log(`Retry after ${retryAfter} seconds`);
-  }
-}
+const sdk = new ArgosSDK({
+  baseUrl: 'https://api.example.com',
+  debug: true
+});
 ```
 
 ## Development

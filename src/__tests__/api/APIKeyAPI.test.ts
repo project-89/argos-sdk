@@ -1,12 +1,17 @@
 import { jest } from '@jest/globals';
-import { APIKeyAPI, APIKeyData } from '../../api/APIKeyAPI';
-import {
-  createMockFetchApi,
-  mockBaseAPI,
-  mockResponse,
-} from '../utils/testUtils';
+import type { APIKeyData } from '../../types/api';
+import { createMockFetchApi, mockResponse } from '../utils/testUtils';
+import { APIKeyAPI } from '../../api/APIKeyAPI';
 
-jest.mock('@/api/BaseAPI', () => mockBaseAPI());
+// Mock BaseAPI
+jest.mock('../../api/BaseAPI', () => {
+  return {
+    __esModule: true,
+    BaseAPI: jest.fn().mockImplementation(() => ({
+      fetchApi: jest.fn(),
+    })),
+  };
+});
 
 describe('APIKeyAPI', () => {
   let api: APIKeyAPI;
@@ -53,6 +58,7 @@ describe('APIKeyAPI', () => {
       const mockResponse = {
         key: 'new-api-key',
         fingerprintId: 'test-fingerprint',
+        expiresAt: new Date().toISOString(),
       };
 
       mockFetchApi.mockResolvedValueOnce({ success: true, data: mockResponse });
@@ -76,14 +82,9 @@ describe('APIKeyAPI', () => {
   describe('createAPIKey', () => {
     it('should create API key', async () => {
       const mockAPIKeyData: APIKeyData = {
-        id: 'test-id',
-        name: 'test-key',
         key: 'api-key-123',
         fingerprintId: 'test-fingerprint',
-        enabled: true,
         expiresAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
       };
 
       mockFetchApi.mockResolvedValueOnce(mockResponse(mockAPIKeyData));
@@ -118,14 +119,9 @@ describe('APIKeyAPI', () => {
   describe('getAPIKey', () => {
     it('should get API key', async () => {
       const mockAPIKeyData: APIKeyData = {
-        id: 'test-id',
-        name: 'test-key',
         key: 'api-key-123',
         fingerprintId: 'test-fingerprint',
-        enabled: true,
         expiresAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
       };
 
       mockFetchApi.mockResolvedValueOnce(mockResponse(mockAPIKeyData));
@@ -151,14 +147,9 @@ describe('APIKeyAPI', () => {
     it('should list API keys', async () => {
       const mockAPIKeys: APIKeyData[] = [
         {
-          id: 'test-id',
-          name: 'test-key',
           key: 'api-key-123',
           fingerprintId: 'test-fingerprint',
-          enabled: true,
           expiresAt: new Date().toISOString(),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
         },
       ];
 
@@ -184,14 +175,9 @@ describe('APIKeyAPI', () => {
   describe('updateAPIKey', () => {
     it('should update API key', async () => {
       const mockAPIKeyData: APIKeyData = {
-        id: 'test-id',
-        name: 'updated-key',
         key: 'api-key-123',
         fingerprintId: 'test-fingerprint',
-        enabled: true,
         expiresAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
       };
 
       mockFetchApi.mockResolvedValueOnce(mockResponse(mockAPIKeyData));

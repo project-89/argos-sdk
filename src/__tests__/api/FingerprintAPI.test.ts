@@ -1,13 +1,17 @@
 import { jest } from '@jest/globals';
 import { FingerprintAPI } from '../../api/FingerprintAPI';
 import { FingerprintData } from '../../types/api';
-import {
-  createMockFetchApi,
-  mockBaseAPI,
-  mockResponse,
-} from '../utils/testUtils';
+import { createMockFetchApi, mockResponse } from '../utils/testUtils';
 
-jest.mock('@/api/BaseAPI', () => mockBaseAPI());
+// Mock BaseAPI
+jest.mock('../../api/BaseAPI', () => {
+  return {
+    __esModule: true,
+    BaseAPI: jest.fn().mockImplementation(() => ({
+      fetchApi: jest.fn(),
+    })),
+  };
+});
 
 describe('FingerprintAPI', () => {
   let api: FingerprintAPI;
@@ -31,13 +35,13 @@ describe('FingerprintAPI', () => {
       const mockFingerprintData: FingerprintData = {
         id: 'test-id',
         fingerprint: 'test-fingerprint',
+        roles: ['user'],
+        createdAt: new Date().toISOString(),
         metadata: {
           userAgent: 'test-user-agent',
           language: 'en-US',
           platform: 'test-platform',
         },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
       };
 
       mockFetchApi.mockResolvedValueOnce(mockResponse(mockFingerprintData));
@@ -86,13 +90,13 @@ describe('FingerprintAPI', () => {
       const mockFingerprintData: FingerprintData = {
         id: 'test-id',
         fingerprint: 'test-fingerprint',
+        roles: ['user'],
+        createdAt: new Date().toISOString(),
         metadata: {
           userAgent: 'test-user-agent',
           language: 'en-US',
           platform: 'test-platform',
         },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
       };
 
       mockFetchApi.mockResolvedValueOnce(mockResponse(mockFingerprintData));
@@ -119,13 +123,13 @@ describe('FingerprintAPI', () => {
       const mockFingerprintData: FingerprintData = {
         id: 'test-id',
         fingerprint: 'test-fingerprint',
+        roles: ['user'],
+        createdAt: new Date().toISOString(),
         metadata: {
           userAgent: 'updated-user-agent',
           language: 'en-US',
           platform: 'test-platform',
         },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
       };
 
       mockFetchApi.mockResolvedValueOnce(mockResponse(mockFingerprintData));

@@ -1,13 +1,17 @@
 import { jest } from '@jest/globals';
 import { RealityStabilityAPI } from '../../api/RealityStabilityAPI';
 import type { RealityStabilityData } from '../../types/api';
-import {
-  createMockFetchApi,
-  mockBaseAPI,
-  mockResponse,
-} from '../utils/testUtils';
+import { createMockFetchApi, mockResponse } from '../utils/testUtils';
 
-jest.mock('@/api/BaseAPI', () => mockBaseAPI());
+// Mock BaseAPI
+jest.mock('../../api/BaseAPI', () => {
+  return {
+    __esModule: true,
+    BaseAPI: jest.fn().mockImplementation(() => ({
+      fetchApi: jest.fn(),
+    })),
+  };
+});
 
 describe('RealityStabilityAPI', () => {
   let api: RealityStabilityAPI;

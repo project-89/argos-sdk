@@ -45,9 +45,11 @@
   },
   "homepage": "https://github.com/oneirocom/argos-sdk#readme",
   "devDependencies": {
+    "@jest/globals": "^29.7.0",
     "@rollup/plugin-commonjs": "^25.0.7",
     "@rollup/plugin-node-resolve": "^15.2.3",
     "@rollup/plugin-typescript": "^11.1.5",
+    "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^14.1.2",
     "@types/jest": "^29.5.11",
     "@types/node": "^20.10.5",

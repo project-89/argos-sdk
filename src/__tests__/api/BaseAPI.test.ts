@@ -42,7 +42,7 @@ describe('BaseAPI', () => {
         'http://test.com/api-key',
         expect.objectContaining({
           headers: expect.objectContaining({
-            'X-API-Key': 'test-key',
+            'x-api-key': 'test-key',
           }),
         })
       );
@@ -64,7 +64,7 @@ describe('BaseAPI', () => {
         'http://test.com/fingerprint/register',
         expect.not.objectContaining({
           headers: expect.objectContaining({
-            'X-API-Key': expect.any(String),
+            'x-api-key': expect.any(String),
           }),
         })
       );
@@ -77,13 +77,37 @@ describe('BaseAPI', () => {
         createMockResponse({
           ok: false,
           status: 429,
-          body: { error: 'Rate limit exceeded' },
+          body: {
+            success: false,
+            error: 'Too many requests, please try again later',
+            retryAfter: 60,
+          },
         })
       );
 
       await expect(
         api.testFetch('/api-key', { method: 'GET' })
-      ).rejects.toThrow('Rate limit exceeded');
+      ).rejects.toThrow('Too many requests, please try again later');
+    });
+
+    it('should include retryAfter in rate limit errors', async () => {
+      mockFetch.mockResolvedValueOnce(
+        createMockResponse({
+          ok: false,
+          status: 429,
+          body: {
+            success: false,
+            error: 'Too many requests, please try again later',
+            retryAfter: 60,
+          },
+        })
+      );
+
+      try {
+        await api.testFetch('/api-key', { method: 'GET' });
+      } catch (error) {
+        expect(error).toHaveProperty('retryAfter', 60);
+      }
     });
 
     it('should handle general API errors', async () => {
@@ -92,7 +116,10 @@ describe('BaseAPI', () => {
           ok: false,
           status: 400,
           statusText: 'Bad Request',
-          body: { error: 'Bad Request' },
+          body: {
+            success: false,
+            error: 'Bad Request',
+          },
         })
       );
 

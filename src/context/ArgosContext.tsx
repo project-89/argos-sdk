@@ -8,11 +8,9 @@ import React, {
 import { ArgosSDK } from '../ArgosSDK';
 import { FingerprintData } from '../types/api';
 import { log } from '../utils/logger';
-import { SecureStorage } from '../utils/storage';
 
 const STORAGE_KEYS = {
   FINGERPRINT_ID: 'argos_fingerprint_id',
-  API_KEY: 'argos_api_key',
 } as const;
 
 interface ArgosContextType {
@@ -43,13 +41,11 @@ export function ArgosProvider({
   debug = false,
 }: ArgosProviderProps) {
   const [sdk] = useState(() => new ArgosSDK({ ...config, debug }));
-  const [storage] = useState(() => new SecureStorage(debug));
   const [isOnline, setIsOnline] = useState(sdk.isOnline());
   const [fingerprintId, setFingerprintId] = useState<string | null>(null);
   const [fingerprint, setFingerprint] = useState<FingerprintData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const [isApiKeyReady, setIsApiKeyReady] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
 
   const presenceIntervalDuration = 30000; // 30 seconds
@@ -62,40 +58,6 @@ export function ArgosProvider({
       log(debug, 'Error:', errorObj);
     },
     [onError, debug]
-  );
-
-  const ensureApiKey = useCallback(
-    async (id: string) => {
-      try {
-        // Clear any existing state
-        sdk.setApiKey(undefined);
-        setIsApiKeyReady(false);
-        storage.remove(STORAGE_KEYS.API_KEY);
-
-        log(debug, 'Registering new API key for fingerprint:', id);
-        const response = await sdk.registerApiKey(id, {
-          userAgent: navigator.userAgent,
-          timestamp: Date.now(),
-        });
-
-        if (response.success && response.data) {
-          const { key } = response.data;
-          storage.set(STORAGE_KEYS.API_KEY, key, 60); // Expires in 60 minutes
-          sdk.setApiKey(key);
-          log(debug, 'New API key registered and stored securely');
-          setIsApiKeyReady(true);
-          return true;
-        }
-
-        throw new Error('Failed to register API key');
-      } catch (err) {
-        handleError(err);
-        sdk.setApiKey(undefined);
-        setIsApiKeyReady(false);
-        return false;
-      }
-    },
-    [sdk, debug, handleError, storage]
   );
 
   const trackVisit = useCallback(
@@ -149,12 +111,7 @@ export function ArgosProvider({
         setFingerprintId(id);
         setFingerprint(response.data);
         localStorage.setItem(STORAGE_KEYS.FINGERPRINT_ID, id);
-
-        // Ensure API key is available BEFORE tracking visit
-        const hasApiKey = await ensureApiKey(id);
-        if (hasApiKey) {
-          await trackVisit(id);
-        }
+        await trackVisit(id);
       } else {
         throw new Error('Failed to register fingerprint');
       }
@@ -163,7 +120,7 @@ export function ArgosProvider({
     } finally {
       setIsLoading(false);
     }
-  }, [sdk, debug, handleError, ensureApiKey, trackVisit]);
+  }, [sdk, debug, handleError, trackVisit]);
 
   // Initialization effect
   useEffect(() => {
@@ -174,7 +131,6 @@ export function ArgosProvider({
         const storedFingerprintId = localStorage.getItem(
           STORAGE_KEYS.FINGERPRINT_ID
         );
-        const storedApiKey = storage.get(STORAGE_KEYS.API_KEY);
 
         if (storedFingerprintId) {
           log(debug, 'Found stored fingerprint ID:', storedFingerprintId);
@@ -190,16 +146,6 @@ export function ArgosProvider({
             );
             if (isMounted) {
               setFingerprint(identityResponse.data);
-
-              // Only after confirming fingerprint, handle API key
-              if (!storedApiKey) {
-                const hasApiKey = await ensureApiKey(storedFingerprintId);
-                if (!hasApiKey) throw new Error('Failed to ensure API key');
-              } else {
-                sdk.setApiKey(storedApiKey);
-                setIsApiKeyReady(true);
-              }
-
               await trackVisit(storedFingerprintId);
             }
           } else {
@@ -227,7 +173,7 @@ export function ArgosProvider({
     return () => {
       isMounted = false;
     };
-  }, [sdk, debug, initializeFingerprint, ensureApiKey, trackVisit, storage]);
+  }, [sdk, debug, initializeFingerprint, trackVisit]);
 
   // Handle online/offline status
   useEffect(() => {
@@ -245,7 +191,7 @@ export function ArgosProvider({
 
   // Handle presence tracking after full initialization
   useEffect(() => {
-    if (!isInitialized || !fingerprintId || !isApiKeyReady) {
+    if (!isInitialized || !fingerprintId) {
       log(debug, 'Not starting presence tracking - initialization incomplete');
       return;
     }
@@ -287,15 +233,7 @@ export function ArgosProvider({
       isCancelled = true;
       clearInterval(presenceInterval);
     };
-  }, [
-    sdk,
-    debug,
-    fingerprintId,
-    isOnline,
-    handleError,
-    isApiKeyReady,
-    isInitialized,
-  ]);
+  }, [sdk, debug, fingerprintId, isOnline, handleError, isInitialized]);
 
   return (
     <ArgosContext.Provider
@@ -318,7 +256,7 @@ export const useArgosSDK = () => {
   if (!context) {
     throw new Error('useArgosSDK must be used within an ArgosProvider');
   }
-  return context.sdk;
+  return context;
 };
 
 export const useArgosPresence = () => {

@@ -1,13 +1,17 @@
 import { jest } from '@jest/globals';
 import { VisitAPI } from '../../api/VisitAPI';
-import type { VisitData, PresenceData } from '../../api/VisitAPI';
-import {
-  createMockFetchApi,
-  mockBaseAPI,
-  mockResponse,
-} from '../utils/testUtils';
+import type { VisitData, PresenceData } from '../../types/api';
+import { createMockFetchApi, mockResponse } from '../utils/testUtils';
 
-jest.mock('@/api/BaseAPI', () => mockBaseAPI());
+// Mock BaseAPI
+jest.mock('../../api/BaseAPI', () => {
+  return {
+    __esModule: true,
+    BaseAPI: jest.fn().mockImplementation(() => ({
+      fetchApi: jest.fn(),
+    })),
+  };
+});
 
 describe('VisitAPI', () => {
   let api: VisitAPI;
@@ -32,60 +36,106 @@ describe('VisitAPI', () => {
 
   describe('createVisit', () => {
     it('should create visit', async () => {
-      const visitRequest: VisitData = {
+      const mockVisitData: VisitData = {
+        id: 'test-id',
         fingerprintId: 'test-fingerprint',
         url: 'http://test.com',
-        timestamp: testTimestamp,
+        title: 'Test Page',
+        timestamp: new Date(testTimestamp).toISOString(),
+        site: {
+          domain: 'test.com',
+          visitCount: 1,
+        },
       };
 
-      mockFetchApi.mockResolvedValueOnce(mockResponse(undefined));
+      mockFetchApi.mockResolvedValueOnce(mockResponse(mockVisitData));
 
-      const result = await api.createVisit(visitRequest);
-      expect(result.success).toBe(true);
-      expect(result.data).toBeUndefined();
+      const result = await api.createVisit({
+        fingerprintId: 'test-fingerprint',
+        url: 'http://test.com',
+        title: 'Test Page',
+      });
+      expect(result.data).toEqual(mockVisitData);
       expect(mockFetchApi).toHaveBeenCalledWith('/visit/log', {
         method: 'POST',
-        body: JSON.stringify(visitRequest),
+        body: JSON.stringify({
+          fingerprintId: 'test-fingerprint',
+          url: 'http://test.com',
+          title: 'Test Page',
+        }),
       });
+    });
+
+    it('should handle errors', async () => {
+      const error = new Error('API Error');
+      mockFetchApi.mockRejectedValueOnce(error);
+
+      await expect(
+        api.createVisit({
+          fingerprintId: 'test-fingerprint',
+          url: 'http://test.com',
+        })
+      ).rejects.toThrow('Failed to log visit: API Error');
     });
   });
 
   describe('updatePresence', () => {
     it('should update presence', async () => {
-      const presenceData: PresenceData = {
-        fingerprintId: 'test-fingerprint',
-        status: 'online',
-        timestamp: testTimestamp,
+      const mockPresenceData: PresenceData = {
+        success: true,
+        timestamp: new Date(testTimestamp).toISOString(),
       };
 
-      mockFetchApi.mockResolvedValueOnce(mockResponse(undefined));
+      mockFetchApi.mockResolvedValueOnce(mockResponse(mockPresenceData));
 
-      const result = await api.updatePresence(presenceData);
+      const result = await api.updatePresence({
+        fingerprintId: 'test-fingerprint',
+        status: 'active',
+      });
 
-      expect(result.success).toBe(true);
-      expect(result.data).toBeUndefined();
+      expect(result.data).toEqual(mockPresenceData);
       expect(mockFetchApi).toHaveBeenCalledWith('/visit/presence', {
         method: 'POST',
-        body: JSON.stringify(presenceData),
+        body: JSON.stringify({
+          fingerprintId: 'test-fingerprint',
+          status: 'active',
+        }),
       });
+    });
+
+    it('should handle errors', async () => {
+      const error = new Error('API Error');
+      mockFetchApi.mockRejectedValueOnce(error);
+
+      await expect(
+        api.updatePresence({
+          fingerprintId: 'test-fingerprint',
+          status: 'active',
+        })
+      ).rejects.toThrow('Failed to update presence: API Error');
     });
   });
 
-  describe('getHistory', () => {
-    it('should get visit history', async () => {
+  describe('getVisitHistory', () => {
+    it('should get visit history without options', async () => {
       const mockVisits: VisitData[] = [
         {
+          id: 'test-id',
           fingerprintId: 'test-fingerprint',
           url: 'http://test.com',
-          timestamp: testTimestamp,
+          title: 'Test Page',
+          timestamp: new Date(testTimestamp).toISOString(),
+          site: {
+            domain: 'test.com',
+            visitCount: 1,
+          },
         },
       ];
 
-      mockFetchApi.mockResolvedValueOnce(mockResponse(mockVisits));
+      mockFetchApi.mockResolvedValueOnce(mockResponse({ visits: mockVisits }));
 
-      const result = await api.getHistory('test-fingerprint');
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockVisits);
+      const result = await api.getVisitHistory('test-fingerprint');
+      expect(result.data?.visits).toEqual(mockVisits);
       expect(mockFetchApi).toHaveBeenCalledWith(
         '/visit/history/test-fingerprint',
         {
@@ -93,24 +143,48 @@ describe('VisitAPI', () => {
         }
       );
     });
-  });
 
-  describe('removeSite', () => {
-    it('should remove site', async () => {
-      const request = {
-        fingerprintId: 'test-fingerprint',
-        url: 'http://test.com',
+    it('should get visit history with options', async () => {
+      const mockVisits: VisitData[] = [
+        {
+          id: 'test-id',
+          fingerprintId: 'test-fingerprint',
+          url: 'http://test.com',
+          title: 'Test Page',
+          timestamp: new Date(testTimestamp).toISOString(),
+          site: {
+            domain: 'test.com',
+            visitCount: 1,
+          },
+        },
+      ];
+
+      mockFetchApi.mockResolvedValueOnce(mockResponse({ visits: mockVisits }));
+
+      const options = {
+        limit: 10,
+        offset: 0,
+        startDate: '2024-01-01',
+        endDate: '2024-01-02',
       };
 
-      mockFetchApi.mockResolvedValueOnce(mockResponse(undefined));
+      const result = await api.getVisitHistory('test-fingerprint', options);
+      expect(result.data?.visits).toEqual(mockVisits);
+      expect(mockFetchApi).toHaveBeenCalledWith(
+        '/visit/history/test-fingerprint?limit=10&offset=0&startDate=2024-01-01&endDate=2024-01-02',
+        {
+          method: 'GET',
+        }
+      );
+    });
 
-      const result = await api.removeSite(request);
-      expect(result.success).toBe(true);
-      expect(result.data).toBeUndefined();
-      expect(mockFetchApi).toHaveBeenCalledWith('/visit/site/remove', {
-        method: 'POST',
-        body: JSON.stringify(request),
-      });
+    it('should handle errors', async () => {
+      const error = new Error('API Error');
+      mockFetchApi.mockRejectedValueOnce(error);
+
+      await expect(api.getVisitHistory('test-fingerprint')).rejects.toThrow(
+        'Failed to get visit history: API Error'
+      );
     });
   });
 });

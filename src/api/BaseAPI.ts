@@ -1,22 +1,29 @@
 import { ApiResponse } from '../types/api';
 
+const getBaseUrl = (configUrl: string) => {
+  if (process.env.NODE_ENV === 'development') {
+    return 'http://127.0.0.1:5001';
+  }
+  return configUrl;
+};
+
 export interface BaseAPIConfig {
   baseUrl: string;
-  apiKey?: string;
   debug?: boolean;
+  apiKey?: string;
 }
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'OPTIONS';
 
 export class BaseAPI {
   protected baseUrl: string;
-  protected apiKey?: string;
   protected debug: boolean;
+  protected apiKey?: string;
 
   constructor(config: BaseAPIConfig) {
-    this.baseUrl = config.baseUrl;
-    this.apiKey = config.apiKey;
+    this.baseUrl = getBaseUrl(config.baseUrl);
     this.debug = config.debug || false;
+    this.apiKey = config.apiKey;
   }
 
   protected async fetchApi<T>(
@@ -25,25 +32,16 @@ export class BaseAPI {
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseUrl}${endpoint}`;
     const method = (options.method || 'GET') as HttpMethod;
-    const isPublic = options.isPublic || false;
 
-    // Create headers object with proper typing
-    const baseHeaders: HeadersInit = {
+    const headers: HeadersInit = {
       'Content-Type': 'application/json',
       Accept: 'application/json',
-      Origin: window.location.origin,
     };
 
-    // Only add API key for non-public endpoints
-    if (this.apiKey && !isPublic) {
-      baseHeaders['X-API-Key'] = this.apiKey;
+    // Add API key header for protected endpoints
+    if (this.apiKey && !options.isPublic) {
+      headers['x-api-key'] = this.apiKey;
     }
-
-    // Merge with provided headers
-    const headers = {
-      ...baseHeaders,
-      ...(options.headers || {}),
-    };
 
     if (this.debug) {
       console.log('[Argos] API Request:', {
@@ -51,7 +49,7 @@ export class BaseAPI {
         method,
         headers: {
           ...headers,
-          'X-API-Key': this.apiKey ? '[REDACTED]' : undefined,
+          'x-api-key': this.apiKey ? '[REDACTED]' : undefined,
         },
         body: options.body ? JSON.parse(options.body as string) : undefined,
       });
@@ -62,23 +60,16 @@ export class BaseAPI {
         ...options,
         headers,
         mode: 'cors',
-        credentials: 'same-origin',
+        credentials: 'include',
         cache: 'no-cache',
         referrerPolicy: 'strict-origin-when-cross-origin',
       });
 
-      if (!response.ok) {
-        let errorMessage = `API request failed with status ${response.status}`;
-        let errorDetails = {};
+      const data = await response.json();
 
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-          errorDetails = errorData;
-        } catch (e) {
-          // If we can't parse the error response, use the status text
-          errorMessage = response.statusText || errorMessage;
-        }
+      if (!response.ok) {
+        const errorMessage =
+          data.error || `API request failed with status ${response.status}`;
 
         if (this.debug) {
           console.error('[Argos] Request failed:', {
@@ -87,14 +78,20 @@ export class BaseAPI {
             status: response.status,
             statusText: response.statusText,
             error: errorMessage,
-            details: errorDetails,
           });
+        }
+
+        // Handle rate limiting
+        if (response.status === 429 && data.retryAfter) {
+          const error = new Error(errorMessage) as Error & {
+            retryAfter?: number;
+          };
+          error.retryAfter = data.retryAfter;
+          throw error;
         }
 
         throw new Error(errorMessage);
       }
-
-      const data = await response.json();
 
       if (this.debug) {
         console.log('[Argos] API Response:', {

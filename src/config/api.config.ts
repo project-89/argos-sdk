@@ -1,33 +1,28 @@
-import { BaseAPIConfig } from "../api/BaseAPI";
+import { BaseAPIConfig } from '../api/BaseAPI';
 
-const isDevelopment = process.env.NODE_ENV === "development";
-const isTest = process.env.NODE_ENV === "test";
-
-// Firebase project configuration
-const config = {
-  projectId: "argos-434718",
-  region: "us-central1",
-};
+const isDevelopment = process.env.NODE_ENV === 'development';
+const isTest = process.env.NODE_ENV === 'test';
 
 // Base URL configuration
 const getBaseUrl = (): string => {
   if (isDevelopment || isTest) {
     // Local development using Firebase Emulator
-    return `http://127.0.0.1:5001/${config.projectId}/${config.region}/api`;
+    return 'http://127.0.0.1:5001';
   }
 
-  // Production URL - replace with your actual production URL
-  return `https://${config.region}-${config.projectId}.cloudfunctions.net/api`;
+  // Production URL
+  return 'https://argos.project89.org';
 };
 
 export const apiConfig: BaseAPIConfig = {
   baseUrl: getBaseUrl(),
+  debug: isDevelopment || isTest,
 };
 
 // Export other useful configurations
 export const API_CONFIG = {
-  ...config,
   isDevelopment,
   isTest,
   baseUrl: getBaseUrl(),
+  debug: isDevelopment || isTest,
 };

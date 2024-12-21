@@ -1,13 +1,17 @@
 import { jest } from '@jest/globals';
 import { PriceAPI } from '../../api/PriceAPI';
 import type { PriceData } from '../../types/api';
-import {
-  createMockFetchApi,
-  mockBaseAPI,
-  mockResponse,
-} from '../utils/testUtils';
+import { createMockFetchApi, mockResponse } from '../utils/testUtils';
 
-jest.mock('@/api/BaseAPI', () => mockBaseAPI());
+// Mock BaseAPI
+jest.mock('../../api/BaseAPI', () => {
+  return {
+    __esModule: true,
+    BaseAPI: jest.fn().mockImplementation(() => ({
+      fetchApi: jest.fn(),
+    })),
+  };
+});
 
 describe('PriceAPI', () => {
   let api: PriceAPI;
@@ -29,8 +33,13 @@ describe('PriceAPI', () => {
   describe('getCurrentPrice', () => {
     it('should get current price', async () => {
       const expectedResponse: PriceData = {
-        usd: 100,
-        usd_24h_change: 5,
+        prices: {
+          'token-1': {
+            price: 100,
+            timestamp: new Date().toISOString(),
+            change24h: 5,
+          },
+        },
       };
 
       mockFetchApi.mockResolvedValueOnce(mockResponse(expectedResponse));
@@ -56,12 +65,13 @@ describe('PriceAPI', () => {
     it('should get price history without date range', async () => {
       const expectedResponse: PriceData[] = [
         {
-          usd: 100,
-          usd_24h_change: 5,
-        },
-        {
-          usd: 110,
-          usd_24h_change: 10,
+          prices: {
+            'token-1': {
+              price: 100,
+              timestamp: new Date().toISOString(),
+              change24h: 5,
+            },
+          },
         },
       ];
 
@@ -77,12 +87,13 @@ describe('PriceAPI', () => {
     it('should get price history with date range', async () => {
       const expectedResponse: PriceData[] = [
         {
-          usd: 100,
-          usd_24h_change: 5,
-        },
-        {
-          usd: 110,
-          usd_24h_change: 10,
+          prices: {
+            'token-1': {
+              price: 100,
+              timestamp: new Date().toISOString(),
+              change24h: 5,
+            },
+          },
         },
       ];
 

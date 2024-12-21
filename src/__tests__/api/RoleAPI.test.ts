@@ -1,13 +1,17 @@
 import { jest } from '@jest/globals';
 import { RoleAPI } from '../../api/RoleAPI';
 import type { RoleData } from '../../types/api';
-import {
-  createMockFetchApi,
-  mockBaseAPI,
-  mockResponse,
-} from '../utils/testUtils';
+import { createMockFetchApi, mockResponse } from '../utils/testUtils';
 
-jest.mock('@/api/BaseAPI', () => mockBaseAPI());
+// Mock BaseAPI
+jest.mock('../../api/BaseAPI', () => {
+  return {
+    __esModule: true,
+    BaseAPI: jest.fn().mockImplementation(() => ({
+      fetchApi: jest.fn(),
+    })),
+  };
+});
 
 describe('RoleAPI', () => {
   let api: RoleAPI;
@@ -52,9 +56,7 @@ describe('RoleAPI', () => {
   describe('addRoles', () => {
     it('should add roles', async () => {
       const mockRoleData: RoleData = {
-        fingerprintId: 'test-fingerprint',
         roles: ['user'],
-        timestamp: new Date().toISOString(),
       };
 
       mockFetchApi.mockResolvedValueOnce(mockResponse(mockRoleData));
@@ -83,9 +85,7 @@ describe('RoleAPI', () => {
   describe('getRoles', () => {
     it('should get roles', async () => {
       const mockRoleData: RoleData = {
-        fingerprintId: 'test-fingerprint',
         roles: ['user'],
-        timestamp: new Date().toISOString(),
       };
 
       mockFetchApi.mockResolvedValueOnce(mockResponse(mockRoleData));
@@ -110,9 +110,7 @@ describe('RoleAPI', () => {
   describe('removeRoles', () => {
     it('should remove roles', async () => {
       const mockRoleData: RoleData = {
-        fingerprintId: 'test-fingerprint',
         roles: [],
-        timestamp: new Date().toISOString(),
       };
 
       mockFetchApi.mockResolvedValueOnce(mockResponse(mockRoleData));

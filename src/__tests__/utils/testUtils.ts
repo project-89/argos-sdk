@@ -20,12 +20,12 @@ export const createMockFetchApi = <T = any>() =>
     .fn<() => Promise<ApiResponse<T>>>()
     .mockImplementation(() => Promise.resolve(mockResponse({} as T)));
 
-export const mockBaseAPI = () => ({
+export const mockBaseAPI = jest.fn(() => ({
   __esModule: true,
   BaseAPI: jest.fn().mockImplementation(() => ({
     fetchApi: createMockFetchApi(),
   })),
-});
+}));
 
 class MockHeaders {
   private headers: Map<string, string>;
