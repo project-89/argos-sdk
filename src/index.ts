@@ -1,6 +1,6 @@
 export { ArgosSDK } from './ArgosSDK';
 export type { ArgosSDKConfig } from './ArgosSDK';
-export type * from './types/api';
+export * from './types/api';
 export { ArgosProvider } from './context/ArgosContext';
 export { useArgosSDK } from './hooks/useArgosSDK';
 export { useFingerprint } from './hooks/useFingerprint';

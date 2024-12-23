@@ -36,8 +36,8 @@ describe('TagAPI', () => {
 
     it('should update tags', async () => {
       const expectedResponse: TagData = {
-        fingerprintId: mockFingerprintId,
-        tags: { 'test-tag': 1 },
+        tags: ['test-tag'],
+        metadata: { fingerprintId: mockFingerprintId },
       };
 
       mockFetchApi.mockResolvedValueOnce(mockResponse(expectedResponse));
@@ -67,8 +67,8 @@ describe('TagAPI', () => {
 
     it('should get tags', async () => {
       const expectedResponse: TagData = {
-        fingerprintId: mockFingerprintId,
-        tags: { 'test-tag': 1 },
+        tags: ['test-tag'],
+        metadata: { fingerprintId: mockFingerprintId },
       };
 
       mockFetchApi.mockResolvedValueOnce(mockResponse(expectedResponse));

@@ -33,9 +33,11 @@ describe('DebugAPI', () => {
   describe('getDebugInfo', () => {
     it('should get debug info', async () => {
       const expectedResponse: DebugData = {
-        message: 'test message',
-        timestamp: Date.now(),
-        data: { test: true },
+        timestamp: new Date().toISOString(),
+        environment: 'test',
+        version: '1.0.0',
+        config: { test: true },
+        metrics: { test: true },
       };
 
       mockFetchApi.mockResolvedValueOnce(mockResponse(expectedResponse));

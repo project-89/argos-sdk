@@ -33,14 +33,10 @@ describe('RealityStabilityAPI', () => {
   describe('getCurrentStability', () => {
     it('should get current stability', async () => {
       const expectedResponse: RealityStabilityData = {
-        index: 0.85,
-        timestamp: Date.now(),
-        metadata: { test: true },
-        factors: {
-          priceStability: 0.9,
-          networkActivity: 0.8,
-          socialSentiment: 0.85,
-        },
+        stability: 0.85,
+        timestamp: new Date().toISOString(),
+        factors: { test: 1.0 },
+        trend: 'stable',
       };
 
       mockFetchApi.mockResolvedValueOnce(mockResponse(expectedResponse));
