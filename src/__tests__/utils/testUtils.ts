@@ -1,31 +1,15 @@
-import { jest } from '@jest/globals';
 import { ApiResponse } from '../../types/api';
 
-export const mockResponse = <T>(data: T): ApiResponse<T> => ({
-  success: true,
-  data,
-});
+export function mockResponse<T>(data: T): ApiResponse<T> {
+  return {
+    success: true,
+    data,
+  };
+}
 
-export const createMockFetch = () =>
-  jest.fn<typeof fetch>().mockImplementation(() =>
-    Promise.resolve(
-      createMockResponse({
-        body: { success: true, data: {} },
-      })
-    )
-  );
-
-export const createMockFetchApi = <T = any>() =>
-  jest
-    .fn<() => Promise<ApiResponse<T>>>()
-    .mockImplementation(() => Promise.resolve(mockResponse({} as T)));
-
-export const mockBaseAPI = jest.fn(() => ({
-  __esModule: true,
-  BaseAPI: jest.fn().mockImplementation(() => ({
-    fetchApi: createMockFetchApi(),
-  })),
-}));
+export function createMockFetchApi() {
+  return jest.fn();
+}
 
 class MockHeaders {
   private headers: Map<string, string>;
@@ -80,13 +64,13 @@ class MockHeaders {
   }
 }
 
-export const createMockResponse = (options: {
+export function createMockResponse(options: {
   ok?: boolean;
   status?: number;
   statusText?: string;
   headers?: Record<string, string>;
   body?: any;
-}): Response => {
+}): Response {
   const {
     ok = true,
     status = 200,
@@ -111,8 +95,7 @@ export const createMockResponse = (options: {
     formData: () => Promise.resolve(new FormData()),
     arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
     clone: () => createMockResponse(options),
-    bytes: () => Promise.resolve(new Uint8Array()),
   };
 
   return mockResponse as unknown as Response;
-};
+}

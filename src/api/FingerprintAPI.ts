@@ -49,12 +49,12 @@ export class FingerprintAPI extends BaseAPI {
    */
   public async updateFingerprint(
     id: string,
-    metadata: Record<string, any>
+    data: { metadata?: Record<string, any> }
   ): Promise<ApiResponse<Fingerprint>> {
     try {
       return await this.fetchApi<Fingerprint>(`/fingerprint/${id}`, {
         method: 'PUT',
-        body: JSON.stringify({ metadata }),
+        body: JSON.stringify(data),
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

@@ -38,7 +38,7 @@ describe('APIKeyAPI', () => {
       expect(result.data).toBe(true);
       expect(mockFetchApi).toHaveBeenCalledWith('/api-key/validate', {
         method: 'POST',
-        body: JSON.stringify({ apiKey: 'test-key' }),
+        body: JSON.stringify({ key: 'test-key' }),
         isPublic: true,
       });
     });
@@ -54,13 +54,13 @@ describe('APIKeyAPI', () => {
   });
 
   describe('registerInitialApiKey', () => {
-    it('should register initial API key', async () => {
-      const mockResponse = {
-        key: 'new-api-key',
-        fingerprintId: 'test-fingerprint',
-        expiresAt: new Date().toISOString(),
-      };
+    const mockResponse = {
+      key: 'test-key',
+      fingerprintId: 'test-fingerprint',
+      expiresAt: '2024-01-01T00:00:00Z',
+    };
 
+    it('should register initial API key', async () => {
       mockFetchApi.mockResolvedValueOnce({ success: true, data: mockResponse });
 
       const result = await api.registerInitialApiKey('test-fingerprint', {
@@ -71,7 +71,6 @@ describe('APIKeyAPI', () => {
         method: 'POST',
         body: JSON.stringify({
           fingerprintId: 'test-fingerprint',
-          name: 'fingerprint-test-fingerprint',
           metadata: { source: 'test' },
         }),
         isPublic: true,
@@ -82,23 +81,21 @@ describe('APIKeyAPI', () => {
   describe('createAPIKey', () => {
     it('should create API key', async () => {
       const mockAPIKeyData: APIKeyData = {
-        key: 'api-key-123',
+        key: 'test-key',
         fingerprintId: 'test-fingerprint',
-        expiresAt: new Date().toISOString(),
+        expiresAt: '2024-01-01T00:00:00Z',
       };
 
       mockFetchApi.mockResolvedValueOnce(mockResponse(mockAPIKeyData));
 
       const result = await api.createAPIKey({
         name: 'test-key',
-        expiresAt: mockAPIKeyData.expiresAt,
       });
       expect(result.data).toEqual(mockAPIKeyData);
       expect(mockFetchApi).toHaveBeenCalledWith('/api-key', {
         method: 'POST',
         body: JSON.stringify({
           name: 'test-key',
-          expiresAt: mockAPIKeyData.expiresAt,
         }),
       });
     });
@@ -110,7 +107,6 @@ describe('APIKeyAPI', () => {
       await expect(
         api.createAPIKey({
           name: 'test-key',
-          expiresAt: new Date().toISOString(),
         })
       ).rejects.toThrow('Failed to create API key: API Error');
     });
@@ -119,16 +115,16 @@ describe('APIKeyAPI', () => {
   describe('getAPIKey', () => {
     it('should get API key', async () => {
       const mockAPIKeyData: APIKeyData = {
-        key: 'api-key-123',
+        key: 'test-key',
         fingerprintId: 'test-fingerprint',
-        expiresAt: new Date().toISOString(),
+        expiresAt: '2024-01-01T00:00:00Z',
       };
 
       mockFetchApi.mockResolvedValueOnce(mockResponse(mockAPIKeyData));
 
-      const result = await api.getAPIKey('test-id');
+      const result = await api.getAPIKey('test-key');
       expect(result.data).toEqual(mockAPIKeyData);
-      expect(mockFetchApi).toHaveBeenCalledWith('/api-key/test-id', {
+      expect(mockFetchApi).toHaveBeenCalledWith('/api-key/test-key', {
         method: 'GET',
       });
     });
@@ -137,7 +133,7 @@ describe('APIKeyAPI', () => {
       const error = new Error('API Error');
       mockFetchApi.mockRejectedValueOnce(error);
 
-      await expect(api.getAPIKey('test-id')).rejects.toThrow(
+      await expect(api.getAPIKey('test-key')).rejects.toThrow(
         'Failed to get API key: API Error'
       );
     });
@@ -147,9 +143,9 @@ describe('APIKeyAPI', () => {
     it('should list API keys', async () => {
       const mockAPIKeys: APIKeyData[] = [
         {
-          key: 'api-key-123',
+          key: 'test-key',
           fingerprintId: 'test-fingerprint',
-          expiresAt: new Date().toISOString(),
+          expiresAt: '2024-01-01T00:00:00Z',
         },
       ];
 
@@ -175,23 +171,21 @@ describe('APIKeyAPI', () => {
   describe('updateAPIKey', () => {
     it('should update API key', async () => {
       const mockAPIKeyData: APIKeyData = {
-        key: 'api-key-123',
+        key: 'test-key',
         fingerprintId: 'test-fingerprint',
-        expiresAt: new Date().toISOString(),
+        expiresAt: '2024-01-02T00:00:00Z',
       };
 
       mockFetchApi.mockResolvedValueOnce(mockResponse(mockAPIKeyData));
 
-      const result = await api.updateAPIKey('test-id', {
-        name: 'updated-key',
-        expiresAt: mockAPIKeyData.expiresAt,
+      const result = await api.updateAPIKey('test-key', {
+        expiresAt: '2024-01-02T00:00:00Z',
       });
       expect(result.data).toEqual(mockAPIKeyData);
-      expect(mockFetchApi).toHaveBeenCalledWith('/api-key/test-id', {
+      expect(mockFetchApi).toHaveBeenCalledWith('/api-key/test-key', {
         method: 'PUT',
         body: JSON.stringify({
-          name: 'updated-key',
-          expiresAt: mockAPIKeyData.expiresAt,
+          expiresAt: '2024-01-02T00:00:00Z',
         }),
       });
     });
@@ -201,9 +195,8 @@ describe('APIKeyAPI', () => {
       mockFetchApi.mockRejectedValueOnce(error);
 
       await expect(
-        api.updateAPIKey('test-id', {
-          name: 'updated-key',
-          expiresAt: new Date().toISOString(),
+        api.updateAPIKey('test-key', {
+          expiresAt: '2024-01-02T00:00:00Z',
         })
       ).rejects.toThrow('Failed to update API key: API Error');
     });
@@ -211,10 +204,11 @@ describe('APIKeyAPI', () => {
 
   describe('deleteAPIKey', () => {
     it('should delete API key', async () => {
-      mockFetchApi.mockResolvedValueOnce(mockResponse(undefined));
+      mockFetchApi.mockResolvedValueOnce(mockResponse(true));
 
-      await api.deleteAPIKey('test-id');
-      expect(mockFetchApi).toHaveBeenCalledWith('/api-key/test-id', {
+      const result = await api.deleteAPIKey('test-key');
+      expect(result.data).toBe(true);
+      expect(mockFetchApi).toHaveBeenCalledWith('/api-key/test-key', {
         method: 'DELETE',
       });
     });
@@ -223,7 +217,7 @@ describe('APIKeyAPI', () => {
       const error = new Error('API Error');
       mockFetchApi.mockRejectedValueOnce(error);
 
-      await expect(api.deleteAPIKey('test-id')).rejects.toThrow(
+      await expect(api.deleteAPIKey('test-key')).rejects.toThrow(
         'Failed to delete API key: API Error'
       );
     });

@@ -1,6 +1,5 @@
 import { jest } from '@jest/globals';
 import { PriceAPI } from '../../api/PriceAPI';
-import type { PriceData } from '../../types/api';
 import { createMockFetchApi, mockResponse } from '../utils/testUtils';
 
 // Mock BaseAPI
@@ -30,21 +29,21 @@ describe('PriceAPI', () => {
     jest.resetAllMocks();
   });
 
-  describe('getCurrentPrice', () => {
-    it('should get current price', async () => {
-      const expectedResponse: PriceData = {
-        prices: {
-          'token-1': {
-            price: 100,
-            timestamp: new Date().toISOString(),
-            change24h: 5,
-          },
+  describe('getCurrentPrices', () => {
+    const expectedResponse = {
+      prices: {
+        'token-1': {
+          price: 100,
+          timestamp: '2024-01-01T00:00:00Z',
+          change24h: 5,
         },
-      };
+      },
+    };
 
+    it('should get current prices', async () => {
       mockFetchApi.mockResolvedValueOnce(mockResponse(expectedResponse));
 
-      const result = await api.getCurrentPrice();
+      const result = await api.getCurrentPrices();
       expect(result.data).toEqual(expectedResponse);
       expect(mockFetchApi).toHaveBeenCalledWith('/price/current', {
         method: 'GET',
@@ -55,56 +54,42 @@ describe('PriceAPI', () => {
       const error = new Error('API Error');
       mockFetchApi.mockRejectedValueOnce(error);
 
-      await expect(api.getCurrentPrice()).rejects.toThrow(
-        'Failed to get current price: API Error'
+      await expect(api.getCurrentPrices()).rejects.toThrow(
+        'Failed to get current prices: API Error'
       );
     });
   });
 
   describe('getPriceHistory', () => {
-    it('should get price history without date range', async () => {
-      const expectedResponse: PriceData[] = [
+    const expectedResponse = {
+      history: [
         {
-          prices: {
-            'token-1': {
-              price: 100,
-              timestamp: new Date().toISOString(),
-              change24h: 5,
-            },
-          },
+          price: 100,
+          timestamp: '2024-01-01T00:00:00Z',
         },
-      ];
+      ],
+    };
 
+    it('should get price history without options', async () => {
       mockFetchApi.mockResolvedValueOnce(mockResponse(expectedResponse));
 
-      const result = await api.getPriceHistory();
+      const result = await api.getPriceHistory('token-1');
       expect(result.data).toEqual(expectedResponse);
-      expect(mockFetchApi).toHaveBeenCalledWith('/price/history', {
+      expect(mockFetchApi).toHaveBeenCalledWith('/price/history/token-1', {
         method: 'GET',
       });
     });
 
-    it('should get price history with date range', async () => {
-      const expectedResponse: PriceData[] = [
-        {
-          prices: {
-            'token-1': {
-              price: 100,
-              timestamp: new Date().toISOString(),
-              change24h: 5,
-            },
-          },
-        },
-      ];
-
+    it('should get price history with options', async () => {
       mockFetchApi.mockResolvedValueOnce(mockResponse(expectedResponse));
 
-      const startDate = '2023-12-01';
-      const endDate = '2023-12-07';
-      const result = await api.getPriceHistory(startDate, endDate);
+      const result = await api.getPriceHistory('token-1', {
+        interval: '24h',
+        limit: 10,
+      });
       expect(result.data).toEqual(expectedResponse);
       expect(mockFetchApi).toHaveBeenCalledWith(
-        `/price/history?startDate=${startDate}&endDate=${endDate}`,
+        '/price/history/token-1?interval=24h&limit=10',
         {
           method: 'GET',
         }
@@ -115,7 +100,7 @@ describe('PriceAPI', () => {
       const error = new Error('API Error');
       mockFetchApi.mockRejectedValueOnce(error);
 
-      await expect(api.getPriceHistory()).rejects.toThrow(
+      await expect(api.getPriceHistory('token-1')).rejects.toThrow(
         'Failed to get price history: API Error'
       );
     });

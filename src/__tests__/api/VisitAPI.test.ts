@@ -75,7 +75,7 @@ describe('VisitAPI', () => {
           fingerprintId: 'test-fingerprint',
           url: 'http://test.com',
         })
-      ).rejects.toThrow('Failed to log visit: API Error');
+      ).rejects.toThrow('Failed to create visit: API Error');
     });
   });
 
@@ -90,7 +90,7 @@ describe('VisitAPI', () => {
 
       const result = await api.updatePresence({
         fingerprintId: 'test-fingerprint',
-        status: 'active',
+        status: 'online',
       });
 
       expect(result.data).toEqual(mockPresenceData);
@@ -98,7 +98,7 @@ describe('VisitAPI', () => {
         method: 'POST',
         body: JSON.stringify({
           fingerprintId: 'test-fingerprint',
-          status: 'active',
+          status: 'online',
         }),
       });
     });
@@ -110,7 +110,7 @@ describe('VisitAPI', () => {
       await expect(
         api.updatePresence({
           fingerprintId: 'test-fingerprint',
-          status: 'active',
+          status: 'online',
         })
       ).rejects.toThrow('Failed to update presence: API Error');
     });

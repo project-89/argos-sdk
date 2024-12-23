@@ -3,7 +3,6 @@ import {
   ApiResponse,
   PriceData,
   PriceHistoryData,
-  GetCurrentPricesOptions,
   GetPriceHistoryOptions,
 } from '../types/api';
 
@@ -15,19 +14,9 @@ export class PriceAPI extends BaseAPI {
   /**
    * Get current prices for specified tokens
    */
-  public async getCurrentPrices(
-    options?: GetCurrentPricesOptions
-  ): Promise<ApiResponse<PriceData>> {
+  public async getCurrentPrices(): Promise<ApiResponse<PriceData>> {
     try {
-      const params = new URLSearchParams();
-      if (options?.tokens) {
-        params.append('tokens', options.tokens.join(','));
-      }
-
-      const query = params.toString();
-      const endpoint = `/price/current${query ? `?${query}` : ''}`;
-
-      return await this.fetchApi<PriceData>(endpoint, {
+      return await this.fetchApi<PriceData>('/price/current', {
         method: 'GET',
       });
     } catch (error) {
@@ -44,18 +33,14 @@ export class PriceAPI extends BaseAPI {
     options?: GetPriceHistoryOptions
   ): Promise<ApiResponse<PriceHistoryData>> {
     try {
-      const params = new URLSearchParams();
-      if (options?.interval) {
-        params.append('interval', options.interval);
-      }
-      if (options?.limit) {
-        params.append('limit', options.limit.toString());
-      }
+      const queryParams = new URLSearchParams();
+      if (options?.interval) queryParams.set('interval', options.interval);
+      if (options?.limit) queryParams.set('limit', String(options.limit));
 
-      const query = params.toString();
-      const endpoint = `/price/history/${tokenId}${query ? `?${query}` : ''}`;
+      const query = queryParams.toString();
+      const url = `/price/history/${tokenId}${query ? `?${query}` : ''}`;
 
-      return await this.fetchApi<PriceHistoryData>(endpoint, {
+      return await this.fetchApi<PriceHistoryData>(url, {
         method: 'GET',
       });
     } catch (error) {

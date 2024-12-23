@@ -123,9 +123,9 @@ export class APIKeyAPI extends BaseAPI {
     }
   }
 
-  public async deleteAPIKey(id: string): Promise<void> {
+  public async deleteAPIKey(key: string): Promise<ApiResponse<boolean>> {
     try {
-      await this.fetchApi(`/api-key/${id}`, {
+      return await this.fetchApi<boolean>(`/api-key/${key}`, {
         method: 'DELETE',
       });
     } catch (error) {

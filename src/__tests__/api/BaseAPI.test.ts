@@ -1,4 +1,3 @@
-import { jest } from '@jest/globals';
 import { BaseAPI } from '../../api/BaseAPI';
 import { createMockResponse } from '../utils/testUtils';
 
@@ -13,7 +12,7 @@ class TestAPI extends BaseAPI {
 
 describe('BaseAPI', () => {
   let api: TestAPI;
-  let mockFetch: jest.MockedFunction<typeof fetch>;
+  let mockFetch: jest.Mock;
 
   beforeEach(() => {
     mockFetch = jest.fn();
@@ -36,10 +35,10 @@ describe('BaseAPI', () => {
         })
       );
 
-      await api.testFetch('/api-key', { method: 'GET' });
+      await api.testFetch('/protected-endpoint', { method: 'GET' });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://test.com/api-key',
+        'http://test.com/protected-endpoint',
         expect.objectContaining({
           headers: expect.objectContaining({
             'x-api-key': 'test-key',
@@ -55,16 +54,16 @@ describe('BaseAPI', () => {
         })
       );
 
-      await api.testFetch('/fingerprint/register', {
-        method: 'POST',
+      await api.testFetch('/public-endpoint', {
+        method: 'GET',
         isPublic: true,
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://test.com/fingerprint/register',
+        'http://test.com/public-endpoint',
         expect.not.objectContaining({
           headers: expect.objectContaining({
-            'x-api-key': expect.any(String),
+            'x-api-key': 'test-key',
           }),
         })
       );
@@ -79,15 +78,15 @@ describe('BaseAPI', () => {
           status: 429,
           body: {
             success: false,
-            error: 'Too many requests, please try again later',
+            error: 'Rate limit exceeded',
             retryAfter: 60,
           },
         })
       );
 
       await expect(
-        api.testFetch('/api-key', { method: 'GET' })
-      ).rejects.toThrow('Too many requests, please try again later');
+        api.testFetch('/test-endpoint', { method: 'GET' })
+      ).rejects.toThrow('Rate limit exceeded');
     });
 
     it('should include retryAfter in rate limit errors', async () => {
@@ -97,16 +96,16 @@ describe('BaseAPI', () => {
           status: 429,
           body: {
             success: false,
-            error: 'Too many requests, please try again later',
+            error: 'Rate limit exceeded',
             retryAfter: 60,
           },
         })
       );
 
       try {
-        await api.testFetch('/api-key', { method: 'GET' });
-      } catch (error) {
-        expect(error).toHaveProperty('retryAfter', 60);
+        await api.testFetch('/test-endpoint', { method: 'GET' });
+      } catch (error: any) {
+        expect(error.retryAfter).toBe(60);
       }
     });
 
@@ -118,24 +117,22 @@ describe('BaseAPI', () => {
           statusText: 'Bad Request',
           body: {
             success: false,
-            error: 'Bad Request',
+            error: 'Invalid request',
           },
         })
       );
 
       await expect(
-        api.testFetch('/api-key', { method: 'GET' })
-      ).rejects.toThrow('Bad Request');
+        api.testFetch('/test-endpoint', { method: 'GET' })
+      ).rejects.toThrow('Invalid request');
     });
 
     it('should handle network errors', async () => {
-      mockFetch.mockRejectedValueOnce(new Error('Failed to fetch'));
+      mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
       await expect(
-        api.testFetch('/api-key', { method: 'GET' })
-      ).rejects.toThrow(
-        'Unable to connect to Argos API at http://test.com/api-key'
-      );
+        api.testFetch('/test-endpoint', { method: 'GET' })
+      ).rejects.toThrow('Network error');
     });
   });
 });

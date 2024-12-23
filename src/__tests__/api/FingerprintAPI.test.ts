@@ -65,6 +65,7 @@ describe('FingerprintAPI', () => {
             platform: 'test-platform',
           },
         }),
+        isPublic: true,
       });
     });
 

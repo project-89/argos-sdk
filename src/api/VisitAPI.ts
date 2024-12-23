@@ -62,7 +62,8 @@ export class VisitAPI extends BaseAPI {
     try {
       const queryParams = new URLSearchParams();
       if (options?.limit) queryParams.set('limit', String(options.limit));
-      if (options?.offset) queryParams.set('offset', String(options.offset));
+      if (options?.offset !== undefined)
+        queryParams.set('offset', String(options.offset));
       if (options?.startDate) queryParams.set('startDate', options.startDate);
       if (options?.endDate) queryParams.set('endDate', options.endDate);
 
