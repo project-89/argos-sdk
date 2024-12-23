@@ -11,13 +11,13 @@ export interface CacheEntry<T> {
 export class CacheService {
   private storage: Storage;
   private ttl: number;
-  private prefix = "argos_cache_";
+  private prefix = 'argos_cache_';
 
   constructor(config: CacheConfig) {
     this.ttl = config.ttl;
     this.storage =
       config.storage ||
-      (typeof localStorage !== "undefined"
+      (typeof localStorage !== 'undefined'
         ? localStorage
         : new MemoryStorage());
   }
@@ -35,7 +35,7 @@ export class CacheService {
 
       return entry.data;
     } catch (error) {
-      console.error("Cache get error:", error);
+      console.error('Cache get error:', error);
       return null;
     }
   }
@@ -48,7 +48,7 @@ export class CacheService {
       };
       this.storage.setItem(this.prefix + key, JSON.stringify(entry));
     } catch (error) {
-      console.error("Cache set error:", error);
+      console.error('Cache set error:', error);
     }
   }
 
@@ -71,7 +71,7 @@ export class CacheService {
         }
       }
     } catch (error) {
-      console.error("Cache clear error:", error);
+      console.error('Cache clear error:', error);
     }
   }
 }

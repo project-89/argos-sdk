@@ -1,5 +1,5 @@
-import { BaseAPI, BaseAPIConfig } from "./BaseAPI";
-import { ApiResponse, TagData } from "../types/api";
+import { BaseAPI, BaseAPIConfig } from './BaseAPI';
+import { ApiResponse, TagData } from '../types/api';
 
 export interface UpdateTagsRequest {
   tags: string[];
@@ -16,7 +16,7 @@ export class TagAPI extends BaseAPI {
   ): Promise<ApiResponse<TagData>> {
     try {
       return await this.fetchApi<TagData>(`/tag/${fingerprintId}`, {
-        method: "PUT",
+        method: 'PUT',
         body: JSON.stringify(request),
       });
     } catch (error) {
@@ -29,7 +29,7 @@ export class TagAPI extends BaseAPI {
   public async getTags(fingerprintId: string): Promise<ApiResponse<TagData>> {
     try {
       return await this.fetchApi<TagData>(`/tag/${fingerprintId}`, {
-        method: "GET",
+        method: 'GET',
       });
     } catch (error) {
       throw new Error(
@@ -41,7 +41,7 @@ export class TagAPI extends BaseAPI {
   public async deleteTags(fingerprintId: string): Promise<void> {
     try {
       await this.fetchApi(`/tag/${fingerprintId}`, {
-        method: "DELETE",
+        method: 'DELETE',
       });
     } catch (error) {
       throw new Error(

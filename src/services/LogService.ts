@@ -53,7 +53,7 @@ export class LogService {
 
     // Console output for development
     const logMethod = this.getConsoleMethod(level);
-    const prefix = category ? `[${category}] ` : "";
+    const prefix = category ? `[${category}] ` : '';
 
     if (data) {
       console[logMethod](prefix + message, data);
@@ -64,16 +64,16 @@ export class LogService {
 
   private getConsoleMethod(
     level: LogLevel
-  ): "debug" | "info" | "warn" | "error" {
+  ): 'debug' | 'info' | 'warn' | 'error' {
     switch (level) {
       case LogLevel.DEBUG:
-        return "debug";
+        return 'debug';
       case LogLevel.INFO:
-        return "info";
+        return 'info';
       case LogLevel.WARN:
-        return "warn";
+        return 'warn';
       case LogLevel.ERROR:
-        return "error";
+        return 'error';
     }
   }
 

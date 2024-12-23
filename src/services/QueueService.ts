@@ -23,11 +23,11 @@ export class QueueService {
     this.maxRetries = config.maxRetries;
     this.retryDelay = config.retryDelay;
     this.loadQueue();
-    window?.addEventListener("online", () => this.processQueue());
+    window?.addEventListener('online', () => this.processQueue());
   }
 
   async enqueue(
-    request: Omit<QueuedRequest, "id" | "retries" | "timestamp">
+    request: Omit<QueuedRequest, 'id' | 'retries' | 'timestamp'>
   ): Promise<void> {
     const queuedRequest: QueuedRequest = {
       ...request,
@@ -91,26 +91,26 @@ export class QueueService {
 
   private saveQueue(): void {
     try {
-      localStorage.setItem("argos_queue", JSON.stringify(this.queue));
+      localStorage.setItem('argos_queue', JSON.stringify(this.queue));
     } catch (error) {
-      console.error("Error saving queue:", error);
+      console.error('Error saving queue:', error);
     }
   }
 
   private loadQueue(): void {
     try {
-      const saved = localStorage.getItem("argos_queue");
+      const saved = localStorage.getItem('argos_queue');
       if (saved) {
         this.queue = JSON.parse(saved);
       }
     } catch (error) {
-      console.error("Error loading queue:", error);
+      console.error('Error loading queue:', error);
       this.queue = [];
     }
   }
 
   destroy(): void {
-    window?.removeEventListener("online", () => this.processQueue());
+    window?.removeEventListener('online', () => this.processQueue());
     this.queue = [];
     this.saveQueue();
   }

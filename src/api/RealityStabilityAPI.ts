@@ -1,5 +1,5 @@
-import { BaseAPI, BaseAPIConfig } from "./BaseAPI";
-import { ApiResponse, RealityStabilityData } from "../types/api";
+import { BaseAPI, BaseAPIConfig } from './BaseAPI';
+import { ApiResponse, RealityStabilityData } from '../types/api';
 
 export class RealityStabilityAPI extends BaseAPI {
   constructor(config: BaseAPIConfig) {
@@ -10,8 +10,8 @@ export class RealityStabilityAPI extends BaseAPI {
     ApiResponse<RealityStabilityData>
   > {
     try {
-      return await this.fetchApi<RealityStabilityData>("/reality-stability", {
-        method: "GET",
+      return await this.fetchApi<RealityStabilityData>('/reality-stability', {
+        method: 'GET',
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
