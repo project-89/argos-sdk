@@ -51,8 +51,7 @@ describe('PriceAPI', () => {
     });
 
     it('should handle errors', async () => {
-      const error = new Error('API Error');
-      mockFetchApi.mockRejectedValueOnce(error);
+      mockFetchApi.mockRejectedValueOnce(new Error('API Error'));
 
       await expect(api.getCurrentPrices()).rejects.toThrow(
         'Failed to get current prices: API Error'
@@ -97,8 +96,7 @@ describe('PriceAPI', () => {
     });
 
     it('should handle errors', async () => {
-      const error = new Error('API Error');
-      mockFetchApi.mockRejectedValueOnce(error);
+      mockFetchApi.mockRejectedValueOnce(new Error('API Error'));
 
       await expect(api.getPriceHistory('token-1')).rejects.toThrow(
         'Failed to get price history: API Error'

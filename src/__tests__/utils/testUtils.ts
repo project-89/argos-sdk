@@ -1,4 +1,18 @@
 import { ApiResponse } from '../../types/api';
+import fetch, { Response } from 'node-fetch';
+
+export const isIntegrationTest = () => process.env.TEST_MODE === 'integration';
+
+export const INTEGRATION_API_URL =
+  process.env.TEST_API_URL ||
+  'http://127.0.0.1:5001/argos-434718/us-central1/api';
+export const INTEGRATION_API_KEY = process.env.TEST_API_KEY || 'test-key';
+
+// Set up fetch polyfill for integration tests
+if (isIntegrationTest()) {
+  global.fetch = fetch as unknown as typeof global.fetch;
+  global.Response = Response as unknown as typeof global.Response;
+}
 
 export function mockResponse<T>(data: T): ApiResponse<T> {
   return {

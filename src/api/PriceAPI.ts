@@ -1,48 +1,44 @@
-import { BaseAPI, BaseAPIConfig } from './BaseAPI';
+import { BaseAPI } from './BaseAPI';
 import {
   ApiResponse,
   PriceData,
   PriceHistoryData,
+  GetCurrentPricesOptions,
   GetPriceHistoryOptions,
 } from '../types/api';
 
 export class PriceAPI extends BaseAPI {
-  constructor(config: BaseAPIConfig) {
-    super(config);
-  }
-
-  /**
-   * Get current prices for specified tokens
-   */
-  public async getCurrentPrices(): Promise<ApiResponse<PriceData>> {
+  public async getCurrentPrices(
+    options?: GetCurrentPricesOptions
+  ): Promise<ApiResponse<PriceData>> {
     try {
-      return await this.fetchApi<PriceData>('/price/current', {
+      const queryParams = options
+        ? new URLSearchParams(options as Record<string, string>)
+        : '';
+      const endpoint = `/price/current${queryParams ? `?${queryParams}` : ''}`;
+      const response = await this.fetchApi<PriceData>(endpoint, {
         method: 'GET',
       });
+      return response;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get current prices: ${message}`);
     }
   }
 
-  /**
-   * Get price history for a token
-   */
   public async getPriceHistory(
     tokenId: string,
     options?: GetPriceHistoryOptions
   ): Promise<ApiResponse<PriceHistoryData>> {
     try {
-      const queryParams = new URLSearchParams();
-      if (options?.interval) queryParams.set('interval', options.interval);
-      if (options?.limit) queryParams.set('limit', String(options.limit));
-
-      const query = queryParams.toString();
-      const url = `/price/history/${tokenId}${query ? `?${query}` : ''}`;
-
-      return await this.fetchApi<PriceHistoryData>(url, {
+      const queryParams = options
+        ? new URLSearchParams(options as Record<string, string>)
+        : '';
+      const endpoint = `/price/history/${tokenId}${queryParams ? `?${queryParams}` : ''}`;
+      const response = await this.fetchApi<PriceHistoryData>(endpoint, {
         method: 'GET',
       });
+      return response;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get price history: ${message}`);

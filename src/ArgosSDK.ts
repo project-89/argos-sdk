@@ -215,7 +215,7 @@ export class ArgosSDK {
     return this.apiKeyAPI.updateAPIKey(id, request);
   }
 
-  public async deleteApiKey(id: string): Promise<void> {
+  public async deleteApiKey(id: string): Promise<ApiResponse<boolean>> {
     return this.apiKeyAPI.deleteAPIKey(id);
   }
 
