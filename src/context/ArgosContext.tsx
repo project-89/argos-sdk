@@ -10,9 +10,176 @@ import { Fingerprint } from '../types/api';
 import { log } from '../utils/logger';
 import * as fpjs from '@fingerprintjs/fingerprintjs';
 
+// Add CookieOptions interface
+interface CookieOptions {
+  path?: string;
+  domain?: string;
+  maxAge?: number;
+  secure?: boolean;
+  sameSite?: 'strict' | 'lax' | 'none';
+}
+
+// Replace SecureStorage class with CookieStorage
+class CookieStorage {
+  private static instance: CookieStorage;
+  private readonly prefix = 'argos_';
+  private debug: boolean;
+  private readonly defaultOptions: CookieOptions = {
+    path: '/',
+    secure: window.location.protocol === 'https:',
+    sameSite: 'lax',
+    // Cookie expiry set to 30 days
+    maxAge: 30 * 24 * 60 * 60,
+  };
+
+  private constructor() {
+    this.debug = false;
+    this.migrateFromLegacyStorage();
+  }
+
+  static getInstance(): CookieStorage {
+    if (!CookieStorage.instance) {
+      CookieStorage.instance = new CookieStorage();
+    }
+    return CookieStorage.instance;
+  }
+
+  setDebug(enabled: boolean): void {
+    this.debug = enabled;
+  }
+
+  private migrateFromLegacyStorage(): void {
+    try {
+      log(this.debug, 'Starting legacy storage migration');
+      const fingerprintId = localStorage.getItem('argos_fingerprint_id');
+      const apiKey = localStorage.getItem('argos_api_key');
+
+      log(this.debug, 'Found legacy storage:', {
+        hasFingerprintId: !!fingerprintId,
+        hasApiKey: !!apiKey,
+      });
+
+      if (fingerprintId) {
+        this.setItem('fingerprint_id', fingerprintId);
+        localStorage.removeItem('argos_fingerprint_id');
+      }
+
+      if (apiKey) {
+        this.setItem('api_key', apiKey);
+        localStorage.removeItem('argos_api_key');
+      }
+    } catch (err) {
+      console.warn('Failed to migrate from legacy storage:', err);
+    }
+  }
+
+  private getCookie(name: string): string | null {
+    const cookies = document.cookie.split(';');
+    const cookieName = `${this.prefix}${name}=`;
+
+    log(this.debug, 'Getting cookie:', {
+      name: this.prefix + name,
+      allCookies: cookies.map((c) => c.trim()),
+    });
+
+    for (const cookie of cookies) {
+      const c = cookie.trim();
+      if (c.startsWith(cookieName)) {
+        const value = decodeURIComponent(c.substring(cookieName.length));
+        log(this.debug, 'Found cookie:', {
+          name: this.prefix + name,
+          hasValue: !!value,
+          value: value.substring(0, 10) + '...',
+        });
+        return value;
+      }
+    }
+
+    log(this.debug, 'Cookie not found:', this.prefix + name);
+    return null;
+  }
+
+  private setCookie(
+    name: string,
+    value: string,
+    options: CookieOptions = {}
+  ): void {
+    const mergedOptions = { ...this.defaultOptions, ...options };
+    let cookieString = `${this.prefix}${name}=${encodeURIComponent(value)}`;
+
+    if (mergedOptions.path) {
+      cookieString += `;path=${mergedOptions.path}`;
+    }
+    if (mergedOptions.domain) {
+      cookieString += `;domain=${mergedOptions.domain}`;
+    }
+    if (typeof mergedOptions.maxAge === 'number') {
+      cookieString += `;max-age=${mergedOptions.maxAge}`;
+      const expiresDate = new Date(Date.now() + mergedOptions.maxAge * 1000);
+      cookieString += `;expires=${expiresDate.toUTCString()}`;
+    }
+    if (mergedOptions.secure) {
+      cookieString += ';secure';
+    }
+    if (mergedOptions.sameSite) {
+      cookieString += `;samesite=${mergedOptions.sameSite}`;
+    }
+
+    log(this.debug, 'Setting cookie:', {
+      name: this.prefix + name,
+      hasValue: !!value,
+      value: value.substring(0, 10) + '...',
+      cookieString,
+      options: mergedOptions,
+    });
+
+    document.cookie = cookieString;
+
+    // Verify the cookie was set
+    const verifyValue = this.getCookie(name);
+    log(this.debug, 'Cookie set verification:', {
+      name: this.prefix + name,
+      wasSet: !!verifyValue,
+      matches: verifyValue === value,
+    });
+  }
+
+  setItem(key: string, value: string): void {
+    log(this.debug, 'Setting storage item:', { key, hasValue: !!value });
+    this.setCookie(key, value);
+  }
+
+  getItem(key: string): string | null {
+    log(this.debug, 'Getting storage item:', { key });
+    const value = this.getCookie(key);
+    log(this.debug, 'Got storage item:', { key, hasValue: !!value });
+    return value;
+  }
+
+  removeItem(key: string): void {
+    log(this.debug, 'Removing storage item:', { key });
+    this.setCookie(key, '', { maxAge: -1 });
+  }
+
+  clear(): void {
+    log(this.debug, 'Clearing all storage items');
+    const cookies = document.cookie.split(';');
+    for (const cookie of cookies) {
+      const cookieName = cookie.split('=')[0].trim();
+      if (cookieName.startsWith(this.prefix)) {
+        const key = cookieName.substring(this.prefix.length);
+        log(this.debug, 'Clearing storage item:', { key });
+        this.removeItem(key);
+      }
+    }
+  }
+}
+
+const secureStorage = CookieStorage.getInstance();
+
 const STORAGE_KEYS = {
-  FINGERPRINT_ID: 'argos_fingerprint_id',
-  API_KEY: 'argos_api_key',
+  FINGERPRINT_ID: 'fingerprint_id',
+  API_KEY: 'api_key',
 } as const;
 
 export interface ArgosContextType {
@@ -77,6 +244,57 @@ export function ArgosProvider({
     return 'unknown';
   }, []);
 
+  const refreshApiKey = useCallback(async () => {
+    try {
+      if (!fingerprintId) {
+        throw new Error('No fingerprint ID available');
+      }
+
+      log(debug, 'Refreshing API key');
+      const apiKeyResponse = await sdk.registerApiKey(fingerprintId);
+
+      if (!apiKeyResponse.success || !apiKeyResponse.data) {
+        throw new Error('Failed to refresh API key');
+      }
+
+      const newApiKey = apiKeyResponse.data.key;
+      log(debug, 'API key refreshed successfully');
+
+      // Update secure storage and SDK
+      secureStorage.setItem(STORAGE_KEYS.API_KEY, newApiKey);
+      sdk.setApiKey(newApiKey);
+
+      return true;
+    } catch (err) {
+      handleError(err);
+      return false;
+    }
+  }, [sdk, fingerprintId, debug, handleError]);
+
+  const handleApiError = useCallback(
+    async (err: unknown) => {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+
+      // Check if error is due to invalid API key
+      if (
+        errorMessage.includes('Invalid API key') ||
+        errorMessage.includes('Unauthorized') ||
+        errorMessage.includes('API key expired')
+      ) {
+        log(debug, 'Invalid API key detected, attempting refresh');
+        const refreshed = await refreshApiKey();
+        if (refreshed) {
+          return true; // Error handled
+        }
+      }
+
+      // If not an API key error or refresh failed, handle normally
+      handleError(err);
+      return false;
+    },
+    [debug, refreshApiKey, handleError]
+  );
+
   const trackVisit = useCallback(
     async (id: string) => {
       try {
@@ -97,10 +315,14 @@ export function ArgosProvider({
         });
         log(debug, 'Visit tracked successfully');
       } catch (err) {
-        handleError(err);
+        const handled = await handleApiError(err);
+        if (handled) {
+          // Retry the operation with new API key
+          await trackVisit(id);
+        }
       }
     },
-    [sdk, debug, handleError, getPlatformInfo]
+    [sdk, debug, handleApiError, getPlatformInfo]
   );
 
   const getBrowserFingerprint = useCallback(async () => {
@@ -159,8 +381,8 @@ export function ArgosProvider({
       log(debug, 'API key registered successfully');
 
       // Step 3: Store credentials and update SDK
-      localStorage.setItem(STORAGE_KEYS.FINGERPRINT_ID, id);
-      localStorage.setItem(STORAGE_KEYS.API_KEY, apiKey);
+      secureStorage.setItem(STORAGE_KEYS.FINGERPRINT_ID, id);
+      secureStorage.setItem(STORAGE_KEYS.API_KEY, apiKey);
       sdk.setApiKey(apiKey);
 
       // Step 4: Set state
@@ -191,52 +413,102 @@ export function ArgosProvider({
       try {
         log(debug, 'Starting initialization...');
 
-        // Step 1: Load stored credentials
-        const storedFingerprintId = localStorage.getItem(
+        // Step 1: Load stored credentials from secure storage
+        const storedFingerprintId = secureStorage.getItem(
           STORAGE_KEYS.FINGERPRINT_ID
         );
-        const storedApiKey = localStorage.getItem(STORAGE_KEYS.API_KEY);
+        const storedApiKey = secureStorage.getItem(STORAGE_KEYS.API_KEY);
 
-        log(debug, 'Stored credentials:', {
-          storedFingerprintId,
-          storedApiKey: storedApiKey ? '[REDACTED]' : null,
+        log(debug, 'Stored credentials found:', {
+          hasFingerprintId: !!storedFingerprintId,
+          hasApiKey: !!storedApiKey,
+          fingerprintId: storedFingerprintId
+            ? `${storedFingerprintId.substring(0, 5)}...`
+            : null,
         });
 
         if (!storedFingerprintId || !storedApiKey) {
-          log(debug, 'No stored credentials, creating new fingerprint');
+          log(debug, 'Missing stored credentials, creating new fingerprint');
           await initializeFingerprint();
           return;
         }
 
         // Step 2: Set API key first
         sdk.setApiKey(storedApiKey);
-        log(debug, 'Loaded stored API key');
+        log(debug, 'Set stored API key to SDK');
 
         // Step 3: Validate stored fingerprint
         log(debug, 'Validating stored fingerprint:', storedFingerprintId);
 
         try {
           const response = await sdk.getIdentity(storedFingerprintId);
-          log(debug, 'Fingerprint validation response:', response);
+          log(debug, 'Fingerprint validation response:', {
+            success: response.success,
+            hasData: !!response.data,
+            fingerprintId: response.data?.id,
+            matches: response.data?.id === storedFingerprintId,
+          });
 
-          if (response.success && response.data && isMounted) {
-            log(debug, 'Stored fingerprint valid');
+          if (!response.success || !response.data) {
+            log(debug, 'Invalid fingerprint response, clearing storage');
+            secureStorage.clear();
+            await initializeFingerprint();
+            return;
+          }
+
+          if (response.data.id !== storedFingerprintId) {
+            log(debug, 'Fingerprint ID mismatch, clearing storage');
+            secureStorage.clear();
+            await initializeFingerprint();
+            return;
+          }
+
+          if (isMounted) {
+            log(
+              debug,
+              'Stored fingerprint is valid, using existing credentials'
+            );
             setFingerprintId(storedFingerprintId);
             setFingerprint(response.data);
             await trackVisit(storedFingerprintId);
-          } else {
-            log(debug, 'Stored fingerprint invalid, creating new one');
-            await initializeFingerprint();
           }
         } catch (err) {
-          log(debug, 'Error validating fingerprint:', err);
-          throw err;
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          log(debug, 'Error during fingerprint validation:', {
+            message: errorMessage,
+            error: err,
+          });
+
+          // Check if it's a server error response
+          if (errorMessage === 'Not Found') {
+            log(
+              debug,
+              'Server returned Not Found, clearing storage and reinitializing'
+            );
+            secureStorage.clear();
+            await initializeFingerprint();
+            return;
+          }
+
+          // Try to handle API key errors
+          const handled = await handleApiError(err);
+          if (!handled) {
+            log(debug, 'Unhandled error, clearing storage');
+            secureStorage.clear();
+            await initializeFingerprint();
+            return;
+          }
+
+          // If API key was refreshed, retry initialization
+          if (handled && isMounted) {
+            log(debug, 'API key refreshed, retrying initialization');
+            await initialize();
+          }
         }
       } catch (err) {
         log(debug, 'Error during initialization:', err);
         // Clear stored credentials on error
-        localStorage.removeItem(STORAGE_KEYS.FINGERPRINT_ID);
-        localStorage.removeItem(STORAGE_KEYS.API_KEY);
+        secureStorage.clear();
         await initializeFingerprint();
       } finally {
         if (isMounted) {
@@ -252,7 +524,7 @@ export function ArgosProvider({
     return () => {
       isMounted = false;
     };
-  }, [sdk, debug, initializeFingerprint, trackVisit]);
+  }, [sdk, debug, initializeFingerprint, trackVisit, handleApiError]);
 
   // Handle online/offline status
   useEffect(() => {
@@ -303,7 +575,11 @@ export function ArgosProvider({
         });
         log(debug, 'Presence tracked successfully');
       } catch (err) {
-        handleError(err);
+        const handled = await handleApiError(err);
+        if (handled && !isCancelled) {
+          // Retry the operation with new API key
+          await trackPresence();
+        }
       }
     };
 
@@ -320,10 +596,15 @@ export function ArgosProvider({
     debug,
     fingerprintId,
     isOnline,
-    handleError,
+    handleApiError,
     isInitialized,
     getPlatformInfo,
   ]);
+
+  // Set debug mode on storage
+  useEffect(() => {
+    secureStorage.setDebug(debug);
+  }, [debug]);
 
   return (
     <ArgosContext.Provider

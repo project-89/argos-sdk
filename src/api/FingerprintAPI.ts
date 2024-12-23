@@ -52,9 +52,11 @@ export class FingerprintAPI extends BaseAPI {
     data: { metadata?: Record<string, any> }
   ): Promise<ApiResponse<Fingerprint>> {
     try {
-      return await this.fetchApi<Fingerprint>(`/fingerprint/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
+      return await this.fetchApi<Fingerprint>('/fingerprint/update', {
+        method: 'POST',
+        body: JSON.stringify({
+          metadata: data.metadata || {},
+        }),
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

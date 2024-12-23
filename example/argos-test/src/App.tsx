@@ -210,6 +210,74 @@ function SystemStatus() {
   );
 }
 
+// Component to edit fingerprint metadata
+function MetadataEditor() {
+  const { fingerprintId, fingerprint } = useFingerprint();
+  const sdk = useArgosSDK();
+  const [key, setKey] = useState('');
+  const [value, setValue] = useState('');
+  const [updateError, setUpdateError] = useState<Error | null>(null);
+
+  const handleUpdateMetadata = async () => {
+    if (!fingerprintId || !key.trim()) return;
+
+    try {
+      setUpdateError(null);
+      const updatedMetadata = {
+        ...fingerprint?.metadata,
+        [key.trim()]: value.trim(),
+      };
+
+      await sdk.updateFingerprint(fingerprintId, {
+        metadata: updatedMetadata,
+      });
+
+      // Clear form after successful update
+      setKey('');
+      setValue('');
+    } catch (err) {
+      console.error('Metadata update error:', err);
+      setUpdateError(
+        err instanceof Error ? err : new Error('Failed to update metadata')
+      );
+    }
+  };
+
+  if (!fingerprintId) {
+    return null;
+  }
+
+  return (
+    <div className="metadata-editor">
+      <h3>Update Metadata</h3>
+      <div className="form-group">
+        <input
+          type="text"
+          placeholder="Key"
+          value={key}
+          onChange={(e) => setKey(e.target.value)}
+          className="input-field"
+        />
+        <input
+          type="text"
+          placeholder="Value"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          className="input-field"
+        />
+        <button
+          onClick={handleUpdateMetadata}
+          disabled={!key.trim()}
+          className="update-button"
+        >
+          Add/Update
+        </button>
+      </div>
+      {updateError && <p className="error-text">{updateError.message}</p>}
+    </div>
+  );
+}
+
 // Main App component
 function App() {
   const handleError = useCallback((error: Error) => {
@@ -232,7 +300,10 @@ function App() {
 
         <main>
           <div className="grid">
-            <FingerprintInfo />
+            <div>
+              <FingerprintInfo />
+              <MetadataEditor />
+            </div>
             <SystemStatus />
           </div>
         </main>
@@ -356,6 +427,48 @@ function App() {
             color: #ef4444;
             margin-top: 0.5rem;
             font-size: 0.875rem;
+          }
+
+          .metadata-editor {
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-top: 2rem;
+          }
+
+          .form-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+          }
+
+          .input-field {
+            flex: 1;
+            padding: 0.5rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            font-size: 0.875rem;
+          }
+
+          .update-button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+          }
+
+          .update-button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+          }
+
+          .update-button:hover:not(:disabled) {
+            background: #2563eb;
           }
         `}</style>
       </div>

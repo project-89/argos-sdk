@@ -197,8 +197,8 @@ describe('FingerprintAPI', () => {
         },
       });
       expect(result.data).toEqual(mockFingerprint);
-      expect(mockFetchApi).toHaveBeenCalledWith('/fingerprint/test-id', {
-        method: 'PUT',
+      expect(mockFetchApi).toHaveBeenCalledWith('/fingerprint/update', {
+        method: 'POST',
         body: JSON.stringify({
           metadata: {
             userAgent: 'updated-user-agent',
