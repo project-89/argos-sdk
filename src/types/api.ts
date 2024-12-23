@@ -28,12 +28,27 @@ export interface ApiSuccess<T> {
   message?: string;
 }
 
+export interface FirestoreTimestamp {
+  _seconds: number;
+  _nanoseconds: number;
+}
+
+export interface IpMetadata {
+  ipFrequency: Record<string, number>;
+  lastSeenAt: Record<string, FirestoreTimestamp>;
+  primaryIp: string;
+  suspiciousIps: string[];
+}
+
 export interface Fingerprint {
   id: string;
   fingerprint: string;
   roles: string[];
-  createdAt: string;
+  createdAt: FirestoreTimestamp;
   metadata: Record<string, any>;
+  ipAddresses: string[];
+  ipMetadata: IpMetadata;
+  tags: string[];
 }
 
 export interface VisitData {

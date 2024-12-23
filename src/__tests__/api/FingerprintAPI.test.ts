@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 import { FingerprintAPI } from '../../api/FingerprintAPI';
-import { FingerprintData } from '../../types/api';
+import { Fingerprint } from '../../types/api';
 import { createMockFetchApi, mockResponse } from '../utils/testUtils';
 
 // Mock BaseAPI
@@ -32,19 +32,37 @@ describe('FingerprintAPI', () => {
 
   describe('createFingerprint', () => {
     it('should create fingerprint', async () => {
-      const mockFingerprintData: FingerprintData = {
+      const mockFingerprint: Fingerprint = {
         id: 'test-id',
         fingerprint: 'test-fingerprint',
         roles: ['user'],
-        createdAt: new Date().toISOString(),
+        createdAt: {
+          _seconds: 1234567890,
+          _nanoseconds: 0,
+        },
         metadata: {
           userAgent: 'test-user-agent',
           language: 'en-US',
           platform: 'test-platform',
         },
+        ipAddresses: ['127.0.0.1'],
+        ipMetadata: {
+          ipFrequency: {
+            '127.0.0.1': 1,
+          },
+          lastSeenAt: {
+            '127.0.0.1': {
+              _seconds: 1234567890,
+              _nanoseconds: 0,
+            },
+          },
+          primaryIp: '127.0.0.1',
+          suspiciousIps: [],
+        },
+        tags: [],
       };
 
-      mockFetchApi.mockResolvedValueOnce(mockResponse(mockFingerprintData));
+      mockFetchApi.mockResolvedValueOnce(mockResponse(mockFingerprint));
 
       const result = await api.createFingerprint({
         fingerprint: 'test-fingerprint',
@@ -54,7 +72,7 @@ describe('FingerprintAPI', () => {
           platform: 'test-platform',
         },
       });
-      expect(result.data).toEqual(mockFingerprintData);
+      expect(result.data).toEqual(mockFingerprint);
       expect(mockFetchApi).toHaveBeenCalledWith('/fingerprint/register', {
         method: 'POST',
         body: JSON.stringify({
@@ -88,22 +106,40 @@ describe('FingerprintAPI', () => {
 
   describe('getFingerprint', () => {
     it('should get fingerprint', async () => {
-      const mockFingerprintData: FingerprintData = {
+      const mockFingerprint: Fingerprint = {
         id: 'test-id',
         fingerprint: 'test-fingerprint',
         roles: ['user'],
-        createdAt: new Date().toISOString(),
+        createdAt: {
+          _seconds: 1234567890,
+          _nanoseconds: 0,
+        },
         metadata: {
           userAgent: 'test-user-agent',
           language: 'en-US',
           platform: 'test-platform',
         },
+        ipAddresses: ['127.0.0.1'],
+        ipMetadata: {
+          ipFrequency: {
+            '127.0.0.1': 1,
+          },
+          lastSeenAt: {
+            '127.0.0.1': {
+              _seconds: 1234567890,
+              _nanoseconds: 0,
+            },
+          },
+          primaryIp: '127.0.0.1',
+          suspiciousIps: [],
+        },
+        tags: [],
       };
 
-      mockFetchApi.mockResolvedValueOnce(mockResponse(mockFingerprintData));
+      mockFetchApi.mockResolvedValueOnce(mockResponse(mockFingerprint));
 
       const result = await api.getFingerprint('test-id');
-      expect(result.data).toEqual(mockFingerprintData);
+      expect(result.data).toEqual(mockFingerprint);
       expect(mockFetchApi).toHaveBeenCalledWith('/fingerprint/test-id', {
         method: 'GET',
       });
@@ -121,19 +157,37 @@ describe('FingerprintAPI', () => {
 
   describe('updateFingerprint', () => {
     it('should update fingerprint', async () => {
-      const mockFingerprintData: FingerprintData = {
+      const mockFingerprint: Fingerprint = {
         id: 'test-id',
         fingerprint: 'test-fingerprint',
         roles: ['user'],
-        createdAt: new Date().toISOString(),
+        createdAt: {
+          _seconds: 1234567890,
+          _nanoseconds: 0,
+        },
         metadata: {
           userAgent: 'updated-user-agent',
           language: 'en-US',
           platform: 'test-platform',
         },
+        ipAddresses: ['127.0.0.1'],
+        ipMetadata: {
+          ipFrequency: {
+            '127.0.0.1': 1,
+          },
+          lastSeenAt: {
+            '127.0.0.1': {
+              _seconds: 1234567890,
+              _nanoseconds: 0,
+            },
+          },
+          primaryIp: '127.0.0.1',
+          suspiciousIps: [],
+        },
+        tags: [],
       };
 
-      mockFetchApi.mockResolvedValueOnce(mockResponse(mockFingerprintData));
+      mockFetchApi.mockResolvedValueOnce(mockResponse(mockFingerprint));
 
       const result = await api.updateFingerprint('test-id', {
         metadata: {
@@ -142,7 +196,7 @@ describe('FingerprintAPI', () => {
           platform: 'test-platform',
         },
       });
-      expect(result.data).toEqual(mockFingerprintData);
+      expect(result.data).toEqual(mockFingerprint);
       expect(mockFetchApi).toHaveBeenCalledWith('/fingerprint/test-id', {
         method: 'PUT',
         body: JSON.stringify({
