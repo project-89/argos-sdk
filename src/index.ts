@@ -5,6 +5,7 @@ export { ArgosProvider } from './context/ArgosContext';
 export { useArgosSDK } from './hooks/useArgosSDK';
 export { useFingerprint } from './hooks/useFingerprint';
 export { useOnlineStatus } from './hooks/useOnlineStatus';
+export { useMetadata } from './hooks/useMetadata';
 
 export const apiConfig = {
   baseUrl:

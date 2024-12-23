@@ -4,6 +4,7 @@ import {
   useArgosSDK,
   useFingerprint,
   useOnlineStatus,
+  useMetadata,
 } from '../../../src';
 import * as fpjs from '@fingerprintjs/fingerprintjs';
 
@@ -212,10 +213,11 @@ function SystemStatus() {
 
 // Component to edit fingerprint metadata
 function MetadataEditor() {
-  const { fingerprintId, fingerprint } = useFingerprint();
-  const sdk = useArgosSDK();
+  const { fingerprintId } = useFingerprint();
+  const { metadata, addMetadata } = useMetadata();
   const [key, setKey] = useState('');
   const [value, setValue] = useState('');
+  const [knowledge, setKnowledge] = useState('');
   const [updateError, setUpdateError] = useState<Error | null>(null);
 
   const handleUpdateMetadata = async () => {
@@ -223,15 +225,7 @@ function MetadataEditor() {
 
     try {
       setUpdateError(null);
-      const updatedMetadata = {
-        ...fingerprint?.metadata,
-        [key.trim()]: value.trim(),
-      };
-
-      await sdk.updateFingerprint(fingerprintId, {
-        metadata: updatedMetadata,
-      });
-
+      await addMetadata({ [key.trim()]: value.trim() });
       // Clear form after successful update
       setKey('');
       setValue('');
@@ -239,6 +233,30 @@ function MetadataEditor() {
       console.error('Metadata update error:', err);
       setUpdateError(
         err instanceof Error ? err : new Error('Failed to update metadata')
+      );
+    }
+  };
+
+  const handleAddKnowledge = async () => {
+    if (!fingerprintId || !knowledge.trim()) return;
+
+    try {
+      setUpdateError(null);
+      await addMetadata({
+        knowledge: [
+          ...(metadata?.knowledge || []),
+          {
+            text: knowledge.trim(),
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      });
+      // Clear form after successful update
+      setKnowledge('');
+    } catch (err) {
+      console.error('Knowledge update error:', err);
+      setUpdateError(
+        err instanceof Error ? err : new Error('Failed to update knowledge')
       );
     }
   };
@@ -273,7 +291,81 @@ function MetadataEditor() {
           Add/Update
         </button>
       </div>
+
+      <h4 className="knowledge-header">Add Knowledge</h4>
+      <div className="form-group">
+        <textarea
+          placeholder="Enter knowledge..."
+          value={knowledge}
+          onChange={(e) => setKnowledge(e.target.value)}
+          className="knowledge-input"
+        />
+        <button
+          onClick={handleAddKnowledge}
+          disabled={!knowledge.trim()}
+          className="update-button"
+        >
+          Add Knowledge
+        </button>
+      </div>
+
+      {metadata?.knowledge && (
+        <div className="knowledge-list">
+          <h4>Knowledge History</h4>
+          {metadata.knowledge.map(
+            (item: { text: string; timestamp: string }, index: number) => (
+              <div key={index} className="knowledge-item">
+                <p>{item.text}</p>
+                <small>{new Date(item.timestamp).toLocaleString()}</small>
+              </div>
+            )
+          )}
+        </div>
+      )}
+
       {updateError && <p className="error-text">{updateError.message}</p>}
+
+      <style>{`
+        .knowledge-header {
+          margin-top: 2rem;
+          color: #1a1a1a;
+        }
+
+        .knowledge-input {
+          flex: 1;
+          padding: 0.5rem;
+          border: 1px solid #e5e7eb;
+          border-radius: 4px;
+          font-size: 0.875rem;
+          min-height: 80px;
+          resize: vertical;
+        }
+
+        .knowledge-list {
+          margin-top: 1.5rem;
+          border-top: 1px solid #e5e7eb;
+          padding-top: 1rem;
+        }
+
+        .knowledge-item {
+          background: #f9fafb;
+          padding: 1rem;
+          border-radius: 4px;
+          margin-bottom: 0.5rem;
+        }
+
+        .knowledge-item p {
+          margin: 0;
+          color: #1f2937;
+        }
+
+        .knowledge-item small {
+          display: block;
+          color: #6b7280;
+          margin-top: 0.25rem;
+          font-size: 0.75rem;
+        }
+      `}</style>
     </div>
   );
 }
