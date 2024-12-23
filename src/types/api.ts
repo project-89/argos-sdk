@@ -166,3 +166,18 @@ export interface GetPriceHistoryOptions {
 export interface GetCurrentPricesOptions {
   tokens?: string[];
 }
+
+export interface DebugData {
+  timestamp: string;
+  environment: string;
+  version: string;
+  config: Record<string, any>;
+  metrics: Record<string, any>;
+}
+
+export interface RealityStabilityData {
+  stability: number;
+  timestamp: string;
+  factors: Record<string, number>;
+  trend: 'stable' | 'increasing' | 'decreasing';
+}
