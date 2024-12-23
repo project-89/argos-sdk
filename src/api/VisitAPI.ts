@@ -1,13 +1,32 @@
-import { BaseAPI } from './BaseAPI';
+import { BaseAPI, BaseAPIConfig } from './BaseAPI';
 import {
   ApiResponse,
   VisitData,
   PresenceData,
-  CreateVisitRequest,
-  UpdatePresenceRequest,
+  GetVisitHistoryOptions,
 } from '../types/api';
 
+export interface CreateVisitRequest {
+  fingerprintId: string;
+  url: string;
+  title?: string;
+  type?: string;
+  timestamp?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface UpdatePresenceRequest {
+  fingerprintId: string;
+  status: 'online' | 'offline';
+  timestamp?: string;
+  metadata?: Record<string, any>;
+}
+
 export class VisitAPI extends BaseAPI {
+  constructor(config: BaseAPIConfig) {
+    super(config);
+  }
+
   public async createVisit(
     request: CreateVisitRequest
   ): Promise<ApiResponse<VisitData>> {
@@ -18,7 +37,7 @@ export class VisitAPI extends BaseAPI {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to log visit: ${message}`);
+      throw new Error(`Failed to create visit: ${message}`);
     }
   }
 
@@ -38,28 +57,19 @@ export class VisitAPI extends BaseAPI {
 
   public async getVisitHistory(
     fingerprintId: string,
-    options: {
-      limit?: number;
-      offset?: number;
-      startDate?: string;
-      endDate?: string;
-    } = {}
+    options?: GetVisitHistoryOptions
   ): Promise<ApiResponse<{ visits: VisitData[] }>> {
     try {
-      const params = new URLSearchParams();
+      const queryParams = new URLSearchParams();
+      if (options?.limit) queryParams.set('limit', String(options.limit));
+      if (options?.offset) queryParams.set('offset', String(options.offset));
+      if (options?.startDate) queryParams.set('startDate', options.startDate);
+      if (options?.endDate) queryParams.set('endDate', options.endDate);
 
-      // Add parameters in a consistent order
-      if (options.limit !== undefined)
-        params.append('limit', options.limit.toString());
-      if (options.offset !== undefined)
-        params.append('offset', options.offset.toString());
-      if (options.startDate) params.append('startDate', options.startDate);
-      if (options.endDate) params.append('endDate', options.endDate);
+      const query = queryParams.toString();
+      const url = `/visit/history/${fingerprintId}${query ? `?${query}` : ''}`;
 
-      const query = params.toString();
-      const endpoint = `/visit/history/${fingerprintId}${query ? `?${query}` : ''}`;
-
-      return await this.fetchApi<{ visits: VisitData[] }>(endpoint, {
+      return await this.fetchApi<{ visits: VisitData[] }>(url, {
         method: 'GET',
       });
     } catch (error) {

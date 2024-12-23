@@ -1,3 +1,13 @@
+declare global {
+  interface Navigator {
+    userAgentData?: {
+      platform: string;
+      brands: Array<{ brand: string; version: string }>;
+      mobile: boolean;
+    };
+  }
+}
+
 export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
@@ -18,7 +28,7 @@ export interface ApiSuccess<T> {
   message?: string;
 }
 
-export interface FingerprintData {
+export interface Fingerprint {
   id: string;
   fingerprint: string;
   roles: string[];
@@ -70,13 +80,20 @@ export interface RoleData {
   roles: string[];
 }
 
-// Request Types
-export interface CreateFingerprintRequest {
-  fingerprint: string;
+export interface TagData {
+  tags: string[];
   metadata?: Record<string, any>;
 }
 
-export interface UpdateFingerprintRequest {
+export interface SystemHealthData {
+  status: 'ok' | 'error';
+  version: string;
+  timestamp: string;
+}
+
+// Request Types
+export interface CreateFingerprintRequest {
+  fingerprint: string;
   metadata?: Record<string, any>;
 }
 
@@ -84,13 +101,30 @@ export interface CreateVisitRequest {
   fingerprintId: string;
   url: string;
   title?: string;
+  type?: string;
+  timestamp?: string;
   metadata?: Record<string, any>;
 }
 
 export interface UpdatePresenceRequest {
   fingerprintId: string;
-  status: 'active' | 'inactive';
+  status: 'online' | 'offline';
+  timestamp?: string;
   metadata?: Record<string, any>;
+}
+
+export interface CreateAPIKeyRequest {
+  name: string;
+  expiresAt?: string;
+}
+
+export interface UpdateAPIKeyRequest {
+  name?: string;
+  expiresAt?: string;
+}
+
+export interface RevokeAPIKeyRequest {
+  key: string;
 }
 
 export interface ValidateAPIKeyRequest {
@@ -102,8 +136,18 @@ export interface ValidateAPIKeyResponse {
   fingerprintId?: string;
 }
 
-export interface DebugData {
-  message: string;
-  timestamp: number;
-  data: Record<string, any>;
+export interface GetVisitHistoryOptions {
+  limit?: number;
+  offset?: number;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface GetPriceHistoryOptions {
+  interval?: '1h' | '24h' | '7d' | '30d';
+  limit?: number;
+}
+
+export interface GetCurrentPricesOptions {
+  tokens?: string[];
 }

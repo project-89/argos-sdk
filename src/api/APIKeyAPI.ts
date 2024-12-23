@@ -17,6 +17,10 @@ export interface UpdateAPIKeyRequest {
   expiresAt?: string;
 }
 
+export interface RevokeAPIKeyRequest {
+  key: string;
+}
+
 export class APIKeyAPI extends BaseAPI {
   constructor(config: BaseAPIConfig) {
     super(config);
@@ -26,7 +30,7 @@ export class APIKeyAPI extends BaseAPI {
     try {
       return await this.fetchApi<boolean>('/api-key/validate', {
         method: 'POST',
-        body: JSON.stringify({ apiKey }),
+        body: JSON.stringify({ key: apiKey }),
         isPublic: true,
       });
     } catch (error) {
@@ -44,7 +48,6 @@ export class APIKeyAPI extends BaseAPI {
         method: 'POST',
         body: JSON.stringify({
           fingerprintId,
-          name: `fingerprint-${fingerprintId}`,
           metadata,
         }),
         isPublic: true,
@@ -66,6 +69,20 @@ export class APIKeyAPI extends BaseAPI {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to create API key: ${message}`);
+    }
+  }
+
+  public async revokeAPIKey(
+    request: RevokeAPIKeyRequest
+  ): Promise<ApiResponse<void>> {
+    try {
+      return await this.fetchApi<void>('/api-key/revoke', {
+        method: 'POST',
+        body: JSON.stringify(request),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to revoke API key: ${message}`);
     }
   }
 

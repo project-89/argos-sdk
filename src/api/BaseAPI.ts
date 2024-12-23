@@ -1,12 +1,5 @@
 import { ApiResponse } from '../types/api';
 
-const getBaseUrl = (configUrl: string) => {
-  if (process.env.NODE_ENV === 'development') {
-    return 'http://127.0.0.1:5001';
-  }
-  return configUrl;
-};
-
 export interface BaseAPIConfig {
   baseUrl: string;
   debug?: boolean;
@@ -21,7 +14,7 @@ export class BaseAPI {
   protected apiKey?: string;
 
   constructor(config: BaseAPIConfig) {
-    this.baseUrl = getBaseUrl(config.baseUrl);
+    this.baseUrl = config.baseUrl;
     this.debug = config.debug || false;
     this.apiKey = config.apiKey;
   }
@@ -30,7 +23,8 @@ export class BaseAPI {
     endpoint: string,
     options: RequestInit & { isPublic?: boolean } = {}
   ): Promise<ApiResponse<T>> {
-    const url = `${this.baseUrl}${endpoint}`;
+    // Since baseUrl already includes /api, just append the endpoint
+    const url = `${this.baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
     const method = (options.method || 'GET') as HttpMethod;
 
     const headers: HeadersInit = {
@@ -78,6 +72,8 @@ export class BaseAPI {
             status: response.status,
             statusText: response.statusText,
             error: errorMessage,
+            details: data.details,
+            body: options.body ? JSON.parse(options.body as string) : undefined,
           });
         }
 

@@ -1,31 +1,65 @@
 import { BaseAPIConfig } from './api/BaseAPI';
-import { FingerprintAPI, CreateFingerprintRequest } from './api/FingerprintAPI';
-import { VisitAPI } from './api/VisitAPI';
+import { FingerprintAPI } from './api/FingerprintAPI';
+import {
+  VisitAPI,
+  CreateVisitRequest,
+  UpdatePresenceRequest,
+} from './api/VisitAPI';
+import { RoleAPI } from './api/RoleAPI';
+import { TagAPI, UpdateTagsRequest } from './api/TagAPI';
+import { PriceAPI } from './api/PriceAPI';
+import { SystemAPI } from './api/SystemAPI';
 import {
   ApiResponse,
-  FingerprintData,
+  Fingerprint,
   PresenceData,
   VisitData,
+  RoleData,
+  TagData,
+  PriceData,
+  PriceHistoryData,
+  SystemHealthData,
+  GetCurrentPricesOptions,
+  GetPriceHistoryOptions,
+  GetVisitHistoryOptions,
+  CreateAPIKeyRequest,
+  RevokeAPIKeyRequest,
+  APIKeyData,
+  UpdateAPIKeyRequest,
 } from './types/api';
 import { APIKeyAPI } from './api/APIKeyAPI';
+import { CreateFingerprintRequest } from './api/FingerprintAPI';
 
 export interface ArgosSDKConfig extends BaseAPIConfig {
   debug?: boolean;
+  presenceInterval?: number;
 }
+
+export type TrackEventType = 'visit' | 'presence' | 'custom';
 
 export class ArgosSDK {
   private fingerprintAPI: FingerprintAPI;
   private visitAPI: VisitAPI;
   private apiKeyAPI: APIKeyAPI;
+  private roleAPI: RoleAPI;
+  private tagAPI: TagAPI;
+  private priceAPI: PriceAPI;
+  private systemAPI: SystemAPI;
   private debug: boolean;
   private apiKey?: string;
+  private presenceInterval: number;
 
   constructor(config: ArgosSDKConfig) {
     this.debug = config.debug || false;
     this.apiKey = config.apiKey;
+    this.presenceInterval = config.presenceInterval || 30000; // Default to 30 seconds
     this.fingerprintAPI = new FingerprintAPI(config);
     this.visitAPI = new VisitAPI(config);
     this.apiKeyAPI = new APIKeyAPI(config);
+    this.roleAPI = new RoleAPI(config);
+    this.tagAPI = new TagAPI(config);
+    this.priceAPI = new PriceAPI(config);
+    this.systemAPI = new SystemAPI(config);
 
     if (this.debug) {
       console.log('[Argos] Initialized with config:', {
@@ -36,7 +70,7 @@ export class ArgosSDK {
   }
 
   /**
-   * Set the API key for subsequent requests
+   * Configuration methods
    */
   public setApiKey(apiKey: string | undefined) {
     this.apiKey = apiKey;
@@ -44,6 +78,10 @@ export class ArgosSDK {
     this.fingerprintAPI = new FingerprintAPI(config);
     this.visitAPI = new VisitAPI(config);
     this.apiKeyAPI = new APIKeyAPI(config);
+    this.roleAPI = new RoleAPI(config);
+    this.tagAPI = new TagAPI(config);
+    this.priceAPI = new PriceAPI(config);
+    this.systemAPI = new SystemAPI(config);
 
     if (this.debug) {
       console.log(
@@ -53,48 +91,220 @@ export class ArgosSDK {
     }
   }
 
-  /**
-   * Get the current API key
-   */
-  public getApiKey(): string | undefined {
-    return this.apiKey;
+  public getPresenceInterval(): number {
+    return this.presenceInterval;
   }
 
-  /**
-   * Get the current SDK configuration
-   */
+  public setPresenceInterval(interval: number): void {
+    this.presenceInterval = interval;
+    if (this.debug) {
+      console.log('[Argos] Presence interval updated:', interval);
+    }
+  }
+
   private getConfig(): ArgosSDKConfig {
     return {
       baseUrl: this.fingerprintAPI['baseUrl'],
       apiKey: this.apiKey,
       debug: this.debug,
+      presenceInterval: this.presenceInterval,
     };
   }
 
   /**
-   * Register a new API key for a fingerprint
+   * Identity management methods
+   */
+  public async identify(
+    request: CreateFingerprintRequest
+  ): Promise<ApiResponse<Fingerprint>> {
+    return this.fingerprintAPI.createFingerprint(request);
+  }
+
+  public async getIdentity(id: string): Promise<ApiResponse<Fingerprint>> {
+    return this.fingerprintAPI.getFingerprint(id);
+  }
+
+  public async updateFingerprint(
+    id: string,
+    metadata: Record<string, any>
+  ): Promise<ApiResponse<Fingerprint>> {
+    return this.fingerprintAPI.updateFingerprint(id, metadata);
+  }
+
+  /**
+   * Role management methods
+   */
+  public async listAvailableRoles(): Promise<ApiResponse<string[]>> {
+    return this.roleAPI.listAvailableRoles();
+  }
+
+  public async addRoles(
+    fingerprintId: string,
+    roles: string[]
+  ): Promise<ApiResponse<RoleData>> {
+    return this.roleAPI.addRoles(fingerprintId, roles);
+  }
+
+  public async getRoles(fingerprintId: string): Promise<ApiResponse<RoleData>> {
+    return this.roleAPI.getRoles(fingerprintId);
+  }
+
+  public async removeRoles(
+    fingerprintId: string,
+    roles: string[]
+  ): Promise<ApiResponse<RoleData>> {
+    return this.roleAPI.removeRoles(fingerprintId, roles);
+  }
+
+  /**
+   * Tag management methods
+   */
+  public async updateTags(
+    fingerprintId: string,
+    request: UpdateTagsRequest
+  ): Promise<ApiResponse<TagData>> {
+    return this.tagAPI.updateTags(fingerprintId, request);
+  }
+
+  public async getTags(fingerprintId: string): Promise<ApiResponse<TagData>> {
+    return this.tagAPI.getTags(fingerprintId);
+  }
+
+  public async deleteTags(fingerprintId: string): Promise<void> {
+    return this.tagAPI.deleteTags(fingerprintId);
+  }
+
+  /**
+   * API Key management methods
    */
   public async registerApiKey(
     fingerprintId: string,
     metadata?: Record<string, any>
-  ): Promise<ApiResponse<{ key: string; fingerprintId: string }>> {
-    return this.apiKeyAPI.registerInitialApiKey(fingerprintId, metadata);
+  ): Promise<ApiResponse<APIKeyData>> {
+    return this.apiKeyAPI.registerInitialApiKey(fingerprintId, metadata || {});
   }
 
-  /**
-   * Create an additional API key (requires existing API key)
-   */
   public async createApiKey(
-    name: string
-  ): Promise<ApiResponse<{ key: string }>> {
-    return this.apiKeyAPI.createAPIKey({ name });
+    request: CreateAPIKeyRequest
+  ): Promise<ApiResponse<APIKeyData>> {
+    return this.apiKeyAPI.createAPIKey(request);
+  }
+
+  public async validateApiKey(apiKey: string): Promise<ApiResponse<boolean>> {
+    return this.apiKeyAPI.validateAPIKey(apiKey);
+  }
+
+  public async revokeApiKey(
+    request: RevokeAPIKeyRequest
+  ): Promise<ApiResponse<void>> {
+    return this.apiKeyAPI.revokeAPIKey(request);
+  }
+
+  public async getApiKey(id: string): Promise<ApiResponse<APIKeyData>> {
+    return this.apiKeyAPI.getAPIKey(id);
+  }
+
+  public async listApiKeys(): Promise<ApiResponse<APIKeyData[]>> {
+    return this.apiKeyAPI.listAPIKeys();
+  }
+
+  public async updateApiKey(
+    id: string,
+    request: UpdateAPIKeyRequest
+  ): Promise<ApiResponse<APIKeyData>> {
+    return this.apiKeyAPI.updateAPIKey(id, request);
+  }
+
+  public async deleteApiKey(id: string): Promise<void> {
+    return this.apiKeyAPI.deleteAPIKey(id);
   }
 
   /**
-   * Validate an API key
+   * Visit tracking methods
    */
-  public async validateAPIKey(apiKey: string): Promise<ApiResponse<boolean>> {
-    return this.apiKeyAPI.validateAPIKey(apiKey);
+  public async track(
+    event: 'visit',
+    data: Omit<CreateVisitRequest, 'timestamp' | 'type'>
+  ): Promise<ApiResponse<VisitData>>;
+  public async track(
+    event: 'presence',
+    data: Omit<UpdatePresenceRequest, 'timestamp'>
+  ): Promise<ApiResponse<PresenceData>>;
+  public async track(
+    event: 'custom',
+    data: Omit<CreateVisitRequest, 'timestamp' | 'type'>
+  ): Promise<ApiResponse<VisitData>>;
+  public async track(
+    event: TrackEventType,
+    data: Omit<CreateVisitRequest | UpdatePresenceRequest, 'timestamp'>
+  ): Promise<ApiResponse<VisitData | PresenceData>> {
+    try {
+      if (this.debug) {
+        console.log('[Argos] Tracking event:', event, data);
+      }
+
+      const timestamp = new Date().toISOString();
+
+      switch (event) {
+        case 'visit': {
+          const visitData = {
+            ...data,
+            timestamp,
+          } as CreateVisitRequest;
+          return await this.visitAPI.createVisit(visitData);
+        }
+        case 'presence': {
+          const presenceData = {
+            ...data,
+            timestamp,
+          } as UpdatePresenceRequest;
+          return await this.visitAPI.updatePresence(presenceData);
+        }
+        case 'custom': {
+          const customData = {
+            ...data,
+            type: 'custom',
+            timestamp,
+          } as CreateVisitRequest;
+          return await this.visitAPI.createVisit(customData);
+        }
+        default:
+          throw new Error(`Unknown event type: ${event}`);
+      }
+    } catch (error) {
+      this.handleError(error);
+      throw error;
+    }
+  }
+
+  public async getVisitHistory(
+    fingerprintId: string,
+    options?: GetVisitHistoryOptions
+  ): Promise<ApiResponse<{ visits: VisitData[] }>> {
+    return this.visitAPI.getVisitHistory(fingerprintId, options);
+  }
+
+  /**
+   * Price data methods
+   */
+  public async getCurrentPrices(
+    options?: GetCurrentPricesOptions
+  ): Promise<ApiResponse<PriceData>> {
+    return this.priceAPI.getCurrentPrices(options);
+  }
+
+  public async getPriceHistory(
+    tokenId: string,
+    options?: GetPriceHistoryOptions
+  ): Promise<ApiResponse<PriceHistoryData>> {
+    return this.priceAPI.getPriceHistory(tokenId, options);
+  }
+
+  /**
+   * System methods
+   */
+  public async checkHealth(): Promise<ApiResponse<SystemHealthData>> {
+    return this.systemAPI.checkHealth();
   }
 
   /**
@@ -104,75 +314,9 @@ export class ArgosSDK {
     return typeof navigator !== 'undefined' && navigator.onLine;
   }
 
-  /**
-   * Create or get a fingerprint
-   */
-  public async identify(
-    request: CreateFingerprintRequest
-  ): Promise<ApiResponse<FingerprintData>> {
-    return this.fingerprintAPI.createFingerprint(request);
-  }
-
-  /**
-   * Get fingerprint by ID
-   */
-  public async getIdentity(id: string): Promise<ApiResponse<FingerprintData>> {
-    return this.fingerprintAPI.getFingerprint(id);
-  }
-
-  /**
-   * Update fingerprint metadata
-   */
-  public async updateFingerprint(
-    id: string,
-    data: { metadata: Record<string, any> }
-  ): Promise<ApiResponse<FingerprintData>> {
-    return this.fingerprintAPI.updateFingerprint(id, data);
-  }
-
   private handleError(error: unknown): void {
     if (this.debug) {
       console.error('[Argos] Error:', error);
-    }
-  }
-
-  /**
-   * Track an event (visit or presence)
-   */
-  public async track(
-    event: 'visit',
-    data: VisitData
-  ): Promise<ApiResponse<void>>;
-  public async track(
-    event: 'presence',
-    data: PresenceData
-  ): Promise<ApiResponse<void>>;
-  public async track(
-    event: string,
-    data: VisitData | PresenceData
-  ): Promise<ApiResponse<void>> {
-    try {
-      if (this.debug) {
-        console.log('[Argos] Tracking event:', event, data);
-      }
-
-      let response: ApiResponse<void>;
-
-      if (event === 'visit') {
-        response = await this.visitAPI.createVisit(data as VisitData);
-      } else if (event === 'presence') {
-        response = await this.visitAPI.updatePresence(data as PresenceData);
-      } else {
-        throw new Error(`Unknown event type: ${event}`);
-      }
-
-      if (this.debug) {
-        console.log('[Argos] Track response:', response);
-      }
-      return response;
-    } catch (error) {
-      this.handleError(error);
-      throw error;
     }
   }
 }

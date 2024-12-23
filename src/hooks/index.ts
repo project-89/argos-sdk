@@ -1,1 +1,3 @@
-export { useArgosSDK, useArgosPresence } from '../context/ArgosContext';
+export { useArgosSDK } from './useArgosSDK';
+export { useFingerprint } from './useFingerprint';
+export { useOnlineStatus } from './useOnlineStatus';

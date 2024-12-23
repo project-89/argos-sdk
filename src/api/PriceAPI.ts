@@ -1,44 +1,66 @@
-import { BaseAPI, BaseAPIConfig } from "./BaseAPI";
-import { ApiResponse, PriceData } from "../types/api";
+import { BaseAPI, BaseAPIConfig } from './BaseAPI';
+import {
+  ApiResponse,
+  PriceData,
+  PriceHistoryData,
+  GetCurrentPricesOptions,
+  GetPriceHistoryOptions,
+} from '../types/api';
 
 export class PriceAPI extends BaseAPI {
   constructor(config: BaseAPIConfig) {
     super(config);
   }
 
-  public async getCurrentPrice(): Promise<ApiResponse<PriceData>> {
+  /**
+   * Get current prices for specified tokens
+   */
+  public async getCurrentPrices(
+    options?: GetCurrentPricesOptions
+  ): Promise<ApiResponse<PriceData>> {
     try {
-      return await this.fetchApi<PriceData>("/price/current", {
-        method: "GET",
+      const params = new URLSearchParams();
+      if (options?.tokens) {
+        params.append('tokens', options.tokens.join(','));
+      }
+
+      const query = params.toString();
+      const endpoint = `/price/current${query ? `?${query}` : ''}`;
+
+      return await this.fetchApi<PriceData>(endpoint, {
+        method: 'GET',
       });
     } catch (error) {
-      throw new Error(
-        `Failed to get current price: ${
-          error instanceof Error ? error.message : error
-        }`
-      );
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to get current prices: ${message}`);
     }
   }
 
+  /**
+   * Get price history for a token
+   */
   public async getPriceHistory(
-    startDate?: string,
-    endDate?: string
-  ): Promise<ApiResponse<PriceData[]>> {
+    tokenId: string,
+    options?: GetPriceHistoryOptions
+  ): Promise<ApiResponse<PriceHistoryData>> {
     try {
-      let endpoint = "/price/history";
-      if (startDate && endDate) {
-        endpoint += `?startDate=${startDate}&endDate=${endDate}`;
+      const params = new URLSearchParams();
+      if (options?.interval) {
+        params.append('interval', options.interval);
+      }
+      if (options?.limit) {
+        params.append('limit', options.limit.toString());
       }
 
-      return await this.fetchApi<PriceData[]>(endpoint, {
-        method: "GET",
+      const query = params.toString();
+      const endpoint = `/price/history/${tokenId}${query ? `?${query}` : ''}`;
+
+      return await this.fetchApi<PriceHistoryData>(endpoint, {
+        method: 'GET',
       });
     } catch (error) {
-      throw new Error(
-        `Failed to get price history: ${
-          error instanceof Error ? error.message : error
-        }`
-      );
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to get price history: ${message}`);
     }
   }
 }

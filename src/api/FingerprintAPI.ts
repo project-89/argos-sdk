@@ -1,15 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { BaseAPI, BaseAPIConfig } from "./BaseAPI";
-import { ApiResponse, FingerprintData } from "../types/api";
+import { BaseAPI, BaseAPIConfig } from './BaseAPI';
+import { ApiResponse, Fingerprint } from '../types/api';
 
 export interface CreateFingerprintRequest {
   fingerprint: string;
   metadata?: Record<string, any>;
-}
-
-export interface UpdateFingerprintRequest {
-  metadata?: Record<string, any>;
-  tags?: Record<string, number>;
 }
 
 export class FingerprintAPI extends BaseAPI {
@@ -18,15 +13,16 @@ export class FingerprintAPI extends BaseAPI {
   }
 
   /**
-   * Create a fingerprint (public endpoint)
+   * Create a new fingerprint
    */
   public async createFingerprint(
     request: CreateFingerprintRequest
-  ): Promise<ApiResponse<FingerprintData>> {
+  ): Promise<ApiResponse<Fingerprint>> {
     try {
-      return await this.fetchApi<FingerprintData>("/fingerprint/register", {
-        method: "POST",
+      return await this.fetchApi<Fingerprint>('/fingerprint/register', {
+        method: 'POST',
         body: JSON.stringify(request),
+        isPublic: true,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -35,14 +31,12 @@ export class FingerprintAPI extends BaseAPI {
   }
 
   /**
-   * Get fingerprint by ID (public endpoint)
+   * Get fingerprint by ID
    */
-  public async getFingerprint(
-    id: string
-  ): Promise<ApiResponse<FingerprintData>> {
+  public async getFingerprint(id: string): Promise<ApiResponse<Fingerprint>> {
     try {
-      return await this.fetchApi<FingerprintData>(`/fingerprint/${id}`, {
-        method: "GET",
+      return await this.fetchApi<Fingerprint>(`/fingerprint/${id}`, {
+        method: 'GET',
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -51,16 +45,16 @@ export class FingerprintAPI extends BaseAPI {
   }
 
   /**
-   * Update fingerprint data (protected endpoint - requires API key)
+   * Update fingerprint metadata
    */
   public async updateFingerprint(
     id: string,
-    request: UpdateFingerprintRequest
-  ): Promise<ApiResponse<FingerprintData>> {
+    metadata: Record<string, any>
+  ): Promise<ApiResponse<Fingerprint>> {
     try {
-      return await this.fetchApi<FingerprintData>(`/fingerprint/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(request),
+      return await this.fetchApi<Fingerprint>(`/fingerprint/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ metadata }),
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
