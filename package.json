@@ -1,6 +1,6 @@
 {
   "name": "@project89/argos-sdk",
-  "version": "0.1.34",
+  "version": "0.1.35",
   "description": "Argos SDK for tracking and analytics",
   "main": "./dist/index.js",
   "module": "./dist/index.esm.js",
