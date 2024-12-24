@@ -23,7 +23,7 @@ export function useMetadata(): UseMetadataReturn {
         ...fields,
       };
 
-      await sdk.updateFingerprint(fingerprintId, {
+      await sdk.updateFingerprint({
         metadata: updatedMetadata,
       });
     },
