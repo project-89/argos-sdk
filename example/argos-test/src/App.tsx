@@ -5,6 +5,8 @@ import {
   useFingerprint,
   useOnlineStatus,
   useMetadata,
+  useImpressions,
+  ImpressionData,
 } from '../../../src';
 import * as fpjs from '@fingerprintjs/fingerprintjs';
 
@@ -370,6 +372,173 @@ function MetadataEditor() {
   );
 }
 
+// Add ImpressionManager component
+function ImpressionManager() {
+  const { impressions, createImpression, deleteImpressions, isLoading, error } =
+    useImpressions();
+  const [type, setType] = useState('');
+  const [data, setData] = useState('');
+
+  const handleCreateImpression = async () => {
+    if (!type.trim() || !data.trim()) return;
+
+    try {
+      await createImpression(type, {
+        content: data,
+      });
+      // Clear form after successful creation
+      setType('');
+      setData('');
+    } catch (err) {
+      console.error('Failed to create impression:', err);
+    }
+  };
+
+  const handleDeleteByType = async (type: string) => {
+    try {
+      await deleteImpressions({ type });
+    } catch (err) {
+      console.error('Failed to delete impressions:', err);
+    }
+  };
+
+  return (
+    <div className="impression-manager">
+      <h3>Impression Manager</h3>
+
+      <div className="form-group">
+        <input
+          type="text"
+          placeholder="Impression Type"
+          value={type}
+          onChange={(e) => setType(e.target.value)}
+          className="input-field"
+        />
+        <textarea
+          placeholder="Impression Data"
+          value={data}
+          onChange={(e) => setData(e.target.value)}
+          className="knowledge-input"
+        />
+        <button
+          onClick={handleCreateImpression}
+          disabled={!type.trim() || !data.trim() || isLoading}
+          className="update-button"
+        >
+          Create Impression
+        </button>
+      </div>
+
+      {error && <p className="error-text">{error.message}</p>}
+
+      <div className="impressions-list">
+        <h4>Recent Impressions</h4>
+        {isLoading ? (
+          <p>Loading...</p>
+        ) : impressions.length > 0 ? (
+          <div className="impressions-grid">
+            {impressions.map((impression: ImpressionData) => (
+              <div key={impression.id} className="impression-card">
+                <div className="impression-header">
+                  <span className="impression-type">{impression.type}</span>
+                  <button
+                    onClick={() => handleDeleteByType(impression.type)}
+                    className="delete-button"
+                    title="Delete all impressions of this type"
+                  >
+                    ×
+                  </button>
+                </div>
+                <pre className="impression-data">
+                  {JSON.stringify(impression.data, null, 2)}
+                </pre>
+                <div className="impression-footer">
+                  <small>
+                    {new Date(impression.createdAt).toLocaleString()}
+                  </small>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p>No impressions yet</p>
+        )}
+      </div>
+
+      <style>{`
+        .impression-manager {
+          background: #ffffff;
+          border-radius: 8px;
+          padding: 1.5rem;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          margin-top: 2rem;
+        }
+
+        .impressions-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          gap: 1rem;
+          margin-top: 1rem;
+        }
+
+        .impression-card {
+          background: #f9fafb;
+          border: 1px solid #e5e7eb;
+          border-radius: 6px;
+          padding: 1rem;
+        }
+
+        .impression-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 0.5rem;
+        }
+
+        .impression-type {
+          font-weight: 600;
+          color: #4b5563;
+          background: #e5e7eb;
+          padding: 0.25rem 0.5rem;
+          border-radius: 4px;
+          font-size: 0.875rem;
+        }
+
+        .delete-button {
+          background: none;
+          border: none;
+          color: #ef4444;
+          font-size: 1.25rem;
+          cursor: pointer;
+          padding: 0.25rem;
+          line-height: 1;
+          border-radius: 4px;
+        }
+
+        .delete-button:hover {
+          background: #fee2e2;
+        }
+
+        .impression-data {
+          background: #ffffff;
+          border: 1px solid #e5e7eb;
+          border-radius: 4px;
+          padding: 0.5rem;
+          font-size: 0.875rem;
+          margin: 0.5rem 0;
+          overflow-x: auto;
+        }
+
+        .impression-footer {
+          color: #6b7280;
+          font-size: 0.75rem;
+          margin-top: 0.5rem;
+        }
+      `}</style>
+    </div>
+  );
+}
+
 // Main App component
 function App() {
   const handleError = useCallback((error: Error) => {
@@ -381,6 +550,7 @@ function App() {
       config={{
         baseUrl: 'http://127.0.0.1:5001/argos-434718/us-central1/api',
         debug: true,
+        apiKey: import.meta.env.VITE_ARGOS_API_KEY,
       }}
       onError={handleError}
       debug={true}
@@ -395,6 +565,7 @@ function App() {
             <div>
               <FingerprintInfo />
               <MetadataEditor />
+              <ImpressionManager />
             </div>
             <SystemStatus />
           </div>

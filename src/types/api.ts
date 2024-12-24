@@ -181,3 +181,33 @@ export interface RealityStabilityData {
   factors: Record<string, number>;
   trend: 'stable' | 'increasing' | 'decreasing';
 }
+
+export interface ImpressionData {
+  id: string;
+  fingerprintId: string;
+  type: string;
+  data: Record<string, any>;
+  createdAt: string;
+  source?: string;
+  sessionId?: string;
+}
+
+export interface CreateImpressionRequest {
+  fingerprintId: string;
+  type: string;
+  data: Record<string, any>;
+  source?: string;
+  sessionId?: string;
+}
+
+export interface GetImpressionsOptions {
+  type?: string;
+  startTime?: string;
+  endTime?: string;
+  limit?: number;
+  sessionId?: string;
+}
+
+export interface DeleteImpressionsResponse {
+  deletedCount: number;
+}

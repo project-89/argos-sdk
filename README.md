@@ -118,17 +118,32 @@ interface ArgosSDKConfig {
   debug?: boolean;
 }
 
+interface FirestoreTimestamp {
+  _seconds: number;
+  _nanoseconds: number;
+}
+
+interface IpMetadata {
+  ipFrequency: Record<string, number>;
+  lastSeenAt: Record<string, FirestoreTimestamp>;
+  primaryIp: string;
+  suspiciousIps: string[];
+}
+
 interface CreateFingerprintRequest {
   fingerprint: string;
   metadata?: Record<string, any>;
 }
 
-interface FingerprintData {
+interface Fingerprint {
   id: string;
   fingerprint: string;
   roles: string[];
-  createdAt: string;
+  createdAt: FirestoreTimestamp;
   metadata: Record<string, any>;
+  ipAddresses: string[];
+  ipMetadata: IpMetadata;
+  tags: string[];
 }
 
 interface CreateVisitRequest {
@@ -205,8 +220,11 @@ const sdk = new ArgosSDK({
 # Install dependencies
 npm install
 
-# Run tests
+# Run unit tests
 npm test
+
+# Run integration tests
+TEST_MODE=integration npm test
 
 # Build the package
 npm run build

@@ -29,6 +29,13 @@ import {
 } from './types/api';
 import { APIKeyAPI } from './api/APIKeyAPI';
 import { CreateFingerprintRequest } from './api/FingerprintAPI';
+import { ImpressionAPI } from './api/ImpressionAPI';
+import type {
+  CreateImpressionRequest,
+  GetImpressionsOptions,
+  ImpressionData,
+  DeleteImpressionsResponse,
+} from './types/api';
 
 export interface ArgosSDKConfig extends BaseAPIConfig {
   debug?: boolean;
@@ -45,6 +52,7 @@ export class ArgosSDK {
   private tagAPI: TagAPI;
   private priceAPI: PriceAPI;
   private systemAPI: SystemAPI;
+  private impressionAPI: ImpressionAPI;
   private debug: boolean;
   private apiKey?: string;
   private presenceInterval: number;
@@ -60,6 +68,7 @@ export class ArgosSDK {
     this.tagAPI = new TagAPI(config);
     this.priceAPI = new PriceAPI(config);
     this.systemAPI = new SystemAPI(config);
+    this.impressionAPI = new ImpressionAPI(config);
 
     if (this.debug) {
       console.log('[Argos] Initialized with config:', {
@@ -82,6 +91,7 @@ export class ArgosSDK {
     this.tagAPI = new TagAPI(config);
     this.priceAPI = new PriceAPI(config);
     this.systemAPI = new SystemAPI(config);
+    this.impressionAPI = new ImpressionAPI(config);
 
     if (this.debug) {
       console.log(
@@ -126,7 +136,7 @@ export class ArgosSDK {
 
   public async updateFingerprint(
     id: string,
-    metadata: Record<string, any>
+    metadata: Record<string, unknown>
   ): Promise<ApiResponse<Fingerprint>> {
     return this.fingerprintAPI.updateFingerprint(id, metadata);
   }
@@ -179,7 +189,7 @@ export class ArgosSDK {
    */
   public async registerApiKey(
     fingerprintId: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): Promise<ApiResponse<APIKeyData>> {
     return this.apiKeyAPI.registerInitialApiKey(fingerprintId, metadata || {});
   }
@@ -318,5 +328,26 @@ export class ArgosSDK {
     if (this.debug) {
       console.error('[Argos] Error:', error);
     }
+  }
+
+  // Impression Methods
+  public async createImpression(
+    request: CreateImpressionRequest
+  ): Promise<ApiResponse<ImpressionData>> {
+    return this.impressionAPI.createImpression(request);
+  }
+
+  public async getImpressions(
+    fingerprintId: string,
+    options?: GetImpressionsOptions
+  ): Promise<ApiResponse<ImpressionData[]>> {
+    return this.impressionAPI.getImpressions(fingerprintId, options);
+  }
+
+  public async deleteImpressions(
+    fingerprintId: string,
+    options?: GetImpressionsOptions
+  ): Promise<ApiResponse<DeleteImpressionsResponse>> {
+    return this.impressionAPI.deleteImpressions(fingerprintId, options);
   }
 }
