@@ -189,7 +189,7 @@ describe('FingerprintAPI', () => {
 
       mockFetchApi.mockResolvedValueOnce(mockResponse(mockFingerprint));
 
-      const result = await api.updateFingerprint('test-id', {
+      const result = await api.updateFingerprint({
         metadata: {
           userAgent: 'updated-user-agent',
           language: 'en-US',
@@ -214,7 +214,7 @@ describe('FingerprintAPI', () => {
       mockFetchApi.mockRejectedValueOnce(error);
 
       await expect(
-        api.updateFingerprint('test-id', {
+        api.updateFingerprint({
           metadata: {
             userAgent: 'updated-user-agent',
             language: 'en-US',
