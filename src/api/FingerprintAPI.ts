@@ -47,10 +47,9 @@ export class FingerprintAPI extends BaseAPI {
   /**
    * Update fingerprint metadata
    */
-  public async updateFingerprint(
-    id: string,
-    data: { metadata?: Record<string, any> }
-  ): Promise<ApiResponse<Fingerprint>> {
+  public async updateFingerprint(data: {
+    metadata?: Record<string, any>;
+  }): Promise<ApiResponse<Fingerprint>> {
     try {
       return await this.fetchApi<Fingerprint>('/fingerprint/update', {
         method: 'POST',

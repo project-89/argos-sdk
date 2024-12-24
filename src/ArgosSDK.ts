@@ -138,7 +138,7 @@ export class ArgosSDK {
     id: string,
     metadata: Record<string, unknown>
   ): Promise<ApiResponse<Fingerprint>> {
-    return this.fingerprintAPI.updateFingerprint(id, metadata);
+    return this.fingerprintAPI.updateFingerprint(metadata);
   }
 
   /**
