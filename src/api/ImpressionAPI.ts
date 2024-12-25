@@ -20,7 +20,7 @@ export class ImpressionAPI extends BaseAPI {
     request: CreateImpressionRequest
   ): Promise<ApiResponse<ImpressionData>> {
     try {
-      return await this.fetchApi<ImpressionData>('/impressions', {
+      return await this.fetchApi<ApiResponse<ImpressionData>>('/impressions', {
         method: 'POST',
         body: JSON.stringify(request),
       });
@@ -49,7 +49,7 @@ export class ImpressionAPI extends BaseAPI {
       const query = queryParams.toString();
       const url = `/impressions/${fingerprintId}${query ? `?${query}` : ''}`;
 
-      return await this.fetchApi<ImpressionData[]>(url, {
+      return await this.fetchApi<ApiResponse<ImpressionData[]>>(url, {
         method: 'GET',
       });
     } catch (error) {
@@ -76,7 +76,7 @@ export class ImpressionAPI extends BaseAPI {
       const query = queryParams.toString();
       const url = `/impressions/${fingerprintId}${query ? `?${query}` : ''}`;
 
-      return await this.fetchApi<DeleteImpressionsResponse>(url, {
+      return await this.fetchApi<ApiResponse<DeleteImpressionsResponse>>(url, {
         method: 'DELETE',
       });
     } catch (error) {

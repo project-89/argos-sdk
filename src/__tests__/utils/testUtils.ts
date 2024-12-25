@@ -1,5 +1,9 @@
 import { ApiResponse } from '../../types/api';
 import fetch, { Response } from 'node-fetch';
+import {
+  EnvironmentInterface,
+  StorageInterface,
+} from '../../core/interfaces/environment';
 
 export const isIntegrationTest = () => process.env.TEST_MODE === 'integration';
 
@@ -23,6 +27,66 @@ export function mockResponse<T>(data: T): ApiResponse<T> {
 
 export function createMockFetchApi() {
   return jest.fn();
+}
+
+export class MockEnvironment implements EnvironmentInterface {
+  private fingerprint: string;
+
+  constructor(fingerprint: string = 'test-fingerprint') {
+    this.fingerprint = fingerprint;
+  }
+
+  async getFingerprint(): Promise<string> {
+    return this.fingerprint;
+  }
+
+  getPlatformInfo(): string {
+    return 'test-platform';
+  }
+
+  isOnline(): boolean {
+    return true;
+  }
+
+  getLanguage(): string {
+    return 'en-US';
+  }
+
+  getUserAgent(): string {
+    return 'test-user-agent';
+  }
+
+  getUrl(): string | null {
+    return 'http://test.com';
+  }
+
+  getReferrer(): string | null {
+    return null;
+  }
+}
+
+export class MockStorage implements StorageInterface {
+  private storage: Map<string, string>;
+
+  constructor(initialData: Record<string, string> = {}) {
+    this.storage = new Map(Object.entries(initialData));
+  }
+
+  getItem(key: string): string | null {
+    return this.storage.get(key) || null;
+  }
+
+  setItem(key: string, value: string): void {
+    this.storage.set(key, value);
+  }
+
+  removeItem(key: string): void {
+    this.storage.delete(key);
+  }
+
+  clear(): void {
+    this.storage.clear();
+  }
 }
 
 class MockHeaders {

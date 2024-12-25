@@ -1,36 +1,32 @@
 import { useCallback, useState } from 'react';
 import { useFingerprint } from './useFingerprint';
 import { useArgosSDK } from './useArgosSDK';
-import type { ImpressionData, GetImpressionsOptions } from '../types/api';
+import type {
+  ImpressionData,
+  GetImpressionsOptions,
+  CreateImpressionRequest,
+} from '../types/api';
 
 interface UseImpressionsReturn {
   impressions: ImpressionData[];
   isLoading: boolean;
   error: Error | null;
-  createImpression: (
-    type: string,
-    data: Record<string, unknown>,
-    options?: { source?: string; sessionId?: string }
-  ) => Promise<void>;
+  createImpression: (type: string, data: Record<string, any>) => Promise<void>;
   getImpressions: (options?: GetImpressionsOptions) => Promise<void>;
   deleteImpressions: (options?: GetImpressionsOptions) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
 export function useImpressions(): UseImpressionsReturn {
-  const { fingerprintId } = useFingerprint();
+  const { fingerprint } = useFingerprint();
   const sdk = useArgosSDK();
   const [impressions, setImpressions] = useState<ImpressionData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
   const createImpression = useCallback(
-    async (
-      type: string,
-      data: Record<string, unknown>,
-      options?: { source?: string; sessionId?: string }
-    ) => {
-      if (!fingerprintId) {
+    async (type: string, data: Record<string, any>) => {
+      if (!fingerprint?.id) {
         throw new Error('Fingerprint ID is required');
       }
 
@@ -39,11 +35,9 @@ export function useImpressions(): UseImpressionsReturn {
 
       try {
         const response = await sdk.createImpression({
-          fingerprintId,
+          fingerprintId: fingerprint.id,
           type,
           data,
-          source: options?.source,
-          sessionId: options?.sessionId,
         });
 
         if (response.success && response.data) {
@@ -59,12 +53,12 @@ export function useImpressions(): UseImpressionsReturn {
         setIsLoading(false);
       }
     },
-    [fingerprintId, sdk]
+    [fingerprint?.id, sdk]
   );
 
   const getImpressions = useCallback(
     async (options?: GetImpressionsOptions) => {
-      if (!fingerprintId) {
+      if (!fingerprint?.id) {
         throw new Error('Fingerprint ID is required');
       }
 
@@ -72,7 +66,7 @@ export function useImpressions(): UseImpressionsReturn {
       setError(null);
 
       try {
-        const response = await sdk.getImpressions(fingerprintId, options);
+        const response = await sdk.getImpressions(fingerprint.id, options);
         if (response.success && response.data) {
           setImpressions(response.data);
         }
@@ -84,12 +78,12 @@ export function useImpressions(): UseImpressionsReturn {
         setIsLoading(false);
       }
     },
-    [fingerprintId, sdk]
+    [fingerprint?.id, sdk]
   );
 
   const deleteImpressions = useCallback(
     async (options?: GetImpressionsOptions) => {
-      if (!fingerprintId) {
+      if (!fingerprint?.id) {
         throw new Error('Fingerprint ID is required');
       }
 
@@ -97,7 +91,7 @@ export function useImpressions(): UseImpressionsReturn {
       setError(null);
 
       try {
-        await sdk.deleteImpressions(fingerprintId, options);
+        await sdk.deleteImpressions(fingerprint.id, options);
         // Refresh the impressions list after deletion
         await getImpressions(options);
       } catch (err) {
@@ -108,7 +102,7 @@ export function useImpressions(): UseImpressionsReturn {
         setIsLoading(false);
       }
     },
-    [fingerprintId, sdk, getImpressions]
+    [fingerprint?.id, sdk, getImpressions]
   );
 
   const refresh = useCallback(async () => {

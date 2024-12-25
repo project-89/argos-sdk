@@ -12,6 +12,13 @@
       "import": "./dist/index.esm.js",
       "require": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "module": "./dist/server/index.esm.js",
+      "import": "./dist/server/index.esm.js",
+      "require": "./dist/server/index.js",
+      "default": "./dist/server/index.js"
     }
   },
   "files": [
@@ -27,7 +34,8 @@
     "prepublishOnly": "npm test && npm run lint",
     "preversion": "npm run lint",
     "version": "npm run format && git add -A src",
-    "postversion": "git push && git push --tags"
+    "postversion": "git push && git push --tags",
+    "test:integration": "TEST_MODE=integration jest --config jest.config.js src/__tests__/integration/"
   },
   "repository": {
     "type": "git",

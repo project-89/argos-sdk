@@ -19,11 +19,17 @@ export class FingerprintAPI extends BaseAPI {
     request: CreateFingerprintRequest
   ): Promise<ApiResponse<Fingerprint>> {
     try {
-      return await this.fetchApi<Fingerprint>('/fingerprint/register', {
-        method: 'POST',
-        body: JSON.stringify(request),
-        isPublic: true,
-      });
+      if (this.debug) {
+        console.log('[Argos] Creating fingerprint with request:', request);
+      }
+      return await this.fetchApi<ApiResponse<Fingerprint>>(
+        '/fingerprint/register',
+        {
+          method: 'POST',
+          body: JSON.stringify(request),
+          isPublic: true,
+        }
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to create fingerprint: ${message}`);
@@ -35,9 +41,12 @@ export class FingerprintAPI extends BaseAPI {
    */
   public async getFingerprint(id: string): Promise<ApiResponse<Fingerprint>> {
     try {
-      return await this.fetchApi<Fingerprint>(`/fingerprint/${id}`, {
-        method: 'GET',
-      });
+      return await this.fetchApi<ApiResponse<Fingerprint>>(
+        `/fingerprint/${id}`,
+        {
+          method: 'GET',
+        }
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get fingerprint: ${message}`);
@@ -51,12 +60,15 @@ export class FingerprintAPI extends BaseAPI {
     metadata?: Record<string, any>;
   }): Promise<ApiResponse<Fingerprint>> {
     try {
-      return await this.fetchApi<Fingerprint>('/fingerprint/update', {
-        method: 'POST',
-        body: JSON.stringify({
-          metadata: data.metadata || {},
-        }),
-      });
+      return await this.fetchApi<ApiResponse<Fingerprint>>(
+        '/fingerprint/update',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            metadata: data.metadata || {},
+          }),
+        }
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to update fingerprint: ${message}`);

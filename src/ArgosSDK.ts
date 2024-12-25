@@ -36,10 +36,18 @@ import type {
   ImpressionData,
   DeleteImpressionsResponse,
 } from './types/api';
+import { EnvironmentFactory } from './core/factory/EnvironmentFactory';
+import {
+  EnvironmentInterface,
+  StorageInterface,
+  RuntimeEnvironment,
+} from './core/interfaces/environment';
 
 export interface ArgosSDKConfig extends BaseAPIConfig {
   debug?: boolean;
   presenceInterval?: number;
+  environment?: EnvironmentInterface;
+  storage?: StorageInterface;
 }
 
 export type TrackEventType = 'visit' | 'presence' | 'custom';
@@ -56,24 +64,56 @@ export class ArgosSDK {
   private debug: boolean;
   private apiKey?: string;
   private presenceInterval: number;
+  private environment: EnvironmentInterface;
+  private storage: StorageInterface;
+  private runtime: RuntimeEnvironment;
+  private baseUrl: string;
 
   constructor(config: ArgosSDKConfig) {
     this.debug = config.debug || false;
     this.apiKey = config.apiKey;
     this.presenceInterval = config.presenceInterval || 30000; // Default to 30 seconds
-    this.fingerprintAPI = new FingerprintAPI(config);
-    this.visitAPI = new VisitAPI(config);
-    this.apiKeyAPI = new APIKeyAPI(config);
-    this.roleAPI = new RoleAPI(config);
-    this.tagAPI = new TagAPI(config);
-    this.priceAPI = new PriceAPI(config);
-    this.systemAPI = new SystemAPI(config);
-    this.impressionAPI = new ImpressionAPI(config);
+    this.baseUrl = config.baseUrl;
+
+    // Initialize environment and storage
+    const { environment, storage, runtime } =
+      EnvironmentFactory.createEnvironment({
+        environment: config.environment,
+        storage: config.storage,
+        debug: this.debug,
+      });
+
+    this.environment = environment;
+    this.storage = storage;
+    this.runtime = runtime;
+
+    // Restore API key from storage if not provided in config
+    if (!this.apiKey) {
+      const storedApiKey = this.storage.getItem('api_key');
+      if (storedApiKey) {
+        this.apiKey = storedApiKey;
+        if (this.debug) {
+          console.log('[Argos] Restored API key from storage');
+        }
+      }
+    }
+
+    // Initialize APIs
+    const apiConfig = this.getConfig();
+    this.fingerprintAPI = new FingerprintAPI(apiConfig);
+    this.visitAPI = new VisitAPI(apiConfig);
+    this.apiKeyAPI = new APIKeyAPI(apiConfig);
+    this.roleAPI = new RoleAPI(apiConfig);
+    this.tagAPI = new TagAPI(apiConfig);
+    this.priceAPI = new PriceAPI(apiConfig);
+    this.systemAPI = new SystemAPI(apiConfig);
+    this.impressionAPI = new ImpressionAPI(apiConfig);
 
     if (this.debug) {
       console.log('[Argos] Initialized with config:', {
         ...config,
         apiKey: config.apiKey ? '[REDACTED]' : undefined,
+        runtime: this.runtime,
       });
     }
   }
@@ -92,6 +132,13 @@ export class ArgosSDK {
     this.priceAPI = new PriceAPI(config);
     this.systemAPI = new SystemAPI(config);
     this.impressionAPI = new ImpressionAPI(config);
+
+    // Store API key in storage
+    if (apiKey) {
+      this.storage.setItem('api_key', apiKey);
+    } else {
+      this.storage.removeItem('api_key');
+    }
 
     if (this.debug) {
       console.log(
@@ -114,10 +161,12 @@ export class ArgosSDK {
 
   private getConfig(): ArgosSDKConfig {
     return {
-      baseUrl: this.fingerprintAPI['baseUrl'],
+      baseUrl: this.baseUrl,
       apiKey: this.apiKey,
       debug: this.debug,
       presenceInterval: this.presenceInterval,
+      environment: this.environment,
+      storage: this.storage,
     };
   }
 
@@ -127,7 +176,17 @@ export class ArgosSDK {
   public async identify(
     request: CreateFingerprintRequest
   ): Promise<ApiResponse<Fingerprint>> {
-    return this.fingerprintAPI.createFingerprint(request);
+    const response = await this.fingerprintAPI.createFingerprint(request);
+
+    // After successful fingerprint creation, register for API key
+    if (response.success && response.data?.id) {
+      const apiKeyResponse = await this.registerApiKey(response.data.id);
+      if (apiKeyResponse.success && apiKeyResponse.data?.key) {
+        this.setApiKey(apiKeyResponse.data.key);
+      }
+    }
+
+    return response;
   }
 
   public async getIdentity(id: string): Promise<ApiResponse<Fingerprint>> {
@@ -320,7 +379,7 @@ export class ArgosSDK {
    * Check if the client is online
    */
   public isOnline(): boolean {
-    return typeof navigator !== 'undefined' && navigator.onLine;
+    return this.environment.isOnline();
   }
 
   private handleError(error: unknown): void {
