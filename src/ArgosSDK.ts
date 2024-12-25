@@ -176,17 +176,36 @@ export class ArgosSDK {
   public async identify(
     request: CreateFingerprintRequest
   ): Promise<ApiResponse<Fingerprint>> {
-    const response = await this.fingerprintAPI.createFingerprint(request);
+    try {
+      const response = await this.fingerprintAPI.createFingerprint({
+        fingerprint: request.fingerprint,
+        metadata: {
+          ...request.metadata,
+          source: request.metadata?.source || 'sdk',
+          userAgent:
+            request.metadata?.userAgent || this.environment.getUserAgent(),
+          language:
+            request.metadata?.language || this.environment.getLanguage(),
+          platform:
+            request.metadata?.platform ||
+            (await this.environment.getPlatformInfo()),
+        },
+      });
 
-    // After successful fingerprint creation, register for API key
-    if (response.success && response.data?.id) {
-      const apiKeyResponse = await this.registerApiKey(response.data.id);
-      if (apiKeyResponse.success && apiKeyResponse.data?.key) {
-        this.setApiKey(apiKeyResponse.data.key);
+      // After successful fingerprint creation, register for API key
+      if (response.success && response.data?.id) {
+        await this.storage.setItem('fingerprint_id', response.data.id);
+        const apiKeyResponse = await this.registerApiKey(response.data.id);
+        if (apiKeyResponse.success && apiKeyResponse.data?.key) {
+          this.setApiKey(apiKeyResponse.data.key);
+        }
       }
-    }
 
-    return response;
+      return response;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to identify: ${message}`);
+    }
   }
 
   public async getIdentity(id: string): Promise<ApiResponse<Fingerprint>> {

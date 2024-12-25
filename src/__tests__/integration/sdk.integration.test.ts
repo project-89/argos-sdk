@@ -1,7 +1,11 @@
 import { ArgosSDK } from '../../ArgosSDK';
 import { ArgosServerSDK } from '../../server/sdk/ArgosServerSDK';
 import { MockEnvironment, MockStorage } from '../utils/testUtils';
-import { CreateImpressionRequest } from '../../types/api';
+import {
+  CreateImpressionRequest,
+  VisitData,
+  CreateVisitRequest,
+} from '../../types/api';
 
 // Only run these tests when TEST_MODE=integration
 const itif = process.env.TEST_MODE === 'integration' ? it : it.skip;
@@ -40,12 +44,28 @@ describe('SDK Integration Tests', () => {
 
     fingerprintId = result.data.id;
 
+    // Get the API key for this fingerprint
+    const apiKeyResult = await clientSDK.registerApiKey(fingerprintId, {
+      source: 'integration-test',
+      metadata: {
+        type: 'test',
+        environment: 'integration',
+      },
+    });
+
+    if (!apiKeyResult.data) {
+      throw new Error('Failed to get API key');
+    }
+
     // Initialize server SDK with the API key
     serverSDK = new ArgosServerSDK({
       baseUrl,
-      apiKey: fingerprintId,
+      apiKey: apiKeyResult.data.key,
       debug: true,
     });
+
+    // Update client SDK with the API key as well
+    clientSDK.setApiKey(apiKeyResult.data.key);
   });
 
   describe('Client SDK', () => {
@@ -119,6 +139,100 @@ describe('SDK Integration Tests', () => {
       });
       expect(result.success).toBe(true);
       expect(result.data?.url).toBe('https://test.com/server');
+    });
+
+    itif('should handle API key refresh', async () => {
+      // First, create a fingerprint and get initial API key
+      const fingerprint = await clientSDK.identify({
+        fingerprint: 'test-refresh-fingerprint',
+        metadata: {
+          source: 'integration-test',
+          test: 'refresh',
+        },
+      });
+      expect(fingerprint.success).toBe(true);
+      const initialFingerprintId = fingerprint.data?.id;
+      expect(initialFingerprintId).toBeDefined();
+
+      // Create server SDK with the fingerprint ID
+      const testServerSDK = new ArgosServerSDK({
+        baseUrl,
+        apiKey: initialFingerprintId!,
+        debug: true,
+      });
+
+      // Register a new API key for the same fingerprint
+      // This should invalidate the previous key
+      const newKeyResponse = await clientSDK.registerApiKey(
+        initialFingerprintId!,
+        {
+          source: 'test-refresh',
+        }
+      );
+      expect(newKeyResponse.success).toBe(true);
+      expect(newKeyResponse.data?.key).toBeDefined();
+
+      // Try to use the server SDK with the old key
+      // It should automatically refresh and continue working
+      const trackResult = await testServerSDK.track('visit', {
+        fingerprintId: initialFingerprintId!,
+        url: 'https://test.com/refresh',
+        title: 'Refresh Test',
+      });
+
+      expect(trackResult.success).toBe(true);
+      expect(trackResult.data?.url).toBe('https://test.com/refresh');
+    });
+
+    itif('should handle multiple API key refreshes', async () => {
+      // Create initial fingerprint
+      const fingerprint = await clientSDK.identify({
+        fingerprint: 'test-multiple-refresh',
+        metadata: {
+          source: 'integration-test',
+          test: 'multiple-refresh',
+        },
+      });
+      expect(fingerprint.success).toBe(true);
+      const fpId = fingerprint.data?.id;
+      expect(fpId).toBeDefined();
+
+      // Create server SDK
+      const testServerSDK = new ArgosServerSDK({
+        baseUrl,
+        apiKey: fpId!,
+        debug: true,
+      });
+
+      // First successful request
+      let trackResult = await testServerSDK.track('visit', {
+        fingerprintId: fpId!,
+        url: 'https://test.com/refresh/1',
+        title: 'Refresh Test 1',
+      });
+      expect(trackResult.success).toBe(true);
+
+      // Invalidate key by registering new one
+      await clientSDK.registerApiKey(fpId!, { iteration: 1 });
+
+      // Second request should work with auto-refresh
+      trackResult = await testServerSDK.track('visit', {
+        fingerprintId: fpId!,
+        url: 'https://test.com/refresh/2',
+        title: 'Refresh Test 2',
+      });
+      expect(trackResult.success).toBe(true);
+
+      // Invalidate again
+      await clientSDK.registerApiKey(fpId!, { iteration: 2 });
+
+      // Third request should still work
+      trackResult = await testServerSDK.track('visit', {
+        fingerprintId: fpId!,
+        url: 'https://test.com/refresh/3',
+        title: 'Refresh Test 3',
+      });
+      expect(trackResult.success).toBe(true);
     });
   });
 

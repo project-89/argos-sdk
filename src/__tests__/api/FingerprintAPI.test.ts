@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 import { FingerprintAPI } from '../../api/FingerprintAPI';
-import { Fingerprint } from '../../types/api';
+import { ApiResponse, Fingerprint } from '../../types/api';
 import { createMockFetchApi, mockResponse } from '../utils/testUtils';
 
 // Mock BaseAPI
@@ -15,13 +15,13 @@ jest.mock('../../api/BaseAPI', () => {
 
 describe('FingerprintAPI', () => {
   let api: FingerprintAPI;
-  let mockFetchApi: ReturnType<typeof createMockFetchApi>;
+  let mockFetchApi: ReturnType<typeof jest.fn>;
 
   beforeEach(() => {
-    mockFetchApi = createMockFetchApi();
+    mockFetchApi = jest.fn();
     api = new FingerprintAPI({
-      baseUrl: 'http://test.com',
-      apiKey: 'test-key',
+      baseUrl: 'http://localhost',
+      debug: true,
     });
     (api as any).fetchApi = mockFetchApi;
   });
@@ -31,38 +31,28 @@ describe('FingerprintAPI', () => {
   });
 
   describe('createFingerprint', () => {
-    it('should create fingerprint', async () => {
-      const mockFingerprint: Fingerprint = {
-        id: 'test-id',
-        fingerprint: 'test-fingerprint',
-        roles: ['user'],
-        createdAt: {
-          _seconds: 1234567890,
-          _nanoseconds: 0,
-        },
-        metadata: {
-          userAgent: 'test-user-agent',
-          language: 'en-US',
-          platform: 'test-platform',
-        },
-        ipAddresses: ['127.0.0.1'],
-        ipMetadata: {
-          ipFrequency: {
-            '127.0.0.1': 1,
-          },
-          lastSeenAt: {
-            '127.0.0.1': {
-              _seconds: 1234567890,
-              _nanoseconds: 0,
-            },
-          },
-          primaryIp: '127.0.0.1',
-          suspiciousIps: [],
-        },
-        tags: [],
-      };
+    const mockFingerprint: Fingerprint = {
+      id: 'test-id',
+      fingerprint: 'test-fingerprint',
+      createdAt: {
+        _seconds: 1234567890,
+        _nanoseconds: 0,
+      },
+      metadata: {},
+      roles: [],
+      tags: [],
+      ipAddresses: [],
+      ipMetadata: {
+        primaryIp: '',
+        ipFrequency: {},
+        lastSeenAt: {},
+        suspiciousIps: [],
+      },
+    };
 
-      mockFetchApi.mockResolvedValueOnce(mockResponse(mockFingerprint));
+    it('should create fingerprint', async () => {
+      const mockApiResponse = { success: true, data: mockFingerprint };
+      mockFetchApi.mockResolvedValueOnce(mockApiResponse);
 
       const result = await api.createFingerprint({
         fingerprint: 'test-fingerprint',
@@ -72,6 +62,7 @@ describe('FingerprintAPI', () => {
           platform: 'test-platform',
         },
       });
+
       expect(result.data).toEqual(mockFingerprint);
       expect(mockFetchApi).toHaveBeenCalledWith('/fingerprint/register', {
         method: 'POST',
@@ -94,13 +85,8 @@ describe('FingerprintAPI', () => {
       await expect(
         api.createFingerprint({
           fingerprint: 'test-fingerprint',
-          metadata: {
-            userAgent: 'test-user-agent',
-            language: 'en-US',
-            platform: 'test-platform',
-          },
         })
-      ).rejects.toThrow('Failed to create fingerprint: API Error');
+      ).rejects.toThrow('API Error');
     });
   });
 

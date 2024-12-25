@@ -58,14 +58,18 @@ export class ArgosServerSDK {
 
   constructor(config: ServerSDKConfig) {
     this.config = config;
-    this.fingerprintAPI = new FingerprintAPI(config);
-    this.visitAPI = new VisitAPI(config);
-    this.apiKeyAPI = new APIKeyAPI(config);
-    this.roleAPI = new RoleAPI(config);
-    this.tagAPI = new TagAPI(config);
-    this.priceAPI = new PriceAPI(config);
-    this.systemAPI = new SystemAPI(config);
-    this.impressionAPI = new ImpressionAPI(config);
+    const apiConfig = {
+      ...config,
+      onApiKeyRefresh: (newApiKey: string) => this.setApiKey(newApiKey),
+    };
+    this.fingerprintAPI = new FingerprintAPI(apiConfig);
+    this.visitAPI = new VisitAPI(apiConfig);
+    this.apiKeyAPI = new APIKeyAPI(apiConfig);
+    this.roleAPI = new RoleAPI(apiConfig);
+    this.tagAPI = new TagAPI(apiConfig);
+    this.priceAPI = new PriceAPI(apiConfig);
+    this.systemAPI = new SystemAPI(apiConfig);
+    this.impressionAPI = new ImpressionAPI(apiConfig);
   }
 
   // Identity Management
@@ -129,7 +133,44 @@ export class ArgosServerSDK {
     fingerprintId: string,
     metadata?: Record<string, unknown>
   ): Promise<ApiResponse<APIKeyData>> {
-    return this.apiKeyAPI.registerInitialApiKey(fingerprintId, metadata || {});
+    try {
+      const response = await this.apiKeyAPI.registerInitialApiKey(
+        fingerprintId,
+        metadata || {}
+      );
+      if (response.success && response.data) {
+        // Update the SDK's API key
+        this.setApiKey(response.data.key);
+      }
+      return response;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to register API key: ${message}`);
+    }
+  }
+
+  /**
+   * Update the SDK's API key and reinitialize all API instances
+   */
+  private setApiKey(apiKey: string) {
+    this.config.apiKey = apiKey;
+    // Reinitialize all API instances with the new API key and refresh callback
+    const apiConfig = {
+      ...this.config,
+      onApiKeyRefresh: (newApiKey: string) => this.setApiKey(newApiKey),
+    };
+    this.fingerprintAPI = new FingerprintAPI(apiConfig);
+    this.visitAPI = new VisitAPI(apiConfig);
+    this.apiKeyAPI = new APIKeyAPI(apiConfig);
+    this.roleAPI = new RoleAPI(apiConfig);
+    this.tagAPI = new TagAPI(apiConfig);
+    this.priceAPI = new PriceAPI(apiConfig);
+    this.systemAPI = new SystemAPI(apiConfig);
+    this.impressionAPI = new ImpressionAPI(apiConfig);
+
+    if (this.config.debug) {
+      console.log('[Argos Server] API key updated');
+    }
   }
 
   async createApiKey(
@@ -225,29 +266,8 @@ export class ArgosServerSDK {
   }
 
   /**
-   * @deprecated Use track('visit', data) instead
+   * Visit tracking methods
    */
-  public async createVisit(
-    request: CreateVisitRequest
-  ): Promise<ApiResponse<VisitData>> {
-    console.warn(
-      '[Argos Server] createVisit is deprecated. Please use track("visit", data) instead.'
-    );
-    return this.visitAPI.createVisit(request);
-  }
-
-  /**
-   * @deprecated Use track('presence', data) instead
-   */
-  public async updatePresence(
-    request: UpdatePresenceRequest
-  ): Promise<ApiResponse<PresenceData>> {
-    console.warn(
-      '[Argos Server] updatePresence is deprecated. Please use track("presence", data) instead.'
-    );
-    return this.visitAPI.updatePresence(request);
-  }
-
   async getVisitHistory(
     fingerprintId: string,
     options?: GetVisitHistoryOptions

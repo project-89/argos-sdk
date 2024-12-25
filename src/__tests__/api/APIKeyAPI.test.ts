@@ -72,6 +72,7 @@ describe('APIKeyAPI', () => {
         body: JSON.stringify({
           fingerprintId: 'test-fingerprint',
           metadata: { source: 'test' },
+          invalidateExisting: true,
         }),
         isPublic: true,
       });

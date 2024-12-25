@@ -134,39 +134,6 @@ describe('ArgosServerSDK', () => {
 
       expect(result.data).toEqual(mockCustom);
     });
-
-    it('should show deprecation warning when using createVisit', async () => {
-      const consoleSpy = jest.spyOn(console, 'warn');
-      const mockVisit: VisitData = {
-        id: 'test-visit-id',
-        fingerprintId: 'test-fingerprint',
-        url: 'https://example.com',
-        title: 'Test Page',
-        timestamp: '2024-01-01T00:00:00Z',
-        site: {
-          domain: 'example.com',
-          visitCount: 1,
-        },
-      };
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, data: mockVisit }),
-      });
-
-      await sdk.createVisit({
-        fingerprintId: 'test-fingerprint',
-        url: 'https://example.com',
-        title: 'Test Page',
-        type: 'visit',
-        timestamp: '2024-01-01T00:00:00Z',
-      });
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[Argos Server] createVisit is deprecated. Please use track("visit", data) instead.'
-      );
-      consoleSpy.mockRestore();
-    });
   });
 
   describe('Impression Management', () => {
