@@ -1,6 +1,16 @@
 # Argos SDK
 
-The Argos SDK provides fingerprinting, presence tracking, and visit analytics for web applications.
+The Argos SDK is a versatile tracking and analytics library that works seamlessly in both browser and server environments. It provides a unified API for tracking visits, presence, and custom events.
+
+## Features
+
+- 🌐 Environment-agnostic - works in both browser and server environments
+- 🔄 Unified tracking API across environments
+- 🔒 Secure fingerprint-based identification
+- 📊 Real-time analytics and tracking
+- ⚛️ React hooks and components (browser only)
+- 🔑 API key management
+- 🚀 TypeScript support
 
 ## Installation
 
@@ -8,234 +18,174 @@ The Argos SDK provides fingerprinting, presence tracking, and visit analytics fo
 npm install @project89/argos-sdk
 ```
 
-## Basic Usage
+## Quick Start
+
+### Browser Usage
 
 ```typescript
 import { ArgosSDK } from '@project89/argos-sdk';
 
+// Initialize the SDK
 const sdk = new ArgosSDK({
-  baseUrl: 'https://api.example.com',
-  debug: true // Optional - enables debug logging
+  baseUrl: 'https://api.example.com'
 });
 
-// Create a fingerprint
-const response = await sdk.createFingerprint({
-  fingerprint: 'generated-fingerprint-hash',
-  metadata: {
-    language: navigator.language,
-    platform: navigator.platform
-  }
-});
-
-// Log a visit
-await sdk.createVisit({
-  fingerprintId: response.data.id,
+// Track a visit
+await sdk.track('visit', {
   url: window.location.href,
-  title: document.title
+  referrer: document.referrer
 });
 
-// Update presence
-await sdk.updatePresence({
-  fingerprintId: response.data.id,
-  status: 'active'
+// Track presence
+await sdk.track('presence', {
+  duration: 30,
+  active: true
+});
+
+// Track custom events
+await sdk.track('custom', {
+  event: 'button_click',
+  data: { buttonId: 'submit' }
 });
 ```
 
-## React Integration
+### React Components
 
-### Provider Setup
-
-```tsx
-import { ArgosProvider } from '@project89/argos-sdk';
+```typescript
+import { ImpressionManager } from '@project89/argos-sdk/react';
 
 function App() {
   return (
-    <ArgosProvider config={{ 
-      baseUrl: 'https://api.example.com',
-      debug: true // Optional - enables debug logging
-    }}>
-      <YourApp />
-    </ArgosProvider>
+    <ImpressionManager
+      baseUrl="https://api.example.com"
+      onError={(error) => console.error(error)}
+    >
+      {/* Your app content */}
+    </ImpressionManager>
   );
 }
 ```
 
-### Using the SDK in Components
+### Server Usage
 
-```tsx
-import { useArgosSDK, useArgosPresence } from '@project89/argos-sdk';
+```typescript
+import { ArgosServerSDK } from '@project89/argos-sdk/server';
 
-function YourComponent() {
-  const sdk = useArgosSDK();
-  const { isOnline } = useArgosPresence();
+// Initialize the server SDK
+const serverSdk = new ArgosServerSDK({
+  baseUrl: 'https://api.example.com',
+  apiKey: 'your-api-key'
+});
 
-  useEffect(() => {
-    // Example: Log a visit
-    sdk.createVisit({
-      fingerprintId: 'user-fingerprint-id',
-      url: window.location.href,
-      title: document.title
-    });
-  }, [sdk]);
+// Track a visit
+await serverSdk.track('visit', {
+  url: 'https://example.com/page',
+  referrer: 'https://google.com'
+});
 
-  return (
-    <div>
-      Connection Status: {isOnline ? 'Online' : 'Offline'}
-    </div>
-  );
+// Track presence
+await serverSdk.track('presence', {
+  duration: 30,
+  active: true
+});
+
+// Track custom events
+await serverSdk.track('custom', {
+  event: 'api_call',
+  data: { endpoint: '/api/data' }
+});
+```
+
+### Next.js Integration
+
+```typescript
+// pages/api/track.ts
+import { ArgosServerSDK } from '@project89/argos-sdk/server';
+
+export default async function handler(req, res) {
+  const serverSdk = new ArgosServerSDK({
+    baseUrl: process.env.ARGOS_API_URL,
+    apiKey: process.env.ARGOS_API_KEY
+  });
+
+  try {
+    const result = await serverSdk.track(req.body.type, req.body.data);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+```
+
+## Configuration
+
+### Client SDK Options
+
+```typescript
+interface ArgosSDKOptions {
+  baseUrl: string;
+  debug?: boolean;
+  storage?: StorageInterface;
+  environment?: EnvironmentInterface;
+}
+```
+
+### Server SDK Options
+
+```typescript
+interface ArgosServerSDKOptions {
+  baseUrl: string;
+  apiKey: string;
+  debug?: boolean;
+  storage?: StorageInterface;
+  environment?: EnvironmentInterface;
 }
 ```
 
 ## API Reference
 
-### Core SDK Methods
+### Track Method
 
-#### `createFingerprint(request: CreateFingerprintRequest): Promise<ApiResponse<FingerprintData>>`
-Creates a new fingerprint for the current user.
-
-#### `createVisit(request: CreateVisitRequest): Promise<ApiResponse<VisitData>>`
-Logs a visit for the given fingerprint.
-
-#### `updatePresence(request: UpdatePresenceRequest): Promise<ApiResponse<PresenceData>>`
-Updates presence status for a fingerprint.
-
-#### `getVisitHistory(fingerprintId: string, options?: { limit?: number, offset?: number, startDate?: string, endDate?: string }): Promise<ApiResponse<{ visits: VisitData[] }>>`
-Retrieves visit history for a fingerprint.
-
-### React Hooks
-
-#### `useArgosSDK()`
-Provides access to the SDK instance within React components. This is the primary hook for all SDK functionality.
-
-#### `useArgosPresence()`
-Provides real-time presence tracking and online status information.
-
-### Types
+The `track` method is the unified way to send events to the Argos API:
 
 ```typescript
-interface ArgosSDKConfig {
-  baseUrl: string;
-  debug?: boolean;
-}
+track(type: 'visit' | 'presence' | 'custom', data: TrackData): Promise<void>
+```
 
-interface FirestoreTimestamp {
-  _seconds: number;
-  _nanoseconds: number;
-}
+#### Visit Event
 
-interface IpMetadata {
-  ipFrequency: Record<string, number>;
-  lastSeenAt: Record<string, FirestoreTimestamp>;
-  primaryIp: string;
-  suspiciousIps: string[];
-}
-
-interface CreateFingerprintRequest {
-  fingerprint: string;
-  metadata?: Record<string, any>;
-}
-
-interface Fingerprint {
-  id: string;
-  fingerprint: string;
-  roles: string[];
-  createdAt: FirestoreTimestamp;
-  metadata: Record<string, any>;
-  ipAddresses: string[];
-  ipMetadata: IpMetadata;
-  tags: string[];
-}
-
-interface CreateVisitRequest {
-  fingerprintId: string;
-  url: string;
-  title?: string;
-  metadata?: Record<string, any>;
-}
-
+```typescript
 interface VisitData {
-  id: string;
-  fingerprintId: string;
   url: string;
-  title: string;
-  timestamp: string;
-  site: {
-    domain: string;
-    visitCount: number;
-  };
-}
-
-interface UpdatePresenceRequest {
-  fingerprintId: string;
-  status: 'active' | 'inactive';
+  referrer?: string;
   metadata?: Record<string, any>;
 }
+```
 
+#### Presence Event
+
+```typescript
 interface PresenceData {
-  success: boolean;
-  timestamp: string;
-}
-
-interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  message?: string;
+  duration: number;
+  active: boolean;
+  metadata?: Record<string, any>;
 }
 ```
 
-## Error Handling
+#### Custom Event
 
 ```typescript
-try {
-  const response = await sdk.createFingerprint({
-    fingerprint: 'generated-fingerprint-hash',
-    metadata: {}
-  });
-} catch (error) {
-  console.error('Failed to create fingerprint:', error);
+interface CustomData {
+  event: string;
+  data?: Record<string, any>;
+  metadata?: Record<string, any>;
 }
-```
-
-## Debug Mode
-
-When debug mode is enabled, the SDK will log detailed information about:
-- API requests and responses
-- Presence tracking events
-- Fingerprint creation and updates
-- Visit logging
-- Error details
-
-Enable debug mode in the SDK configuration:
-```typescript
-const sdk = new ArgosSDK({
-  baseUrl: 'https://api.example.com',
-  debug: true
-});
 ```
 
 ## Development
 
-```bash
-# Install dependencies
-npm install
-
-# Run unit tests
-npm test
-
-# Run integration tests
-TEST_MODE=integration npm test
-
-# Build the package
-npm run build
-
-# Run linter
-npm run lint
-
-# Format code
-npm run format
-```
+See [DEVELOPMENT.md](DEVELOPMENT.md) for information about contributing to the SDK.
 
 ## License
 
-MIT
+MIT License - see [LICENSE](LICENSE) for details.

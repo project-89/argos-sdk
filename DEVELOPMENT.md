@@ -2,6 +2,39 @@
 
 This guide provides information for developers who want to contribute to or work with the Argos SDK.
 
+## Architecture
+
+The SDK is designed to be environment-agnostic, allowing it to run in both browser and server environments. This is achieved through several key components:
+
+### Core Components
+
+1. **Environment Interface**
+   - Abstracts environment-specific functionality
+   - Provides methods for online status and user agent
+   - Default implementations for browser and server
+
+2. **Storage Interface**
+   - Abstracts storage functionality
+   - Provides methods for key-value storage
+   - Default implementations for browser (localStorage) and server (memory)
+
+3. **Base API**
+   - Handles common API functionality
+   - Manages authentication and headers
+   - Supports both public and protected routes
+
+### SDK Variants
+
+1. **Client SDK (ArgosSDK)**
+   - Browser-optimized implementation
+   - Automatic environment detection
+   - React hooks and components
+
+2. **Server SDK (ArgosServerSDK)**
+   - Server-optimized implementation
+   - API key management
+   - Environment-agnostic tracking
+
 ## Setup
 
 1. Clone the repository:
@@ -31,15 +64,24 @@ npm test
 
 Integration tests interact with a real API server. To run integration tests:
 
-1. Make sure you have the API server running locally or have access to a test environment
-2. Set the required environment variables:
-   - `TEST_MODE=integration`
-   - `TEST_API_URL` (optional, defaults to local development server)
-   - `TEST_API_KEY` (optional, defaults to test key)
+1. Make sure you have the API server running locally
+2. Set the required environment variables in `.env.test`:
+   ```
+   TEST_MODE=integration
+   TEST_API_URL=http://127.0.0.1:5001/argos-434718/us-central1/api
+   ```
 
+3. Run the tests:
 ```bash
-TEST_MODE=integration npm test
+npm run test:integration
 ```
+
+### Test Structure
+
+- `src/__tests__/api/` - API client tests
+- `src/__tests__/server/` - Server SDK tests
+- `src/__tests__/integration/` - End-to-end integration tests
+- `src/__tests__/utils/` - Test utilities
 
 ## Building
 
@@ -72,10 +114,15 @@ npm run format
 
 ## Type System
 
-The SDK uses TypeScript for type safety. Key type definitions can be found in `src/types/api.ts`. When making changes:
+The SDK uses TypeScript for type safety. Key type definitions can be found in:
 
+- `src/types/api.ts` - API types
+- `src/core/interfaces/environment.ts` - Environment interfaces
+- `src/core/interfaces/storage.ts` - Storage interfaces
+
+When making changes:
 1. Ensure all new code is properly typed
-2. Update type definitions when changing API interfaces
+2. Update type definitions when changing interfaces
 3. Avoid using `any` type unless absolutely necessary
 4. Add JSDoc comments for public APIs
 
@@ -103,22 +150,6 @@ npm run build
 npm publish
 ```
 
-## Architecture
-
-The SDK is organized into several key components:
-
-- `src/api/` - API client implementations
-- `src/types/` - TypeScript type definitions
-- `src/utils/` - Utility functions
-- `src/__tests__/` - Test files
-
-### Key Files
-
-- `src/api/BaseAPI.ts` - Base class for API clients
-- `src/api/FingerprintAPI.ts` - Fingerprint-related API methods
-- `src/types/api.ts` - API type definitions
-- `src/index.ts` - Main entry point
-
 ## Debugging
 
 When debugging issues:
@@ -131,17 +162,23 @@ const sdk = new ArgosSDK({
 });
 ```
 
-2. Check the browser console for detailed logs
-3. Use integration tests to verify API behavior
-4. Check network requests in browser dev tools
+2. Check the console for detailed logs:
+   - API requests and responses
+   - Event tracking
+   - Error details
+
+3. Use integration tests to verify API behavior:
+   - Run tests with `TEST_MODE=integration`
+   - Check API server logs
+   - Verify request/response payloads
 
 ## Common Issues
 
 ### Integration Tests Failing
 
 1. Verify the API server is running
-2. Check environment variables are set correctly
-3. Ensure you have the correct API key
+2. Check environment variables in `.env.test`
+3. Ensure the API server URL is correct
 4. Check the API server logs for errors
 
 ### Build Issues
@@ -150,3 +187,10 @@ const sdk = new ArgosSDK({
 2. Delete `node_modules` and reinstall dependencies
 3. Check TypeScript compiler errors
 4. Verify module imports/exports
+
+### Environment-specific Issues
+
+1. Check environment detection logic
+2. Verify environment interface implementation
+3. Test in both browser and server contexts
+4. Check storage interface implementation
