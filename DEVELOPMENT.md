@@ -4,36 +4,50 @@ This guide provides information for developers who want to contribute to or work
 
 ## Architecture
 
-The SDK is designed to be environment-agnostic, allowing it to run in both browser and server environments. This is achieved through several key components:
+The SDK is built on an environment-agnostic architecture that enables seamless operation in any JavaScript environment. This is achieved through several key abstractions:
 
 ### Core Components
 
 1. **Environment Interface**
-   - Abstracts environment-specific functionality
-   - Provides methods for online status and user agent
+   - Provides environment-specific functionality
+   - Handles headers and API responses
+   - Manages fingerprint generation
+   - Implements environment detection
    - Default implementations for browser and server
 
 2. **Storage Interface**
-   - Abstracts storage functionality
-   - Provides methods for key-value storage
-   - Default implementations for browser (localStorage) and server (memory)
+   - Abstracts storage operations
+   - Environment-specific implementations
+   - Browser: localStorage with cookie fallback
+   - Server: In-memory or custom storage
+   - Handles data persistence and cleanup
 
 3. **Base API**
-   - Handles common API functionality
+   - Environment-agnostic API client
    - Manages authentication and headers
-   - Supports both public and protected routes
+   - Handles API responses and errors
+   - Supports automatic retries
+   - Implements API key refresh
 
 ### SDK Variants
 
-1. **Client SDK (ArgosSDK)**
-   - Browser-optimized implementation
+1. **Base SDK (ArgosSDK)**
+   - Environment-agnostic implementation
    - Automatic environment detection
-   - React hooks and components
+   - Unified API across environments
+   - Configurable storage and environment
 
 2. **Server SDK (ArgosServerSDK)**
-   - Server-optimized implementation
+   - Extends base SDK with server features
    - API key management
-   - Environment-agnostic tracking
+   - Server-side fingerprint handling
+   - Enhanced security features
+
+3. **React Integration**
+   - Browser-specific React components
+   - Automatic impression tracking
+   - React hooks for SDK functionality
+   - Component-level configuration
 
 ## Setup
 
@@ -48,64 +62,72 @@ cd argos-sdk
 npm install
 ```
 
+3. Create test environment file:
+```bash
+cp .env.example .env.test
+```
+
 ## Testing
 
-The SDK uses Jest for testing and includes both unit tests and integration tests.
+The SDK uses a comprehensive testing strategy:
 
 ### Unit Tests
 
-Unit tests mock external dependencies and test individual components in isolation:
-
 ```bash
+# Run all unit tests
 npm test
+
+# Run specific test file
+npm test -- src/__tests__/api/BaseAPI.test.ts
+
+# Watch mode
+npm test -- --watch
 ```
 
 ### Integration Tests
 
-Integration tests interact with a real API server. To run integration tests:
+Integration tests require a running API server:
 
-1. Make sure you have the API server running locally
-2. Set the required environment variables in `.env.test`:
-   ```
+1. Set up environment:
+   ```bash
+   # .env.test
    TEST_MODE=integration
    TEST_API_URL=http://127.0.0.1:5001/argos-434718/us-central1/api
+   TEST_API_KEY=your-test-key
    ```
 
-3. Run the tests:
-```bash
-npm run test:integration
-```
+2. Run tests:
+   ```bash
+   npm run test:integration
+   ```
 
 ### Test Structure
 
 - `src/__tests__/api/` - API client tests
 - `src/__tests__/server/` - Server SDK tests
-- `src/__tests__/integration/` - End-to-end integration tests
-- `src/__tests__/utils/` - Test utilities
+- `src/__tests__/integration/` - End-to-end tests
+- `src/__tests__/utils/` - Test utilities and mocks
 
 ## Building
 
-To build the SDK:
-
 ```bash
+# Full build
 npm run build
-```
 
-This will:
-1. Clean the `dist` directory
-2. Compile TypeScript files
-3. Generate type declarations
-4. Bundle the SDK for different module systems (ESM, CJS)
+# Watch mode
+npm run build:watch
+
+# Type checking
+npm run type-check
+```
 
 ## Code Style
 
-We use ESLint and Prettier to maintain code quality and consistency:
-
 ```bash
-# Run linter
+# Lint check
 npm run lint
 
-# Fix linting issues
+# Auto-fix issues
 npm run lint:fix
 
 # Format code
@@ -114,47 +136,70 @@ npm run format
 
 ## Type System
 
-The SDK uses TypeScript for type safety. Key type definitions can be found in:
+Key type definitions:
 
-- `src/types/api.ts` - API types
-- `src/core/interfaces/environment.ts` - Environment interfaces
-- `src/core/interfaces/storage.ts` - Storage interfaces
+- `src/types/api.ts` - API interfaces
+- `src/types/runtime.ts` - Environment types
+- `src/core/interfaces/` - Core interfaces
 
-When making changes:
-1. Ensure all new code is properly typed
-2. Update type definitions when changing interfaces
-3. Avoid using `any` type unless absolutely necessary
-4. Add JSDoc comments for public APIs
+Type guidelines:
+1. Use strict types, avoid `any`
+2. Document complex types
+3. Use generics for reusable types
+4. Keep interfaces focused
 
-## Making Changes
+## Development Workflow
 
-1. Create a new branch for your changes
-2. Make your changes
-3. Add or update tests as needed
-4. Run the test suite
-5. Update documentation if necessary
-6. Submit a pull request
+1. Create feature branch
+2. Implement changes
+3. Add/update tests
+4. Update documentation
+5. Create pull request
 
-## Release Process
+## Environment-Specific Development
 
-1. Update version in `package.json`
-2. Update CHANGELOG.md
-3. Run tests and build
-4. Create a git tag
-5. Push to repository
-6. Publish to npm
+### Browser Environment
 
-```bash
-npm version [patch|minor|major]
-npm run build
-npm publish
-```
+1. Test with different storage types:
+   ```typescript
+   const sdk = new ArgosSDK({
+     baseUrl: 'https://api.example.com',
+     storage: new CustomBrowserStorage()
+   });
+   ```
+
+2. Test with cookies disabled:
+   ```typescript
+   const sdk = new ArgosSDK({
+     baseUrl: 'https://api.example.com',
+     storage: new BrowserStorage({ useCookies: false })
+   });
+   ```
+
+### Server Environment
+
+1. Test with custom storage:
+   ```typescript
+   const sdk = new ArgosServerSDK({
+     baseUrl: 'https://api.example.com',
+     apiKey: 'your-key',
+     storage: new CustomServerStorage()
+   });
+   ```
+
+2. Test with different environments:
+   ```typescript
+   const sdk = new ArgosServerSDK({
+     baseUrl: 'https://api.example.com',
+     apiKey: 'your-key',
+     environment: new CustomServerEnvironment()
+   });
+   ```
 
 ## Debugging
 
-When debugging issues:
+Enable debug mode for detailed logs:
 
-1. Enable debug mode in the SDK:
 ```typescript
 const sdk = new ArgosSDK({
   baseUrl: 'https://api.example.com',
@@ -162,35 +207,53 @@ const sdk = new ArgosSDK({
 });
 ```
 
-2. Check the console for detailed logs:
-   - API requests and responses
-   - Event tracking
-   - Error details
-
-3. Use integration tests to verify API behavior:
-   - Run tests with `TEST_MODE=integration`
-   - Check API server logs
-   - Verify request/response payloads
+Debug information includes:
+- API requests and responses
+- Environment detection
+- Storage operations
+- Error details
 
 ## Common Issues
 
-### Integration Tests Failing
+### API Key Issues
 
-1. Verify the API server is running
-2. Check environment variables in `.env.test`
-3. Ensure the API server URL is correct
-4. Check the API server logs for errors
+1. Verify key format and validity
+2. Check environment configuration
+3. Ensure proper cleanup in tests
+4. Handle key refresh correctly
 
-### Build Issues
+### Environment Detection
 
-1. Clear the `dist` directory
-2. Delete `node_modules` and reinstall dependencies
-3. Check TypeScript compiler errors
-4. Verify module imports/exports
+1. Check runtime environment
+2. Verify environment interface
+3. Test storage compatibility
+4. Check header handling
 
-### Environment-specific Issues
+### Integration Tests
 
-1. Check environment detection logic
-2. Verify environment interface implementation
-3. Test in both browser and server contexts
-4. Check storage interface implementation
+1. Verify API server status
+2. Check environment variables
+3. Ensure proper cleanup
+4. Handle async operations
+
+## Release Process
+
+1. Update version:
+   ```bash
+   npm version [patch|minor|major]
+   ```
+
+2. Run checks:
+   ```bash
+   npm run verify
+   ```
+
+3. Build and publish:
+   ```bash
+   npm run build
+   npm publish
+   ```
+
+4. Create release notes
+5. Tag release
+6. Update documentation

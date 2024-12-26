@@ -138,10 +138,6 @@ export class ArgosServerSDK {
         fingerprintId,
         metadata || {}
       );
-      if (response.success && response.data) {
-        // Update the SDK's API key
-        this.setApiKey(response.data.key);
-      }
       return response;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -152,7 +148,7 @@ export class ArgosServerSDK {
   /**
    * Update the SDK's API key and reinitialize all API instances
    */
-  private setApiKey(apiKey: string) {
+  public setApiKey(apiKey: string) {
     this.config.apiKey = apiKey;
     // Reinitialize all API instances with the new API key and refresh callback
     const apiConfig = {
@@ -313,5 +309,13 @@ export class ArgosServerSDK {
     options?: GetImpressionsOptions
   ): Promise<ApiResponse<DeleteImpressionsResponse>> {
     return this.impressionAPI.deleteImpressions(fingerprintId, options);
+  }
+
+  // API Key Management
+  async registerInitialApiKey(
+    fingerprintId: string,
+    metadata: Record<string, any>
+  ): Promise<ApiResponse<APIKeyData>> {
+    return this.apiKeyAPI.registerInitialApiKey(fingerprintId, metadata);
   }
 }

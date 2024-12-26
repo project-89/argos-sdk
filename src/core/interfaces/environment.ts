@@ -13,6 +13,10 @@ export interface EnvironmentInterface {
   getUserAgent(): string;
   getUrl(): string | null;
   getReferrer(): string | null;
+
+  // Add environment-specific fetch behavior
+  createHeaders(headers: Record<string, string>): any;
+  handleResponse(response: any): Promise<any>;
 }
 
 export interface RuntimeConfig {

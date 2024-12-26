@@ -12,7 +12,8 @@
     "@project89/argos-sdk": "file:../..",
     "next": "15.1.2",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "rollup": "^4.29.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

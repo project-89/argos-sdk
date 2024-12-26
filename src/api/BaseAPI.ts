@@ -40,70 +40,91 @@ export class BaseAPI {
     options: FetchApiOptions = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    const headers = await this.getHeaders(options);
+    const headers: Record<string, string> = {
+      'content-type': 'application/json',
+    };
 
-    try {
-      const response = await fetch(url, {
-        ...options,
-        headers,
-        body: options.body,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        if (this.debug) {
-          console.error('[Argos] API Error:', {
-            url,
-            status: response.status,
-            error: data,
-          });
-        }
-
-        if (response.status === 401 && !options.isPublic) {
-          await this.handleUnauthorized();
-          return this.fetchApi(endpoint, options);
-        }
-
-        throw new Error(data.error || 'Unknown error');
-      }
-
-      if (data.success === false) {
-        throw new Error(data.error || 'Unknown error');
-      }
-
-      return data as T;
-    } catch (error) {
-      if (this.debug) {
-        console.error('[Argos] API Error:', error);
-      }
-      throw error;
-    }
-  }
-
-  private async getHeaders(options: FetchApiOptions): Promise<Headers> {
-    const headers = new Headers({
-      'Content-Type': 'application/json',
-    });
-
+    // Add API key to headers if available and not a public endpoint
     if (this.apiKey && !options.isPublic) {
-      headers.set('X-API-Key', this.apiKey);
+      headers['x-api-key'] = this.apiKey;
     }
 
-    if (this.environment) {
-      headers.set('User-Agent', this.environment.getUserAgent());
+    // Allow environment to modify headers
+    const finalHeaders = this.environment
+      ? this.environment.createHeaders(headers)
+      : headers;
+
+    const fetchOptions: RequestInit = {
+      method: options.method || 'GET',
+      headers: finalHeaders,
+      mode: 'cors',
+      credentials: 'omit',
+      cache: 'no-cache',
+      referrerPolicy: 'strict-origin-when-cross-origin',
+    };
+
+    if (options.body) {
+      fetchOptions.body = options.body;
     }
 
-    // Add any additional headers from options
-    if (options.headers) {
-      Object.entries(options.headers).forEach(([key, value]) => {
-        if (typeof value === 'string') {
-          headers.set(key, value);
-        }
+    if (this.debug) {
+      console.log('[Argos] Making request:', {
+        url,
+        method: fetchOptions.method,
+        headers: finalHeaders,
+        body:
+          options.body && typeof options.body === 'string'
+            ? JSON.parse(options.body)
+            : undefined,
       });
+      console.log('[Argos] Fetch options:', fetchOptions);
     }
 
-    return headers;
+    const response = await fetch(url, fetchOptions);
+
+    if (this.debug) {
+      console.log('[Argos] Response status:', response.status);
+      // Convert response headers to a plain object for logging
+      const responseHeaders: Record<string, string> = {};
+      if (response?.headers) {
+        response.headers.forEach((value, key) => {
+          responseHeaders[key] = value;
+        });
+        console.log('[Argos] Response headers:', responseHeaders);
+      }
+    }
+
+    if (!response.ok) {
+      const data = this.environment
+        ? await this.environment.handleResponse(response)
+        : await response.json();
+
+      if (this.debug) {
+        console.error('[Argos] API Error:', {
+          url,
+          status: response.status,
+          error: data,
+          details: data.details,
+        });
+      }
+
+      if (response.status === 401 && !options.isPublic) {
+        await this.handleUnauthorized();
+        return this.fetchApi(endpoint, options);
+      }
+
+      throw new Error(data.error || 'Unknown error');
+    }
+
+    const data = this.environment
+      ? await this.environment.handleResponse(response)
+      : await response.json();
+
+    if (this.debug) {
+      console.log('[Argos] Response data:', data);
+    }
+
+    return data;
   }
 
   private async handleUnauthorized(): Promise<void> {

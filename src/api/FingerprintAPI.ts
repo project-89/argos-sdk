@@ -26,19 +26,30 @@ export class FingerprintAPI extends BaseAPI {
   ): Promise<ApiResponse<Fingerprint>> {
     if (this.debug) {
       console.log('[Argos] Creating fingerprint with request:', request);
+      console.log('[Argos] Request metadata:', request.metadata);
+    }
+
+    const requestBody = {
+      fingerprint: request.fingerprint,
+      metadata: request.metadata || {},
+    };
+
+    if (this.debug) {
+      console.log('[Argos] Sending request body:', requestBody);
     }
 
     const response = await this.fetchApi<ApiResponse<Fingerprint>>(
       '/fingerprint/register',
       {
         method: 'POST',
-        body: JSON.stringify({
-          fingerprint: request.fingerprint,
-          metadata: request.metadata || {},
-        }),
+        body: JSON.stringify(requestBody),
         isPublic: true,
       }
     );
+
+    if (this.debug) {
+      console.log('[Argos] Fingerprint creation response:', response);
+    }
 
     return response;
   }
@@ -80,5 +91,11 @@ export class FingerprintAPI extends BaseAPI {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to update fingerprint: ${message}`);
     }
+  }
+
+  async deleteFingerprint(id: string): Promise<ApiResponse<void>> {
+    return this.fetchApi<ApiResponse<void>>(`/fingerprint/${id}`, {
+      method: 'DELETE',
+    });
   }
 }

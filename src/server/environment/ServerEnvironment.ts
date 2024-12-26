@@ -28,7 +28,6 @@ export class ServerEnvironment implements EnvironmentInterface {
   }
 
   async getFingerprint(): Promise<string> {
-    // In server environment, we generate a UUID
     return randomUUID();
   }
 
@@ -40,7 +39,6 @@ export class ServerEnvironment implements EnvironmentInterface {
   }
 
   isOnline(): boolean {
-    // Server is assumed to be online unless explicitly set otherwise
     return true;
   }
 
@@ -64,5 +62,15 @@ export class ServerEnvironment implements EnvironmentInterface {
 
   getReferrer(): string | null {
     return this.customReferrer || null;
+  }
+
+  createHeaders(headers: Record<string, string>): Record<string, string> {
+    // In Node.js, we just use a plain object for headers
+    return { ...headers };
+  }
+
+  async handleResponse(response: Response): Promise<any> {
+    const data = await response.json();
+    return data;
   }
 }

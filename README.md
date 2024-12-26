@@ -1,16 +1,17 @@
 # Argos SDK
 
-The Argos SDK is a versatile tracking and analytics library that works seamlessly in both browser and server environments. It provides a unified API for tracking visits, presence, and custom events.
+The Argos SDK is a versatile tracking and analytics library designed to be environment-agnostic, providing seamless functionality in both browser and server environments. It offers a unified API for tracking visits, presence, impressions, and custom events.
 
 ## Features
 
-- 🌐 Environment-agnostic - works in both browser and server environments
-- 🔄 Unified tracking API across environments
+- 🌐 Environment-agnostic architecture
+- 🔄 Unified API across all environments
 - 🔒 Secure fingerprint-based identification
 - 📊 Real-time analytics and tracking
+- 🔑 Robust API key management
+- 🌍 Environment-specific optimizations
 - ⚛️ React hooks and components (browser only)
-- 🔑 API key management
-- 🚀 TypeScript support
+- 🚀 Full TypeScript support
 
 ## Installation
 
@@ -20,44 +21,51 @@ npm install @project89/argos-sdk
 
 ## Quick Start
 
-### Browser Usage
+### Environment-Agnostic Usage
 
 ```typescript
 import { ArgosSDK } from '@project89/argos-sdk';
 
-// Initialize the SDK
+// The SDK automatically detects the environment and uses appropriate implementations
 const sdk = new ArgosSDK({
-  baseUrl: 'https://api.example.com'
+  baseUrl: 'https://api.example.com',
+  debug: true // Enable for detailed logging
 });
 
-// Track a visit
-await sdk.track('visit', {
-  url: window.location.href,
-  referrer: document.referrer
+// Create or retrieve a fingerprint
+const fingerprint = await sdk.identify({
+  fingerprint: 'unique-identifier',
+  metadata: { source: 'web-app' }
 });
 
-// Track presence
-await sdk.track('presence', {
-  duration: 30,
-  active: true
-});
-
-// Track custom events
-await sdk.track('custom', {
-  event: 'button_click',
-  data: { buttonId: 'submit' }
+// Create an impression
+await sdk.createImpression({
+  fingerprintId: fingerprint.data.id,
+  type: 'page-view',
+  data: {
+    url: typeof window !== 'undefined' ? window.location.href : 'server-side',
+    timestamp: Date.now()
+  }
 });
 ```
 
-### React Components
+### Browser-Specific Features
 
 ```typescript
+import { ArgosSDK } from '@project89/argos-sdk';
 import { ImpressionManager } from '@project89/argos-sdk/react';
 
+// Browser-optimized initialization
+const sdk = new ArgosSDK({
+  baseUrl: 'https://api.example.com',
+  environment: 'browser' // Explicitly set environment if needed
+});
+
+// React component with automatic impression tracking
 function App() {
   return (
     <ImpressionManager
-      baseUrl="https://api.example.com"
+      sdk={sdk}
       onError={(error) => console.error(error)}
     >
       {/* Your app content */}
@@ -66,33 +74,27 @@ function App() {
 }
 ```
 
-### Server Usage
+### Server-Specific Features
 
 ```typescript
 import { ArgosServerSDK } from '@project89/argos-sdk/server';
 
-// Initialize the server SDK
+// Server-optimized initialization
 const serverSdk = new ArgosServerSDK({
   baseUrl: 'https://api.example.com',
-  apiKey: 'your-api-key'
+  apiKey: 'your-api-key',
+  environment: 'server' // Explicitly set environment if needed
 });
 
-// Track a visit
-await serverSdk.track('visit', {
-  url: 'https://example.com/page',
-  referrer: 'https://google.com'
+// Server-side fingerprint management
+const fingerprint = await serverSdk.identify({
+  fingerprint: 'server-generated-id',
+  metadata: { source: 'api-server' }
 });
 
-// Track presence
-await serverSdk.track('presence', {
-  duration: 30,
-  active: true
-});
-
-// Track custom events
-await serverSdk.track('custom', {
-  event: 'api_call',
-  data: { endpoint: '/api/data' }
+// API key management
+const apiKey = await serverSdk.registerApiKey(fingerprint.data.id, {
+  metadata: { purpose: 'client-auth' }
 });
 ```
 
@@ -109,8 +111,19 @@ export default async function handler(req, res) {
   });
 
   try {
-    const result = await serverSdk.track(req.body.type, req.body.data);
-    res.status(200).json(result);
+    // Handle both server-side tracking and API key management
+    switch (req.body.action) {
+      case 'track':
+        const result = await serverSdk.createImpression(req.body.data);
+        res.status(200).json(result);
+        break;
+      case 'register':
+        const apiKey = await serverSdk.registerApiKey(req.body.fingerprintId);
+        res.status(200).json(apiKey);
+        break;
+      default:
+        res.status(400).json({ error: 'Invalid action' });
+    }
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -119,72 +132,55 @@ export default async function handler(req, res) {
 
 ## Configuration
 
-### Client SDK Options
+### Common SDK Options
 
 ```typescript
-interface ArgosSDKOptions {
+interface SDKOptions {
   baseUrl: string;
   debug?: boolean;
   storage?: StorageInterface;
-  environment?: EnvironmentInterface;
+  environment?: RuntimeEnvironment | EnvironmentInterface;
 }
 ```
 
-### Server SDK Options
+### Server SDK Additional Options
 
 ```typescript
-interface ArgosServerSDKOptions {
-  baseUrl: string;
+interface ServerSDKOptions extends SDKOptions {
   apiKey: string;
-  debug?: boolean;
-  storage?: StorageInterface;
-  environment?: EnvironmentInterface;
 }
 ```
 
-## API Reference
+## Environment Interface
 
-### Track Method
-
-The `track` method is the unified way to send events to the Argos API:
+The SDK uses an environment interface to handle environment-specific functionality:
 
 ```typescript
-track(type: 'visit' | 'presence' | 'custom', data: TrackData): Promise<void>
-```
-
-#### Visit Event
-
-```typescript
-interface VisitData {
-  url: string;
-  referrer?: string;
-  metadata?: Record<string, any>;
+interface EnvironmentInterface {
+  type: RuntimeEnvironment;
+  createHeaders(headers?: Record<string, string>): Record<string, string>;
+  handleResponse<T>(response: Response): Promise<ApiResponse<T>>;
+  getFingerprint(): Promise<string>;
+  // ... other environment-specific methods
 }
 ```
 
-#### Presence Event
+## Storage Interface
+
+Storage is also environment-agnostic:
 
 ```typescript
-interface PresenceData {
-  duration: number;
-  active: boolean;
-  metadata?: Record<string, any>;
-}
-```
-
-#### Custom Event
-
-```typescript
-interface CustomData {
-  event: string;
-  data?: Record<string, any>;
-  metadata?: Record<string, any>;
+interface StorageInterface {
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string): Promise<void>;
+  remove(key: string): Promise<void>;
+  clear(): Promise<void>;
 }
 ```
 
 ## Development
 
-See [DEVELOPMENT.md](DEVELOPMENT.md) for information about contributing to the SDK.
+See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed information about contributing to the SDK.
 
 ## License
 

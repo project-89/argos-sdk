@@ -3,7 +3,10 @@ import fetch, { Response } from 'node-fetch';
 import {
   EnvironmentInterface,
   StorageInterface,
+  RuntimeEnvironment,
 } from '../../core/interfaces/environment';
+import { ArgosSDK, ArgosSDKConfig } from '../../ArgosSDK';
+import { FingerprintAPI } from '../../api/FingerprintAPI';
 
 export const isIntegrationTest = () => process.env.TEST_MODE === 'integration';
 
@@ -30,38 +33,115 @@ export function createMockFetchApi() {
 }
 
 export class MockEnvironment implements EnvironmentInterface {
+  private runtime: RuntimeEnvironment;
   private fingerprint: string;
+  private currentApiKey?: string;
+  private onApiKeyUpdate?: (apiKey: string) => void;
 
-  constructor(fingerprint: string = 'test-fingerprint') {
+  constructor(
+    fingerprint: string,
+    apiKey?: string,
+    onApiKeyUpdate?: (apiKey: string) => void,
+    runtime: RuntimeEnvironment = RuntimeEnvironment.Browser
+  ) {
     this.fingerprint = fingerprint;
+    this.currentApiKey = apiKey;
+    this.onApiKeyUpdate = onApiKeyUpdate;
+    this.runtime = runtime;
   }
 
-  async getFingerprint(): Promise<string> {
-    return this.fingerprint;
+  setApiKey(apiKey: string): void {
+    if (!apiKey) {
+      throw new Error('API key cannot be empty');
+    }
+    this.currentApiKey = apiKey;
+    if (this.onApiKeyUpdate) {
+      this.onApiKeyUpdate(apiKey);
+    }
   }
 
-  getPlatformInfo(): string {
-    return 'test-platform';
+  getApiKey(): string | undefined {
+    return this.currentApiKey;
   }
 
-  isOnline(): boolean {
-    return true;
+  createHeaders(headers: Record<string, string>): Record<string, string> {
+    const result: Record<string, string> = {
+      ...headers,
+      'content-type': 'application/json',
+      'user-agent': this.getUserAgent(),
+    };
+
+    if (this.currentApiKey) {
+      result['x-api-key'] = this.currentApiKey;
+    }
+
+    return result;
+  }
+
+  async handleResponse(response: Response): Promise<any> {
+    const contentType = response.headers.get('content-type');
+    const isJson = contentType && contentType.includes('application/json');
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        // Handle API key invalidation
+        this.currentApiKey = undefined;
+      }
+      const errorData = isJson ? await response.json() : await response.text();
+      throw new Error(
+        typeof errorData === 'string' ? errorData : JSON.stringify(errorData)
+      );
+    }
+
+    if (!isJson) {
+      return response.text();
+    }
+
+    const data = await response.json();
+
+    // Check for API key in response headers
+    const newApiKey = response.headers.get('x-api-key');
+    if (newApiKey && newApiKey !== this.currentApiKey) {
+      this.setApiKey(newApiKey);
+    }
+
+    return data;
+  }
+
+  getUserAgent(): string {
+    return this.runtime === RuntimeEnvironment.Browser
+      ? 'Mozilla/5.0 (Test Browser Environment)'
+      : 'node-fetch/1.0 (Test Server Environment)';
+  }
+
+  getUrl(): string | null {
+    return this.runtime === RuntimeEnvironment.Browser
+      ? 'https://test.example.com'
+      : null;
+  }
+
+  getReferrer(): string | null {
+    return this.runtime === RuntimeEnvironment.Browser
+      ? 'https://test-referrer.example.com'
+      : null;
   }
 
   getLanguage(): string {
     return 'en-US';
   }
 
-  getUserAgent(): string {
-    return 'test-user-agent';
+  getPlatformInfo(): string {
+    return this.runtime === RuntimeEnvironment.Browser
+      ? 'TestBrowser'
+      : 'TestServer';
   }
 
-  getUrl(): string | null {
-    return 'http://test.com';
+  async getFingerprint(): Promise<string> {
+    return this.fingerprint;
   }
 
-  getReferrer(): string | null {
-    return null;
+  isOnline(): boolean {
+    return true;
   }
 }
 
@@ -176,4 +256,82 @@ export function createMockResponse(options: {
   };
 
   return mockResponse as unknown as Response;
+}
+
+export class TestArgosSDK extends ArgosSDK {
+  public getFingerprintAPI(): FingerprintAPI {
+    return this.fingerprintAPI;
+  }
+}
+
+export class TestSDK extends ArgosSDK {
+  private cleanedFingerprints: Set<string> = new Set();
+  private cleanedApiKeys: Set<string> = new Set();
+
+  public async cleanup(fingerprintId: string) {
+    if (this.cleanedFingerprints.has(fingerprintId)) {
+      return; // Already cleaned up
+    }
+
+    try {
+      // First revoke any API keys associated with this fingerprint
+      const apiKeys = await this.listApiKeys();
+      if (apiKeys.success && apiKeys.data) {
+        for (const key of apiKeys.data) {
+          if (
+            key.fingerprintId === fingerprintId &&
+            !this.cleanedApiKeys.has(key.key)
+          ) {
+            await this.cleanupApiKey(key.key);
+          }
+        }
+      }
+
+      // Then delete the fingerprint
+      await this.fingerprintAPI.deleteFingerprint(fingerprintId);
+      this.cleanedFingerprints.add(fingerprintId);
+    } catch (error) {
+      console.warn(`Cleanup failed for fingerprint ${fingerprintId}:`, error);
+    }
+  }
+
+  public async cleanupFingerprint(fingerprintId: string) {
+    if (this.cleanedFingerprints.has(fingerprintId)) {
+      return; // Already cleaned up
+    }
+
+    await this.fingerprintAPI.deleteFingerprint(fingerprintId);
+    this.cleanedFingerprints.add(fingerprintId);
+  }
+
+  public async cleanupApiKey(apiKey: string) {
+    if (this.cleanedApiKeys.has(apiKey)) {
+      return; // Already cleaned up
+    }
+
+    try {
+      await this.apiKeyAPI.revokeAPIKey({ key: apiKey });
+      this.cleanedApiKeys.add(apiKey);
+    } catch (error) {
+      if (error instanceof Error) {
+        // Ignore specific error cases
+        const ignoredErrors = [
+          'API key is disabled',
+          'API key not found',
+          'API key has already been revoked',
+        ];
+
+        if (!ignoredErrors.some((msg) => error.message.includes(msg))) {
+          throw error;
+        }
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  public resetCleanupState() {
+    this.cleanedFingerprints.clear();
+    this.cleanedApiKeys.clear();
+  }
 }

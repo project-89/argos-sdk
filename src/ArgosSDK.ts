@@ -53,9 +53,9 @@ export interface ArgosSDKConfig extends BaseAPIConfig {
 export type TrackEventType = 'visit' | 'presence' | 'custom';
 
 export class ArgosSDK {
-  private fingerprintAPI: FingerprintAPI;
+  protected fingerprintAPI: FingerprintAPI;
   private visitAPI: VisitAPI;
-  private apiKeyAPI: APIKeyAPI;
+  public apiKeyAPI: APIKeyAPI;
   private roleAPI: RoleAPI;
   private tagAPI: TagAPI;
   private priceAPI: PriceAPI;

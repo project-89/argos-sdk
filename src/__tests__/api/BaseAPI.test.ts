@@ -17,6 +17,8 @@ const mockEnvironment: EnvironmentInterface = {
   getLanguage: () => 'en-US',
   getUrl: () => 'https://test.com',
   getReferrer: () => 'https://referrer.com',
+  createHeaders: (headers: Record<string, string>) => new Headers(headers),
+  handleResponse: async (response: Response) => response.json(),
 };
 
 // Mock the implementation of each method
