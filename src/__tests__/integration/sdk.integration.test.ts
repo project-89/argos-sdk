@@ -1,13 +1,17 @@
-import { ArgosSDK } from '../../ArgosSDK';
 import { ArgosServerSDK } from '../../server/sdk/ArgosServerSDK';
 import { MockEnvironment, MockStorage, TestSDK } from '../utils/testUtils';
-import { ApiResponse, ImpressionData } from '../../types/api';
-import { RuntimeEnvironment } from '../../core/interfaces/environment';
+import type { ApiResponse, ImpressionData } from '../../shared/interfaces/api';
+import { RuntimeEnvironment } from '../../shared/interfaces/environment';
+
+const API_URL =
+  process.env.ARGOS_API_URL ||
+  'http://127.0.0.1:5001/argos-434718/us-central1/api';
 
 describe('SDK Integration Tests', () => {
   let clientSDK: TestSDK;
   let serverSDK: ArgosServerSDK;
-  let mockEnvironment: MockEnvironment;
+  let serverEnvironment: MockEnvironment;
+  let clientEnvironment: MockEnvironment;
   let mockStorage: MockStorage;
   let fingerprintId: string;
   let apiKey: string;
@@ -16,83 +20,138 @@ describe('SDK Integration Tests', () => {
   const TEST_METADATA = { test: true, timestamp: Date.now() };
 
   beforeAll(async () => {
-    // Initialize SDKs
-    mockEnvironment = new MockEnvironment(
+    if (!process.env.ARGOS_API_URL) {
+      console.log('Skipping integration tests - ARGOS_API_URL not set');
+      return;
+    }
+
+    // Initialize environment and storage
+    serverEnvironment = new MockEnvironment(
       TEST_FINGERPRINT,
       undefined,
+      'node-fetch/1.0 (Test Server Environment)',
+      RuntimeEnvironment.Node
+    );
+
+    clientEnvironment = new MockEnvironment(
+      TEST_FINGERPRINT,
       undefined,
+      'Mozilla/5.0 (Test Browser Environment)',
       RuntimeEnvironment.Browser
     );
+
     mockStorage = new MockStorage();
 
-    clientSDK = new TestSDK({
-      baseUrl:
-        process.env.TEST_API_URL ||
-        'http://127.0.0.1:5001/argos-434718/us-central1/api',
-      environment: mockEnvironment,
-      storage: mockStorage,
-      debug: true,
-    });
-
+    // Initialize server SDK without an API key for public routes
     serverSDK = new ArgosServerSDK({
-      baseUrl:
-        process.env.TEST_API_URL ||
-        'http://127.0.0.1:5001/argos-434718/us-central1/api',
-      apiKey: process.env.TEST_API_KEY || 'test-key',
+      baseUrl: API_URL,
       debug: true,
+      environment: serverEnvironment,
     });
 
-    // Reset cleanup state
-    clientSDK.resetCleanupState();
+    try {
+      console.log('Integration test starting with API URL:', API_URL);
 
-    // Create a test fingerprint
-    const fingerprintResponse = await serverSDK.identify({
-      fingerprint: TEST_FINGERPRINT,
-      metadata: TEST_METADATA,
-    });
+      // Step 1: Create a fingerprint (public route)
+      console.log('Attempting to create fingerprint with:', {
+        url: `${API_URL}/fingerprint/register`,
+        fingerprint: TEST_FINGERPRINT,
+        metadata: TEST_METADATA,
+      });
 
-    if (!fingerprintResponse.success || !fingerprintResponse.data) {
-      throw new Error('Failed to create fingerprint');
+      const fingerprintResponse = await serverSDK.identify({
+        fingerprint: TEST_FINGERPRINT,
+        metadata: TEST_METADATA,
+      });
+
+      console.log('Raw fingerprint response:', fingerprintResponse);
+
+      if (!fingerprintResponse.success || !fingerprintResponse.data) {
+        console.error(
+          'Fingerprint creation failed. Full response:',
+          fingerprintResponse
+        );
+        throw new Error(
+          `Failed to create fingerprint: ${JSON.stringify(fingerprintResponse)}`
+        );
+      }
+
+      fingerprintId = fingerprintResponse.data.id;
+      console.log('Created fingerprint:', fingerprintId);
+
+      // Step 2: Register an API key for the fingerprint (public route)
+      console.log('Registering API key...');
+      const apiKeyResponse = await serverSDK.registerInitialApiKey(
+        fingerprintId,
+        {
+          test: true,
+          timestamp: Date.now(),
+        }
+      );
+
+      console.log('API key response:', apiKeyResponse);
+
+      if (!apiKeyResponse.success || !apiKeyResponse.data) {
+        throw new Error(
+          `Failed to register API key: ${JSON.stringify(apiKeyResponse)}`
+        );
+      }
+
+      apiKey = apiKeyResponse.data.key;
+      console.log('Registered API key:', apiKey);
+
+      // Step 3: Update both SDKs with the new API key
+      serverEnvironment.setApiKey(apiKey);
+      clientEnvironment.setApiKey(apiKey);
+      serverSDK.setApiKey(apiKey);
+
+      // Step 4: Initialize client SDK with the registered API key
+      clientSDK = new TestSDK({
+        baseUrl: API_URL,
+        environment: clientEnvironment,
+        debug: true,
+        apiKey,
+      });
+
+      // Reset cleanup state
+      clientSDK.resetCleanupState();
+    } catch (error) {
+      console.error('Setup failed:', error);
+      throw error;
     }
-
-    fingerprintId = fingerprintResponse.data.id;
-
-    // Register an API key for the fingerprint
-    const apiKeyResponse = await serverSDK.registerApiKey(fingerprintId, {
-      test: true,
-      timestamp: Date.now(),
-    });
-
-    if (!apiKeyResponse.success || !apiKeyResponse.data) {
-      throw new Error('Failed to register API key');
-    }
-
-    apiKey = apiKeyResponse.data.key;
-
-    // Set the API key in both SDKs
-    mockEnvironment.setApiKey(apiKey);
-    serverSDK.setApiKey(apiKey);
   });
 
-  beforeEach(async () => {
+  beforeEach(() => {
+    if (!process.env.ARGOS_API_URL || !clientSDK) {
+      return;
+    }
     // Reset storage and environment state
     mockStorage.clear();
-    mockEnvironment.setApiKey(apiKey);
+    serverEnvironment.setApiKey(apiKey);
+    clientEnvironment.setApiKey(apiKey);
     serverSDK.setApiKey(apiKey);
   });
 
   afterEach(async () => {
+    if (!process.env.ARGOS_API_URL || !clientSDK) {
+      return;
+    }
     // Clean up any resources created during the test
     await clientSDK.cleanup(fingerprintId);
   });
 
   afterAll(async () => {
+    if (!process.env.ARGOS_API_URL || !clientSDK) {
+      return;
+    }
     // Final cleanup
     try {
       if (apiKey) {
+        console.log('Revoking API key:', apiKey);
         await serverSDK.revokeApiKey({ key: apiKey });
       }
       if (fingerprintId) {
+        console.log('Cleaning up fingerprint:', fingerprintId);
         await clientSDK.cleanup(fingerprintId);
       }
     } catch (error) {
@@ -141,7 +200,7 @@ describe('SDK Integration Tests', () => {
       expect(clientResult.success).toBe(true);
       expect(
         clientResult.data?.some(
-          (impression) =>
+          (impression: ImpressionData) =>
             impression.fingerprintId === fingerprintId &&
             impression.type === 'test-type' &&
             impression.data.source === 'server'
@@ -161,7 +220,8 @@ describe('SDK Integration Tests', () => {
       expect(newKeyResponse.data?.key).toBeTruthy();
 
       const newApiKey = newKeyResponse.data!.key;
-      mockEnvironment.setApiKey(newApiKey);
+      serverEnvironment.setApiKey(newApiKey);
+      clientEnvironment.setApiKey(newApiKey);
       serverSDK.setApiKey(newApiKey);
 
       // Try to use the new API key
@@ -185,7 +245,8 @@ describe('SDK Integration Tests', () => {
       expect(newKeyResponse.success).toBe(true);
 
       const newApiKey = newKeyResponse.data!.key;
-      mockEnvironment.setApiKey(newApiKey);
+      serverEnvironment.setApiKey(newApiKey);
+      clientEnvironment.setApiKey(newApiKey);
       serverSDK.setApiKey(newApiKey);
 
       await serverSDK.revokeApiKey({ key: newApiKey });

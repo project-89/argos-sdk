@@ -26,4 +26,4 @@ export type {
   CreateFingerprintRequest,
   CreateVisitRequest,
   UpdatePresenceRequest,
-} from '../types/api';
+} from '../shared/interfaces/api';

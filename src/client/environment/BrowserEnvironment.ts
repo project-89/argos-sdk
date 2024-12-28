@@ -1,58 +1,66 @@
-import { EnvironmentInterface } from '../../core/interfaces/environment';
-import * as fpjs from '@fingerprintjs/fingerprintjs';
+import {
+  EnvironmentInterface,
+  RuntimeEnvironment,
+} from '../../shared/interfaces/environment';
+import { StorageInterface } from '../../shared/interfaces/environment';
 
 export class BrowserEnvironment implements EnvironmentInterface {
-  private debug: boolean;
+  private storage: StorageInterface;
+  private onApiKeyUpdate?: (apiKey: string) => void;
 
-  constructor(debug: boolean = false) {
-    this.debug = debug;
+  constructor(
+    storage: StorageInterface,
+    onApiKeyUpdate?: (apiKey: string) => void
+  ) {
+    this.storage = storage;
+    this.onApiKeyUpdate = onApiKeyUpdate;
   }
 
-  async getFingerprint(): Promise<string> {
-    try {
-      // Initialize an agent at application startup.
-      const fpAgent = await fpjs.load();
+  setApiKey(apiKey: string): void {
+    if (!apiKey) {
+      throw new Error('API key cannot be empty');
+    }
+    this.storage.setItem('apiKey', apiKey);
+    if (this.onApiKeyUpdate) {
+      this.onApiKeyUpdate(apiKey);
+    }
+  }
 
-      // Get the visitor identifier when you need it.
-      const result = await fpAgent.get();
+  getApiKey(): string | undefined {
+    return this.storage.getItem('apiKey') || undefined;
+  }
 
-      // Use the visitor identifier as a stable identifier of the browser.
-      return result.visitorId;
-    } catch (err) {
-      if (this.debug) {
-        console.error('Error getting browser fingerprint:', err);
+  createHeaders(headers: Record<string, string>): Record<string, string> {
+    const result: Record<string, string> = {
+      ...headers,
+      'content-type': 'application/json',
+      'user-agent': this.getUserAgent(),
+    };
+
+    const apiKey = this.getApiKey();
+    if (apiKey) {
+      result['x-api-key'] = apiKey;
+    }
+
+    return result;
+  }
+
+  async handleResponse(response: Response): Promise<Response> {
+    const contentType = response.headers.get('content-type');
+    const isJson = contentType && contentType.includes('application/json');
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        // Handle API key invalidation
+        this.storage.removeItem('apiKey');
       }
-      // Fallback to UUID if fingerprinting fails
-      return crypto.randomUUID();
-    }
-  }
-
-  getPlatformInfo(): string {
-    if (typeof navigator === 'undefined') return 'unknown';
-
-    // Try modern API first
-    if ('userAgentData' in navigator && navigator.userAgentData?.platform) {
-      return navigator.userAgentData.platform;
+      const errorData = isJson ? await response.json() : await response.text();
+      throw new Error(
+        typeof errorData === 'string' ? errorData : JSON.stringify(errorData)
+      );
     }
 
-    // Fallback to user agent parsing
-    const ua = navigator.userAgent.toLowerCase();
-    if (ua.includes('win')) return 'Windows';
-    if (ua.includes('mac')) return 'macOS';
-    if (ua.includes('iphone') || ua.includes('ipad') || ua.includes('ipod'))
-      return 'iOS';
-    if (ua.includes('android')) return 'Android';
-    if (ua.includes('linux')) return 'Linux';
-
-    return 'unknown';
-  }
-
-  isOnline(): boolean {
-    return typeof navigator !== 'undefined' ? navigator.onLine : true;
-  }
-
-  getLanguage(): string {
-    return typeof navigator !== 'undefined' ? navigator.language : 'en-US';
+    return isJson ? response.json() : response.text();
   }
 
   getUserAgent(): string {
@@ -65,5 +73,41 @@ export class BrowserEnvironment implements EnvironmentInterface {
 
   getReferrer(): string | null {
     return typeof document !== 'undefined' ? document.referrer : null;
+  }
+
+  getLanguage(): string {
+    return typeof navigator !== 'undefined' ? navigator.language : 'en-US';
+  }
+
+  async getPlatformInfo(): Promise<Record<string, unknown>> {
+    return {
+      platform: 'browser',
+      userAgent: this.getUserAgent(),
+      language: this.getLanguage(),
+      online: this.isOnline(),
+      url: this.getUrl(),
+      referrer: this.getReferrer(),
+      runtime: RuntimeEnvironment.Browser,
+    };
+  }
+
+  async getFingerprint(): Promise<string> {
+    const fingerprint = this.storage.getItem('fingerprint');
+    if (fingerprint) {
+      return fingerprint;
+    }
+
+    // Generate a new fingerprint
+    const newFingerprint = crypto.randomUUID();
+    this.storage.setItem('fingerprint', newFingerprint);
+    return newFingerprint;
+  }
+
+  isOnline(): boolean {
+    return typeof navigator !== 'undefined' ? navigator.onLine : true;
+  }
+
+  async fetch(url: string, init?: RequestInit): Promise<Response> {
+    return fetch(url, init);
   }
 }

@@ -1,36 +1,56 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Argos SDK Demo App
 
-## Getting Started
+This Next.js application demonstrates the environment-agnostic capabilities of the Argos SDK, showcasing both client-side and server-side implementations.
 
-First, run the development server:
+## Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- Client-side impression tracking using React hooks
+- Server-side impression management via API routes
+- Fingerprint integration
+- Real-time impression updates
+- Error handling and loading states
+- Modern UI with Tailwind CSS
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Create a `.env.local` file with:
+   ```
+   NEXT_PUBLIC_ARGOS_API_URL=your_api_url
+   ```
+4. Set your API key in a cookie named `argos_api_key`
+5. Start the development server:
+   ```bash
+   npm run dev
+   ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Implementation Details
 
-## Learn More
+### Client-side Features
+- Uses `useImpressions` and `useFingerprint` hooks from `@project89/argos-sdk`
+- Real-time impression creation and tracking
+- Automatic fingerprint generation
 
-To learn more about Next.js, take a look at the following resources:
+### Server-side Features
+- Implements REST API endpoints for impression management
+- Uses `ArgosServerSDK` for secure server-side operations
+- Proper error handling and status codes
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Component Structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `ImpressionManager.tsx`: Main component demonstrating both client and server-side features
+- `providers.tsx`: Sets up the ArgosProvider with configuration
+- API routes in `api/impressions` for server-side operations
 
-## Deploy on Vercel
+## Best Practices Demonstrated
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Environment-agnostic SDK usage
+- Proper error handling
+- Loading state management
+- API key security
+- TypeScript integration
+- Modern React patterns

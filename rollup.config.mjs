@@ -8,16 +8,7 @@ const packageJson = JSON.parse(
   readFileSync(new URL('./package.json', import.meta.url), 'utf8')
 );
 
-const commonPlugins = [
-  peerDepsExternal(),
-  resolve(),
-  commonjs(),
-  typescript({
-    tsconfig: './tsconfig.json',
-    declaration: true,
-    declarationDir: './dist/types',
-  }),
-];
+const basePlugins = [peerDepsExternal(), resolve(), commonjs()];
 
 export default [
   // Client build
@@ -35,7 +26,15 @@ export default [
         sourcemap: true,
       },
     ],
-    plugins: commonPlugins,
+    plugins: [
+      ...basePlugins,
+      typescript({
+        tsconfig: './tsconfig.json',
+        declaration: true,
+        declarationDir: './dist/types',
+        outDir: './dist',
+      }),
+    ],
   },
   // Server build
   {
@@ -52,6 +51,14 @@ export default [
         sourcemap: true,
       },
     ],
-    plugins: commonPlugins,
+    plugins: [
+      ...basePlugins,
+      typescript({
+        tsconfig: './tsconfig.json',
+        declaration: true,
+        declarationDir: './dist/server/types',
+        outDir: './dist/server',
+      }),
+    ],
   },
 ];

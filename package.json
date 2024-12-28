@@ -1,6 +1,6 @@
 {
   "name": "@project89/argos-sdk",
-  "version": "0.1.0",
+  "version": "0.1.35",
   "description": "Environment-agnostic tracking and analytics SDK for Project 89's Argos platform",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -28,10 +28,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "npm run clean && npm run build:cjs && npm run build:esm && npm run build:types",
-    "build:cjs": "tsc -p tsconfig.cjs.json",
-    "build:esm": "tsc -p tsconfig.esm.json",
-    "build:types": "tsc -p tsconfig.types.json",
+    "build": "npm run clean && tsc --emitDeclarationOnly && rollup -c",
     "clean": "rimraf dist",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -45,20 +42,22 @@
   },
   "dependencies": {
     "@fingerprintjs/fingerprintjs": "^4.5.1",
-    "@rollup/plugin-commonjs": "^28.0.2",
-    "@rollup/plugin-node-resolve": "^16.0.0",
-    "@rollup/plugin-typescript": "^12.1.2",
     "cross-fetch": "^3.1.5",
+    "js-cookie": "^3.0.5",
     "react": ">=16.8.0",
     "react-dom": ">=16.8.0",
-    "rollup": "^4.29.1",
-    "rollup-plugin-peer-deps-external": "^2.2.4",
     "tslib": "^2.8.1"
   },
   "devDependencies": {
+    "@rollup/plugin-commonjs": "^24.1.0",
+    "@rollup/plugin-json": "^6.0.0",
+    "@rollup/plugin-node-resolve": "^15.0.0",
+    "@rollup/plugin-typescript": "^11.1.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@types/jest": "^29.5.0",
+    "@types/js-cookie": "^3.0.6",
     "@types/node": "^18.15.11",
+    "@types/node-fetch": "^2.6.12",
     "@types/react": "^18.0.33",
     "@types/react-dom": "^18.0.11",
     "@typescript-eslint/eslint-plugin": "^5.57.1",
@@ -75,6 +74,9 @@
     "node-fetch": "^2.7.0",
     "prettier": "^2.8.7",
     "rimraf": "^4.4.1",
+    "rollup": "^2.79.1",
+    "rollup-plugin-peer-deps-external": "^2.2.4",
+    "rollup-plugin-terser": "^7.0.2",
     "ts-jest": "^29.1.0",
     "typescript": "^5.0.3"
   },

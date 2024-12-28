@@ -1,60 +1,43 @@
+import { BrowserEnvironment } from '../../client/environment/BrowserEnvironment';
+import { NodeEnvironment } from '../../server/environment/NodeEnvironment';
 import {
   EnvironmentInterface,
-  StorageInterface,
   RuntimeEnvironment,
-  RuntimeConfig,
-  detectEnvironment,
-} from '../interfaces/environment';
-import { BrowserEnvironment } from '../../client/environment/BrowserEnvironment';
-import { BrowserStorage } from '../../client/storage/BrowserStorage';
-import { ServerEnvironment } from '../../server/environment/ServerEnvironment';
-import { ServerStorage } from '../../server/storage/ServerStorage';
+} from '../../shared/interfaces/environment';
+import { CookieStorage } from '../../client/storage/CookieStorage';
+import { SecureStorage } from '../../server/storage/SecureStorage';
+
+export interface EnvironmentFactoryConfig {
+  runtime?: RuntimeEnvironment;
+  onApiKeyUpdate?: (apiKey: string) => void;
+  encryptionKey?: string;
+}
 
 export class EnvironmentFactory {
-  static createEnvironment(config: RuntimeConfig = {}): {
-    environment: EnvironmentInterface;
-    storage: StorageInterface;
-    runtime: RuntimeEnvironment;
-  } {
-    // Use provided environment and storage if available
-    if (config.environment && config.storage) {
-      return {
-        environment: config.environment,
-        storage: config.storage,
-        runtime: RuntimeEnvironment.Unknown,
-      };
-    }
-
-    const runtime = detectEnvironment();
-    const debug = config.debug || false;
+  static create(config: EnvironmentFactoryConfig = {}): EnvironmentInterface {
+    const runtime = config.runtime || RuntimeEnvironment.Browser;
 
     switch (runtime) {
       case RuntimeEnvironment.Browser:
-        return {
-          environment: new BrowserEnvironment(debug),
-          storage: new BrowserStorage('argos_', debug),
-          runtime,
-        };
-
-      case RuntimeEnvironment.Server:
-        return {
-          environment: new ServerEnvironment({ debug }),
-          storage: new ServerStorage({
-            prefix: 'argos_',
-            debug,
-            persistence: {
-              enabled: true,
-              directory: '.argos',
-              filename: 'storage.json',
-            },
+        return new BrowserEnvironment(
+          new CookieStorage({
+            secure: true,
+            sameSite: 'strict',
           }),
-          runtime,
-        };
-
-      default:
-        throw new Error(
-          'Unable to detect runtime environment. Please provide environment and storage implementations.'
+          config.onApiKeyUpdate
         );
+      case RuntimeEnvironment.Node:
+        if (!config.encryptionKey) {
+          throw new Error('Encryption key is required for Node environment');
+        }
+        return new NodeEnvironment(
+          new SecureStorage({
+            encryptionKey: config.encryptionKey,
+          }),
+          config.onApiKeyUpdate
+        );
+      default:
+        throw new Error(`Unsupported runtime environment: ${runtime}`);
     }
   }
 }

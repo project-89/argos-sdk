@@ -1,67 +1,76 @@
-import type { ApiResponse } from '../../types/api';
-import fetch, { Response, Headers } from 'node-fetch';
-import {
+import type { ApiResponse } from '../../shared/interfaces/api';
+import type {
   EnvironmentInterface,
   StorageInterface,
-  RuntimeEnvironment,
-} from '../../core/interfaces/environment';
-import { ArgosSDK, ArgosSDKConfig } from '../../ArgosSDK';
-import { FingerprintAPI } from '../../api/FingerprintAPI';
+} from '../../shared/interfaces/environment';
+import { RuntimeEnvironment } from '../../shared/interfaces/environment';
 
-export const isIntegrationTest = () => process.env.TEST_MODE === 'integration';
+export const createMockEnvironment = (
+  overrides: Partial<EnvironmentInterface> = {}
+): EnvironmentInterface => {
+  let apiKey: string | undefined;
 
-export const INTEGRATION_API_URL =
-  process.env.TEST_API_URL ||
-  'http://127.0.0.1:5001/argos-434718/us-central1/api';
-export const INTEGRATION_API_KEY = process.env.TEST_API_KEY || 'test-key';
-
-// Set up fetch polyfill for integration tests
-if (isIntegrationTest()) {
-  global.fetch = fetch as unknown as typeof global.fetch;
-  global.Response = Response as unknown as typeof global.Response;
-}
-
-export function mockResponse<T>(data: T): ApiResponse<T> {
   return {
-    success: true,
-    data,
+    isOnline: () => true,
+    getLanguage: () => 'en-US',
+    getUserAgent: () => 'Mozilla/5.0 (Test Environment)',
+    getPlatformInfo: () => Promise.resolve({ platform: 'test' }),
+    getFingerprint: () => Promise.resolve('test-fingerprint'),
+    getUrl: () => 'https://test.example.com',
+    getReferrer: () => null,
+    setApiKey: (key: string) => {
+      apiKey = key;
+    },
+    getApiKey: () => apiKey,
+    createHeaders: (headers: Record<string, string>) => headers,
+    handleResponse: async (response: Response) => {
+      if (!response.ok) {
+        if (response.status === 401) {
+          apiKey = undefined;
+        }
+        const contentType = response.headers.get('content-type');
+        const isJson = contentType && contentType.includes('application/json');
+        const errorData = isJson
+          ? await response.json()
+          : await response.text();
+        throw new Error(
+          typeof errorData === 'string' ? errorData : JSON.stringify(errorData)
+        );
+      }
+      return response.json();
+    },
+    fetch: async (_url: string, _init?: RequestInit): Promise<Response> => {
+      const response = new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+      });
+      return response;
+    },
+    ...overrides,
   };
-}
-
-export function createMockFetchApi() {
-  return jest.fn();
-}
+};
 
 export class MockEnvironment implements EnvironmentInterface {
-  private runtime: RuntimeEnvironment;
   private fingerprint: string;
-  private currentApiKey?: string;
-  private onApiKeyUpdate?: (apiKey: string) => void;
+  private apiKey?: string;
+  private userAgent?: string;
+  private runtimeEnvironment: RuntimeEnvironment;
 
   constructor(
     fingerprint: string,
     apiKey?: string,
-    onApiKeyUpdate?: (apiKey: string) => void,
-    runtime: RuntimeEnvironment = RuntimeEnvironment.Browser
+    userAgent?: string,
+    runtimeEnvironment: RuntimeEnvironment = RuntimeEnvironment.Node
   ) {
     this.fingerprint = fingerprint;
-    this.currentApiKey = apiKey;
-    this.onApiKeyUpdate = onApiKeyUpdate;
-    this.runtime = runtime;
+    this.apiKey = apiKey;
+    this.userAgent = userAgent;
+    this.runtimeEnvironment = runtimeEnvironment;
   }
 
-  setApiKey(apiKey: string): void {
-    if (!apiKey) {
-      throw new Error('API key cannot be empty');
-    }
-    this.currentApiKey = apiKey;
-    if (this.onApiKeyUpdate) {
-      this.onApiKeyUpdate(apiKey);
-    }
-  }
-
-  getApiKey(): string | undefined {
-    return this.currentApiKey;
+  getUserAgent(): string {
+    return this.userAgent || 'Mozilla/5.0 (Test Browser Environment)';
   }
 
   createHeaders(headers: Record<string, string>): Record<string, string> {
@@ -71,11 +80,20 @@ export class MockEnvironment implements EnvironmentInterface {
       'user-agent': this.getUserAgent(),
     };
 
-    if (this.currentApiKey) {
-      result['x-api-key'] = this.currentApiKey;
+    if (this.apiKey) {
+      result['x-api-key'] = this.apiKey;
     }
 
     return result;
+  }
+
+  async fetch(_url: string, _init?: RequestInit): Promise<Response> {
+    const response = new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      statusText: 'OK',
+      headers: this.createHeaders({}),
+    });
+    return response;
   }
 
   async handleResponse(response: Response): Promise<any> {
@@ -85,65 +103,62 @@ export class MockEnvironment implements EnvironmentInterface {
     if (!response.ok) {
       if (response.status === 401) {
         // Handle API key invalidation
-        this.currentApiKey = undefined;
+        this.apiKey = undefined;
       }
-      const errorData = isJson
-        ? await (response as unknown as { json(): Promise<any> }).json()
-        : await (response as unknown as { text(): Promise<string> }).text();
+      const errorData = isJson ? await response.json() : await response.text();
       throw new Error(
         typeof errorData === 'string' ? errorData : JSON.stringify(errorData)
       );
     }
 
-    if (!isJson) {
-      return (response as unknown as { text(): Promise<string> }).text();
-    }
-
-    const data = await (response as unknown as { json(): Promise<any> }).json();
-
-    // Check for API key in response headers
-    const newApiKey = response.headers.get('x-api-key');
-    if (newApiKey && newApiKey !== this.currentApiKey) {
-      this.setApiKey(newApiKey);
-    }
-
-    return data;
+    return isJson ? response.json() : response.text();
   }
 
-  getUserAgent(): string {
-    return this.runtime === RuntimeEnvironment.Browser
-      ? 'Mozilla/5.0 (Test Browser Environment)'
-      : 'node-fetch/1.0 (Test Server Environment)';
+  setApiKey(apiKey: string): void {
+    this.apiKey = apiKey;
   }
 
-  getUrl(): string | null {
-    return this.runtime === RuntimeEnvironment.Browser
-      ? 'https://test.example.com'
-      : null;
+  getApiKey(): string | undefined {
+    return this.apiKey;
   }
 
-  getReferrer(): string | null {
-    return this.runtime === RuntimeEnvironment.Browser
-      ? 'https://test-referrer.example.com'
-      : null;
+  isOnline(): boolean {
+    return true;
   }
 
   getLanguage(): string {
     return 'en-US';
   }
 
-  getPlatformInfo(): string {
-    return this.runtime === RuntimeEnvironment.Browser
-      ? 'TestBrowser'
-      : 'TestServer';
+  async getPlatformInfo(): Promise<Record<string, unknown>> {
+    return {
+      platform:
+        this.runtimeEnvironment === RuntimeEnvironment.Browser
+          ? 'browser'
+          : 'node',
+      userAgent: this.getUserAgent(),
+      language: this.getLanguage(),
+      online: this.isOnline(),
+      url: this.getUrl(),
+      referrer: this.getReferrer(),
+      runtime: this.runtimeEnvironment,
+    };
   }
 
   async getFingerprint(): Promise<string> {
     return this.fingerprint;
   }
 
-  isOnline(): boolean {
-    return true;
+  getUrl(): string | null {
+    return this.runtimeEnvironment === RuntimeEnvironment.Browser
+      ? 'https://test.example.com'
+      : null;
+  }
+
+  getReferrer(): string | null {
+    return this.runtimeEnvironment === RuntimeEnvironment.Browser
+      ? 'https://test-referrer.example.com'
+      : null;
   }
 }
 
@@ -171,17 +186,6 @@ export class MockStorage implements StorageInterface {
   }
 }
 
-class MockHeaders extends Headers {
-  constructor(init?: Record<string, string>) {
-    super();
-    if (init) {
-      Object.entries(init).forEach(([key, value]) => {
-        this.set(key, value);
-      });
-    }
-  }
-}
-
 export function createMockResponse(options: {
   ok?: boolean;
   status?: number;
@@ -189,96 +193,25 @@ export function createMockResponse(options: {
   headers?: Record<string, string>;
   body?: any;
 }): Response {
-  const {
-    ok = true,
-    status = 200,
-    statusText = 'OK',
-    headers = {},
-    body = {},
-  } = options;
+  const { status = 200, statusText = 'OK', headers = {}, body = {} } = options;
 
-  // Create a new Response using node-fetch
   return new Response(JSON.stringify(body), {
     status,
     statusText,
-    headers: new MockHeaders(headers),
+    headers,
   });
 }
 
-export class TestArgosSDK extends ArgosSDK {
-  public getFingerprintAPI(): FingerprintAPI {
-    return this.fingerprintAPI;
-  }
+export function createMockFetchApi() {
+  return jest.fn().mockImplementation(async () => ({
+    success: true,
+    data: {},
+  }));
 }
 
-export class TestSDK extends ArgosSDK {
-  private cleanedFingerprints: Set<string> = new Set();
-  private cleanedApiKeys: Set<string> = new Set();
-
-  public async cleanup(fingerprintId: string) {
-    if (this.cleanedFingerprints.has(fingerprintId)) {
-      return; // Already cleaned up
-    }
-
-    try {
-      // First revoke any API keys associated with this fingerprint
-      const apiKeys = await this.listApiKeys();
-      if (apiKeys.success && apiKeys.data) {
-        for (const key of apiKeys.data) {
-          if (
-            key.fingerprintId === fingerprintId &&
-            !this.cleanedApiKeys.has(key.key)
-          ) {
-            await this.cleanupApiKey(key.key);
-          }
-        }
-      }
-
-      // Then delete the fingerprint
-      await this.fingerprintAPI.deleteFingerprint(fingerprintId);
-      this.cleanedFingerprints.add(fingerprintId);
-    } catch (error) {
-      console.warn(`Cleanup failed for fingerprint ${fingerprintId}:`, error);
-    }
-  }
-
-  public async cleanupFingerprint(fingerprintId: string) {
-    if (this.cleanedFingerprints.has(fingerprintId)) {
-      return; // Already cleaned up
-    }
-
-    await this.fingerprintAPI.deleteFingerprint(fingerprintId);
-    this.cleanedFingerprints.add(fingerprintId);
-  }
-
-  public async cleanupApiKey(apiKey: string) {
-    if (this.cleanedApiKeys.has(apiKey)) {
-      return; // Already cleaned up
-    }
-
-    try {
-      await this.apiKeyAPI.revokeAPIKey({ key: apiKey });
-      this.cleanedApiKeys.add(apiKey);
-    } catch (error) {
-      if (error instanceof Error) {
-        // Ignore specific error cases
-        const ignoredErrors = [
-          'API key is disabled',
-          'API key not found',
-          'API key has already been revoked',
-        ];
-
-        if (!ignoredErrors.some((msg) => error.message.includes(msg))) {
-          throw error;
-        }
-      } else {
-        throw error;
-      }
-    }
-  }
-
-  public resetCleanupState() {
-    this.cleanedFingerprints.clear();
-    this.cleanedApiKeys.clear();
-  }
+export function mockResponse<T>(data: T): ApiResponse<T> {
+  return {
+    success: true,
+    data,
+  };
 }

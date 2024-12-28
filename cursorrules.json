@@ -1,0 +1,117 @@
+{
+  "project": {
+    "name": "argos-sdk",
+    "description": "An environment-agnostic SDK that works seamlessly in both browser and Node.js environments",
+    "principles": [
+      "Environment agnostic - all core functionality should work in both browser and Node.js",
+      "Test-driven development - write tests alongside new features",
+      "Clear separation of concerns - client, server, and shared code should be well-organized",
+      "Progressive testing - test as complexity increases"
+    ]
+  },
+  "directoryStructure": {
+    "src/": {
+      "description": "Source code root",
+      "subdirectories": {
+        "shared/": {
+          "description": "Code shared between client and server",
+          "subdirectories": {
+            "interfaces/": "Core interfaces and type definitions",
+            "api/": "API client implementations",
+            "utils/": "Shared utility functions",
+            "constants/": "Shared constant values",
+            "config/": "Shared configuration"
+          }
+        },
+        "client/": {
+          "description": "Browser-specific code",
+          "subdirectories": {
+            "storage/": "Browser storage implementations (e.g., CookieStorage)",
+            "environment/": "Browser environment implementation",
+            "react/": {
+              "description": "React-specific code",
+              "subdirectories": {
+                "hooks/": "Custom React hooks",
+                "context/": "React context providers",
+                "components/": "Reusable React components"
+              }
+            }
+          }
+        },
+        "server/": {
+          "description": "Node.js-specific code",
+          "subdirectories": {
+            "storage/": "Server storage implementations (e.g., SecureStorage)",
+            "environment/": "Node.js environment implementation",
+            "sdk/": "Server-specific SDK implementation"
+          }
+        },
+        "core/": {
+          "description": "Core SDK implementation",
+          "subdirectories": {
+            "factory/": "Environment and service factories",
+            "services/": "Core services",
+            "sdk/": "Main SDK implementation"
+          }
+        },
+        "__tests__/": {
+          "description": "Test files",
+          "subdirectories": {
+            "integration/": "End-to-end integration tests",
+            "unit/": {
+              "description": "Unit tests",
+              "subdirectories": {
+                "client/": "Client-specific tests",
+                "server/": "Server-specific tests",
+                "shared/": "Shared code tests",
+                "core/": "Core SDK tests"
+              }
+            },
+            "utils/": "Test utilities and helpers"
+          }
+        }
+      }
+    }
+  },
+  "rules": [
+    {
+      "name": "directory-verification",
+      "description": "Always verify the correct directory before creating new files or running commands",
+      "guidelines": [
+        "Use list_dir to verify the current directory structure",
+        "Check for existing files before creating new ones",
+        "Ensure new files are created in the appropriate directory based on their purpose"
+      ]
+    },
+    {
+      "name": "test-requirements",
+      "description": "Testing requirements for new code",
+      "guidelines": [
+        "Write unit tests for new functionality",
+        "Add integration tests for new features that interact with external services",
+        "Update existing tests when modifying functionality",
+        "Ensure tests cover both success and error cases"
+      ]
+    },
+    {
+      "name": "code-organization",
+      "description": "Guidelines for organizing code",
+      "guidelines": [
+        "Place shared code in the shared directory",
+        "Keep browser-specific code in the client directory",
+        "Keep Node.js-specific code in the server directory",
+        "Use appropriate subdirectories based on code purpose"
+      ]
+    },
+    {
+      "name": "environment-agnostic",
+      "description": "Guidelines for maintaining environment agnostic code",
+      "guidelines": [
+        "Core functionality should work in both browser and Node.js",
+        "Use environment-specific implementations through the factory pattern",
+        "Abstract environment-specific APIs behind interfaces",
+        "Test functionality in both environments"
+      ]
+    }
+  ]
+} 

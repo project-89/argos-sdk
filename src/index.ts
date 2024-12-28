@@ -1,34 +1,28 @@
-export { ArgosSDK } from './ArgosSDK';
-export type { ArgosSDKConfig } from './ArgosSDK';
-export { ArgosProvider } from './context/ArgosContext';
-export { useArgosSDK } from './hooks/useArgosSDK';
-export { useFingerprint } from './hooks/useFingerprint';
-export { useOnlineStatus } from './hooks/useOnlineStatus';
-export { useMetadata } from './hooks/useMetadata';
-export { useImpressions } from './hooks/useImpressions';
+// Core SDK exports
+export { ArgosSDK } from './core/sdk/ArgosSDK';
+export { ArgosServerSDK } from './server/sdk/ArgosServerSDK';
+export { RuntimeEnvironment } from './shared/interfaces/environment';
 
+// Type exports
 export type {
-  ApiResponse,
-  ApiError,
-  ApiSuccess,
-  Fingerprint,
-  VisitData,
-  PresenceData,
-  APIKeyData,
-  PriceData,
-  PriceHistoryData,
-  RoleData,
-  TagData,
-  SystemHealthData,
-  DebugData,
-  RealityStabilityData,
-  ImpressionData,
-} from './types/api';
+  EnvironmentInterface,
+  StorageInterface,
+} from './shared/interfaces/environment';
+export type { ArgosSDKConfig } from './core/sdk/ArgosSDK';
+export type { ServerSDKConfig } from './server/sdk/ArgosServerSDK';
 
-export const apiConfig = {
-  baseUrl:
-    process.env.NODE_ENV === 'development'
-      ? 'http://127.0.0.1:5001'
-      : 'https://argos.project89.org',
-  debug: process.env.NODE_ENV === 'development',
-};
+// React-specific exports (browser only)
+export { ArgosProvider } from './client/react/context/ArgosContext';
+export { useArgosSDK } from './client/react/hooks/useArgosSDK';
+export { useFingerprint } from './client/react/hooks/useFingerprint';
+export { useOnlineStatus } from './client/react/hooks/useOnlineStatus';
+export { useMetadata } from './client/react/hooks/useMetadata';
+export { useImpressions } from './client/react/hooks/useImpressions';
+
+// Storage implementations
+export { CookieStorage } from './client/storage/CookieStorage';
+export { SecureStorage } from './server/storage/SecureStorage';
+
+// Environment implementations
+export { BrowserEnvironment } from './client/environment/BrowserEnvironment';
+export { NodeEnvironment } from './server/environment/NodeEnvironment';

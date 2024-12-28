@@ -1,4 +1,4 @@
-import { BaseAPI, BaseAPIConfig } from '../../api/BaseAPI';
+import { BaseAPIConfig } from '../../shared/api/BaseAPI';
 import {
   ApiResponse,
   Fingerprint,
@@ -20,27 +20,24 @@ import {
   GetImpressionsOptions,
   ImpressionData,
   DeleteImpressionsResponse,
-} from '../../types/api';
-import {
-  FingerprintAPI,
   CreateFingerprintRequest,
-} from '../../api/FingerprintAPI';
-import {
-  VisitAPI,
   CreateVisitRequest,
   UpdatePresenceRequest,
-} from '../../api/VisitAPI';
-import { RoleAPI } from '../../api/RoleAPI';
-import { TagAPI, UpdateTagsRequest } from '../../api/TagAPI';
-import { PriceAPI } from '../../api/PriceAPI';
-import { SystemAPI } from '../../api/SystemAPI';
-import { APIKeyAPI } from '../../api/APIKeyAPI';
-import { ImpressionAPI } from '../../api/ImpressionAPI';
+  UpdateTagsRequest,
+} from '../../shared/interfaces/api';
+import { FingerprintAPI } from '../../shared/api/FingerprintAPI';
+import { VisitAPI } from '../../shared/api/VisitAPI';
+import { RoleAPI } from '../../shared/api/RoleAPI';
+import { TagAPI } from '../../shared/api/TagAPI';
+import { PriceAPI } from '../../shared/api/PriceAPI';
+import { SystemAPI } from '../../shared/api/SystemAPI';
+import { APIKeyAPI } from '../../shared/api/APIKeyAPI';
+import { ImpressionAPI } from '../../shared/api/ImpressionAPI';
 
 export type TrackEventType = 'visit' | 'presence' | 'custom';
 
 export interface ServerSDKConfig extends BaseAPIConfig {
-  apiKey: string;
+  apiKey?: string;
   defaultFingerprint?: string;
   debug?: boolean;
 }
@@ -49,44 +46,73 @@ export class ArgosServerSDK {
   private config: ServerSDKConfig;
   private fingerprintAPI: FingerprintAPI;
   private visitAPI: VisitAPI;
-  private apiKeyAPI: APIKeyAPI;
   private roleAPI: RoleAPI;
   private tagAPI: TagAPI;
   private priceAPI: PriceAPI;
   private systemAPI: SystemAPI;
+  private apiKeyAPI: APIKeyAPI;
   private impressionAPI: ImpressionAPI;
 
   constructor(config: ServerSDKConfig) {
     this.config = config;
-    const apiConfig = {
-      ...config,
-      onApiKeyRefresh: (newApiKey: string) => this.setApiKey(newApiKey),
-    };
-    this.fingerprintAPI = new FingerprintAPI(apiConfig);
-    this.visitAPI = new VisitAPI(apiConfig);
-    this.apiKeyAPI = new APIKeyAPI(apiConfig);
-    this.roleAPI = new RoleAPI(apiConfig);
-    this.tagAPI = new TagAPI(apiConfig);
-    this.priceAPI = new PriceAPI(apiConfig);
-    this.systemAPI = new SystemAPI(apiConfig);
-    this.impressionAPI = new ImpressionAPI(apiConfig);
+    this.fingerprintAPI = new FingerprintAPI(config);
+    this.visitAPI = new VisitAPI(config);
+    this.roleAPI = new RoleAPI(config);
+    this.tagAPI = new TagAPI(config);
+    this.priceAPI = new PriceAPI(config);
+    this.systemAPI = new SystemAPI(config);
+    this.apiKeyAPI = new APIKeyAPI(config);
+    this.impressionAPI = new ImpressionAPI(config);
   }
 
-  // Identity Management
+  setApiKey(apiKey: string): void {
+    this.config.apiKey = apiKey;
+  }
+
+  getApiKey(): string | undefined {
+    return this.config.apiKey;
+  }
+
+  async getApiKeyData(id: string): Promise<ApiResponse<APIKeyData>> {
+    return this.apiKeyAPI.getAPIKey(id);
+  }
+
   async identify(
     request: CreateFingerprintRequest
   ): Promise<ApiResponse<Fingerprint>> {
-    return this.fingerprintAPI.createFingerprint(request);
+    return this.fingerprintAPI.createFingerprint(request.fingerprint, {
+      metadata: request.metadata || {},
+    });
   }
 
+  async getCurrentPrices(
+    options?: GetCurrentPricesOptions
+  ): Promise<ApiResponse<PriceData>> {
+    return this.priceAPI.getCurrentPrices({
+      tokens: options?.tokens || [],
+    });
+  }
+
+  async getPriceHistory(
+    token: string,
+    options?: GetPriceHistoryOptions
+  ): Promise<ApiResponse<PriceHistoryData>> {
+    return this.priceAPI.getPriceHistory(token, {
+      interval: options?.interval || '24h',
+      limit: options?.limit,
+    });
+  }
+
+  // Identity Management
   async getIdentity(id: string): Promise<ApiResponse<Fingerprint>> {
     return this.fingerprintAPI.getFingerprint(id);
   }
 
   async updateFingerprint(
+    fingerprintId: string,
     metadata: Record<string, unknown>
   ): Promise<ApiResponse<Fingerprint>> {
-    return this.fingerprintAPI.updateFingerprint(metadata);
+    return this.fingerprintAPI.updateFingerprint(fingerprintId, metadata);
   }
 
   // Role Management
@@ -145,30 +171,6 @@ export class ArgosServerSDK {
     }
   }
 
-  /**
-   * Update the SDK's API key and reinitialize all API instances
-   */
-  public setApiKey(apiKey: string) {
-    this.config.apiKey = apiKey;
-    // Reinitialize all API instances with the new API key and refresh callback
-    const apiConfig = {
-      ...this.config,
-      onApiKeyRefresh: (newApiKey: string) => this.setApiKey(newApiKey),
-    };
-    this.fingerprintAPI = new FingerprintAPI(apiConfig);
-    this.visitAPI = new VisitAPI(apiConfig);
-    this.apiKeyAPI = new APIKeyAPI(apiConfig);
-    this.roleAPI = new RoleAPI(apiConfig);
-    this.tagAPI = new TagAPI(apiConfig);
-    this.priceAPI = new PriceAPI(apiConfig);
-    this.systemAPI = new SystemAPI(apiConfig);
-    this.impressionAPI = new ImpressionAPI(apiConfig);
-
-    if (this.config.debug) {
-      console.log('[Argos Server] API key updated');
-    }
-  }
-
   async createApiKey(
     request: CreateAPIKeyRequest
   ): Promise<ApiResponse<APIKeyData>> {
@@ -181,10 +183,6 @@ export class ArgosServerSDK {
 
   async revokeApiKey(request: RevokeAPIKeyRequest): Promise<ApiResponse<void>> {
     return this.apiKeyAPI.revokeAPIKey(request);
-  }
-
-  async getApiKey(id: string): Promise<ApiResponse<APIKeyData>> {
-    return this.apiKeyAPI.getAPIKey(id);
   }
 
   async listApiKeys(): Promise<ApiResponse<APIKeyData[]>> {
@@ -271,20 +269,6 @@ export class ArgosServerSDK {
     return this.visitAPI.getVisitHistory(fingerprintId, options);
   }
 
-  // Price Data
-  async getCurrentPrices(
-    options?: GetCurrentPricesOptions
-  ): Promise<ApiResponse<PriceData>> {
-    return this.priceAPI.getCurrentPrices(options);
-  }
-
-  async getPriceHistory(
-    tokenId: string,
-    options?: GetPriceHistoryOptions
-  ): Promise<ApiResponse<PriceHistoryData>> {
-    return this.priceAPI.getPriceHistory(tokenId, options);
-  }
-
   // System Health
   async checkHealth(): Promise<ApiResponse<SystemHealthData>> {
     return this.systemAPI.checkHealth();
@@ -314,8 +298,17 @@ export class ArgosServerSDK {
   // API Key Management
   async registerInitialApiKey(
     fingerprintId: string,
-    metadata: Record<string, any>
+    metadata: Record<string, unknown>
   ): Promise<ApiResponse<APIKeyData>> {
     return this.apiKeyAPI.registerInitialApiKey(fingerprintId, metadata);
+  }
+
+  async getPlatformInfo(): Promise<Record<string, unknown>> {
+    return {
+      type: 'server',
+      nodeVersion: process.version,
+      arch: process.arch,
+      platform: process.platform,
+    };
   }
 }
