@@ -1,4 +1,5 @@
 import { BaseAPIConfig } from '../api/BaseAPI';
+import type { Response as NodeResponse } from 'node-fetch';
 
 /**
  * Runtime environment types supported by the SDK
@@ -43,6 +44,6 @@ export interface EnvironmentInterface<T = Response> {
   fetch(url: string, init?: RequestInit): Promise<T>;
 }
 
-export interface ServerSDKConfig extends BaseAPIConfig {
+export interface ServerSDKConfig extends BaseAPIConfig<NodeResponse> {
   defaultFingerprint?: string;
 }

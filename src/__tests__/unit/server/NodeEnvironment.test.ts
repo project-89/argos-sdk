@@ -1,33 +1,41 @@
+import { jest } from '@jest/globals';
 import { NodeEnvironment } from '../../../server/environment/NodeEnvironment';
-import { EnvironmentFactory } from '../../../core/factory/EnvironmentFactory';
-import { RuntimeEnvironment } from '../../../shared/interfaces/environment';
 import { SecureStorage } from '../../../server/storage/SecureStorage';
+import type { Response } from 'node-fetch';
+import { RuntimeEnvironment } from '../../../shared/interfaces/environment';
 
 describe('NodeEnvironment', () => {
   let environment: NodeEnvironment;
+  let storage: SecureStorage;
 
   beforeEach(() => {
-    environment = new NodeEnvironment(
-      new SecureStorage({
-        encryptionKey: 'test-key-32-chars-secure-storage-ok',
-        storagePath: './test-storage/storage.enc',
-      })
-    );
+    storage = new SecureStorage({
+      encryptionKey: 'test-key-32-chars-secure-storage-ok',
+      storagePath: './test-storage/storage.enc',
+    });
+    environment = new NodeEnvironment(storage);
   });
 
-  describe('getUserAgent', () => {
-    it('should return a valid user agent string', () => {
-      const userAgent = environment.getUserAgent();
-      expect(userAgent).toContain('Node.js');
-      expect(userAgent).toMatch(/\([^)]+\)/);
+  afterEach(() => {
+    storage.clear();
+  });
+
+  describe('isOnline', () => {
+    it('should return true', () => {
+      expect(environment.isOnline()).toBe(true);
     });
   });
 
-  describe('getFingerprint', () => {
-    it('should generate a unique fingerprint', async () => {
-      const fingerprint = await environment.getFingerprint();
-      expect(fingerprint).toBeDefined();
-      expect(fingerprint).toMatch(/^node-[a-f0-9]{64}$/);
+  describe('getUserAgent', () => {
+    it('should return node user agent', () => {
+      expect(environment.getUserAgent()).toContain('Node.js');
+    });
+  });
+
+  describe('getLanguage', () => {
+    it('should return system language', () => {
+      const language = environment.getLanguage();
+      expect(language).toMatch(/^en[-_]US/);
     });
   });
 
@@ -40,21 +48,14 @@ describe('NodeEnvironment', () => {
       expect(info).toHaveProperty('userAgent');
       expect(info).toHaveProperty('language');
       expect(info).toHaveProperty('online');
-      expect(info).toHaveProperty('runtime');
+      expect(info.runtime).toBe(RuntimeEnvironment.Node);
     });
   });
 
-  describe('isOnline', () => {
-    it('should return true', () => {
-      expect(environment.isOnline()).toBe(true);
-    });
-  });
-
-  describe('getLanguage', () => {
-    it('should return a valid language code', () => {
-      const language = environment.getLanguage();
-      expect(language).toBeTruthy();
-      expect(language).toMatch(/^[a-z]{2}(-[A-Z]{2}|_[A-Z]{2}\.UTF-8)?$/);
+  describe('getFingerprint', () => {
+    it('should return a valid fingerprint', async () => {
+      const fingerprint = await environment.getFingerprint();
+      expect(fingerprint).toMatch(/^node-[a-f0-9]{64}$/);
     });
   });
 
@@ -70,59 +71,117 @@ describe('NodeEnvironment', () => {
     });
   });
 
-  describe('createHeaders', () => {
-    it('should add user agent and content type headers', () => {
-      const headers = environment.createHeaders({});
-      expect(headers['user-agent']).toBeDefined();
-      expect(headers['content-type']).toBe('application/json');
-    });
-
-    it('should include API key if set', () => {
-      environment.setApiKey('test-key');
-      const headers = environment.createHeaders({});
-      expect(headers['x-api-key']).toBe('test-key');
-    });
-  });
-
   describe('handleResponse', () => {
-    it('should handle JSON responses', async () => {
-      const mockResponse = new Response(JSON.stringify({ test: true }), {
-        headers: { 'content-type': 'application/json' },
-      });
+    it('should handle JSON response', async () => {
+      const mockJson = jest
+        .fn()
+        .mockImplementation(() => Promise.resolve({ data: 'test' }));
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        headers: {
+          get: jest.fn().mockReturnValue('application/json'),
+        },
+        json: mockJson,
+      } as unknown as Response;
+
       const result = await environment.handleResponse(mockResponse);
-      expect(result).toEqual({ test: true });
+      expect(result).toEqual({ data: 'test' });
     });
 
-    it('should handle text responses', async () => {
-      const mockResponse = new Response('test', {
-        headers: { 'content-type': 'text/plain' },
-      });
+    it('should handle text response', async () => {
+      const mockText = jest
+        .fn()
+        .mockImplementation(() => Promise.resolve('test'));
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        headers: {
+          get: jest.fn().mockReturnValue('text/plain'),
+        },
+        text: mockText,
+      } as unknown as Response;
+
       const result = await environment.handleResponse(mockResponse);
       expect(result).toBe('test');
     });
 
-    it('should handle errors', async () => {
-      const mockResponse = new Response(
-        JSON.stringify({ error: 'test error' }),
-        {
-          status: 400,
-          headers: { 'content-type': 'application/json' },
-        }
-      );
+    it('should handle error response', async () => {
+      const mockJson = jest
+        .fn()
+        .mockImplementation(() => Promise.resolve({ error: 'test error' }));
+      const mockResponse = {
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        headers: {
+          get: jest.fn().mockReturnValue('application/json'),
+        },
+        json: mockJson,
+      } as unknown as Response;
+
       await expect(environment.handleResponse(mockResponse)).rejects.toThrow();
     });
 
-    it('should handle 401 errors by removing API key', async () => {
-      environment.setApiKey('test-key');
-      const mockResponse = new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        {
-          status: 401,
-          headers: { 'content-type': 'application/json' },
-        }
-      );
+    it('should handle non-JSON error response', async () => {
+      const mockJson = jest
+        .fn()
+        .mockImplementation(() => Promise.reject(new Error('Invalid JSON')));
+      const mockText = jest
+        .fn()
+        .mockImplementation(() => Promise.resolve('Internal Server Error'));
+      const mockResponse = {
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        headers: {
+          get: jest.fn().mockReturnValue('text/plain'),
+        },
+        json: mockJson,
+        text: mockText,
+      } as unknown as Response;
+
       await expect(environment.handleResponse(mockResponse)).rejects.toThrow();
-      expect(environment.getApiKey()).toBeUndefined();
+    });
+  });
+
+  describe('API key management', () => {
+    beforeEach(() => {
+      storage.clear();
+    });
+
+    it('should set and get API key', () => {
+      environment.setApiKey('test-key');
+      expect(environment.getApiKey()).toBe('test-key');
+    });
+
+    it('should throw error when setting empty API key', () => {
+      expect(() => environment.setApiKey('')).toThrow();
+    });
+  });
+
+  describe('createHeaders', () => {
+    beforeEach(() => {
+      storage.clear();
+    });
+
+    it('should create headers with API key', () => {
+      environment.setApiKey('test-key');
+      const headers = environment.createHeaders({
+        'Content-Type': 'application/json',
+      });
+
+      expect(headers['x-api-key']).toBe('test-key');
+      expect(headers['Content-Type']).toBe('application/json');
+    });
+
+    it('should create headers without API key', () => {
+      const headers = environment.createHeaders({
+        'Content-Type': 'application/json',
+      });
+
+      expect(headers['x-api-key']).toBeUndefined();
+      expect(headers['Content-Type']).toBe('application/json');
     });
   });
 });

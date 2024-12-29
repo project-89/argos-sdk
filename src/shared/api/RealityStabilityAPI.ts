@@ -1,9 +1,9 @@
 import { BaseAPI, BaseAPIConfig } from './BaseAPI';
 import { ApiResponse, RealityStabilityData } from '../interfaces/api';
-import { HttpMethod } from '../interfaces/http';
+import { HttpMethod, CommonResponse } from '../interfaces/http';
 
-export class RealityStabilityAPI extends BaseAPI {
-  constructor(config: BaseAPIConfig) {
+export class RealityStabilityAPI<T extends CommonResponse> extends BaseAPI<T> {
+  constructor(config: BaseAPIConfig<T>) {
     super(config);
   }
 

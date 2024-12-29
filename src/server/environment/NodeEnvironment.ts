@@ -38,7 +38,8 @@ export class NodeEnvironment implements EnvironmentInterface<NodeResponse> {
 
   async getPlatformInfo(): Promise<Record<string, unknown>> {
     return {
-      platform: os.platform(),
+      platform: 'node',
+      osType: os.platform(),
       arch: os.arch(),
       version: process.version,
       userAgent: this.getUserAgent(),

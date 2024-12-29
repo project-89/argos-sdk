@@ -1,73 +1,59 @@
-import { BaseAPI } from './BaseAPI';
+import { BaseAPI, BaseAPIConfig } from './BaseAPI';
 import {
   ApiResponse,
   VisitData,
   CreateVisitRequest,
   UpdatePresenceRequest,
   PresenceData,
-  GetVisitHistoryOptions,
 } from '../interfaces/api';
-import { HttpMethod } from '../interfaces/http';
+import { HttpMethod, CommonResponse } from '../interfaces/http';
 
-export class VisitAPI extends BaseAPI {
+export class VisitAPI<T extends CommonResponse> extends BaseAPI<T> {
+  constructor(config: BaseAPIConfig<T>) {
+    super(config);
+  }
+
   async createVisit(
     request: CreateVisitRequest
   ): Promise<ApiResponse<VisitData>> {
-    try {
-      return await this.fetchApi<VisitData>('/visit/log', {
-        method: HttpMethod.POST,
-        body: request,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to create visit: ${message}`);
-    }
+    return this.fetchApi<VisitData>('/visit/create', {
+      method: HttpMethod.POST,
+      body: request,
+    });
+  }
+
+  async getVisit(id: string): Promise<ApiResponse<VisitData>> {
+    return this.fetchApi<VisitData>(`/visit/${id}`, {
+      method: HttpMethod.GET,
+    });
   }
 
   async updatePresence(
     request: UpdatePresenceRequest
   ): Promise<ApiResponse<PresenceData>> {
-    try {
-      return await this.fetchApi<PresenceData>('/visit/presence', {
-        method: HttpMethod.POST,
-        body: request,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to update presence: ${message}`);
-    }
+    return this.fetchApi<PresenceData>('/visit/presence', {
+      method: HttpMethod.POST,
+      body: request,
+    });
   }
 
   async getVisitHistory(
     fingerprintId: string,
-    options?: GetVisitHistoryOptions
-  ): Promise<ApiResponse<{ visits: VisitData[] }>> {
-    try {
-      const queryParams = new URLSearchParams();
-      if (options?.limit) {
-        queryParams.set('limit', String(options.limit));
-      }
-      if (options?.offset) {
-        queryParams.set('offset', String(options.offset));
-      }
-      if (options?.startDate) {
-        queryParams.set('startDate', options.startDate);
-      }
-      if (options?.endDate) {
-        queryParams.set('endDate', options.endDate);
-      }
-
-      const query = queryParams.toString();
-      const url = `/visit/history/${encodeURIComponent(fingerprintId)}${
-        query ? `?${query}` : ''
-      }`;
-
-      return await this.fetchApi<{ visits: VisitData[] }>(url, {
-        method: HttpMethod.GET,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to get visit history: ${message}`);
+    options?: {
+      limit?: number;
+      offset?: number;
     }
+  ): Promise<ApiResponse<{ visits: VisitData[] }>> {
+    const queryParams = new URLSearchParams();
+    if (options?.limit) queryParams.append('limit', options.limit.toString());
+    if (options?.offset)
+      queryParams.append('offset', options.offset.toString());
+
+    return this.fetchApi<{ visits: VisitData[] }>(
+      `/visit/history/${fingerprintId}?${queryParams.toString()}`,
+      {
+        method: HttpMethod.GET,
+      }
+    );
   }
 }

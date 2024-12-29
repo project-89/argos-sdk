@@ -1,6 +1,6 @@
-import { BaseAPI } from './BaseAPI';
+import { BaseAPI, BaseAPIConfig } from './BaseAPI';
 import { ApiResponse, PriceData, PriceHistoryData } from '../interfaces/api';
-import { HttpMethod } from '../interfaces/http';
+import { HttpMethod, CommonResponse } from '../interfaces/http';
 
 export interface GetCurrentPricesOptions {
   tokens: string[];
@@ -11,43 +11,37 @@ export interface GetPriceHistoryOptions {
   limit?: number;
 }
 
-export class PriceAPI extends BaseAPI {
+export class PriceAPI<T extends CommonResponse> extends BaseAPI<T> {
+  constructor(config: BaseAPIConfig<T>) {
+    super(config);
+  }
+
   async getCurrentPrices(
     options: GetCurrentPricesOptions
   ): Promise<ApiResponse<PriceData>> {
-    try {
-      return await this.fetchApi<PriceData>(
-        `/price/current?tokens=${encodeURIComponent(options.tokens.join(','))}`,
-        {
-          method: HttpMethod.GET,
-        }
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to get current prices: ${message}`);
-    }
+    return this.fetchApi<PriceData>(
+      `/price/current?tokens=${encodeURIComponent(options.tokens.join(','))}`,
+      {
+        method: HttpMethod.GET,
+      }
+    );
   }
 
   async getPriceHistory(
     token: string,
     options?: GetPriceHistoryOptions
   ): Promise<ApiResponse<PriceHistoryData>> {
-    try {
-      const queryParams = new URLSearchParams();
-      if (options?.interval) queryParams.set('interval', options.interval);
-      if (options?.limit) queryParams.set('limit', String(options.limit));
+    const queryParams = new URLSearchParams();
+    if (options?.interval) queryParams.set('interval', options.interval);
+    if (options?.limit) queryParams.set('limit', String(options.limit));
 
-      const query = queryParams.toString();
-      const url = `/price/history/${encodeURIComponent(token)}${
-        query ? `?${query}` : ''
-      }`;
+    const query = queryParams.toString();
+    const url = `/price/history/${encodeURIComponent(token)}${
+      query ? `?${query}` : ''
+    }`;
 
-      return await this.fetchApi<PriceHistoryData>(url, {
-        method: HttpMethod.GET,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to get price history: ${message}`);
-    }
+    return this.fetchApi<PriceHistoryData>(url, {
+      method: HttpMethod.GET,
+    });
   }
 }

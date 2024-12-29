@@ -1,21 +1,25 @@
-import { BaseAPI } from '../../../shared/api/BaseAPI';
-import { createMockEnvironment } from '../../../__tests__/utils/testUtils';
-import { HttpMethod } from '../../../shared/interfaces/http';
+import { BaseAPI, BaseAPIConfig } from '../../../shared/api/BaseAPI';
+import { MockEnvironment } from '../../../__tests__/utils/testUtils';
+import { HttpMethod, CommonResponse } from '../../../shared/interfaces/http';
 
 // Create a concrete implementation for testing
-class TestAPI extends BaseAPI {
+class TestAPI<T extends CommonResponse> extends BaseAPI<T> {
+  constructor(config: BaseAPIConfig<T>) {
+    super(config);
+  }
+
   public async testFetch(path: string, options = {}) {
     return this.fetchApi(path, options);
   }
 }
 
 describe('BaseAPI', () => {
-  let api: TestAPI;
-  let mockEnvironment: ReturnType<typeof createMockEnvironment>;
+  let api: TestAPI<Response>;
+  let mockEnvironment: InstanceType<typeof MockEnvironment>;
 
   beforeEach(() => {
-    mockEnvironment = createMockEnvironment();
-    api = new TestAPI({
+    mockEnvironment = new MockEnvironment('test-fingerprint');
+    api = new TestAPI<Response>({
       baseUrl: 'https://test.example.com',
       environment: mockEnvironment,
     });

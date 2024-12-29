@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { BaseAPI } from './BaseAPI';
-import { ApiResponse, Fingerprint } from '../interfaces/api';
-import { HttpMethod } from '../interfaces/http';
+import { BaseAPI, BaseAPIConfig } from './BaseAPI';
+import type { ApiResponse, Fingerprint } from '../interfaces/api';
+import { HttpMethod, CommonResponse } from '../interfaces/http';
 
 interface CreateFingerprintOptions {
   metadata?: {
@@ -9,7 +9,11 @@ interface CreateFingerprintOptions {
   };
 }
 
-export class FingerprintAPI extends BaseAPI {
+export class FingerprintAPI<T extends CommonResponse> extends BaseAPI<T> {
+  constructor(config: BaseAPIConfig<T>) {
+    super(config);
+  }
+
   async createFingerprint(
     fingerprint: string,
     options?: CreateFingerprintOptions

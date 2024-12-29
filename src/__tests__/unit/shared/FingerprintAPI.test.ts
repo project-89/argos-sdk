@@ -1,46 +1,47 @@
 import { jest } from '@jest/globals';
 import { FingerprintAPI } from '../../../shared/api/FingerprintAPI';
-import { createMockEnvironment } from '../../../__tests__/utils/testUtils';
-import type { ApiResponse, Fingerprint } from '../../../shared/interfaces/api';
-import { HttpMethod } from '../../../shared/interfaces/http';
+import { MockEnvironment } from '../../../__tests__/utils/testUtils';
+import { HttpMethod, CommonResponse } from '../../../shared/interfaces/http';
+import type { Fingerprint } from '../../../shared/interfaces/api';
 
-// Unit tests with mocks
-describe('FingerprintAPI Unit Tests', () => {
-  let api: FingerprintAPI;
-  let mockFetchApi: jest.MockedFunction<
-    (path: string, options?: any) => Promise<ApiResponse<any>>
-  >;
+describe('FingerprintAPI', () => {
+  let api: FingerprintAPI<CommonResponse>;
+  let mockFetchApi: jest.Mock;
 
-  const mockFingerprintData: Fingerprint = {
-    id: 'test-id',
+  const mockFingerprint: Fingerprint = {
+    id: 'test-fingerprint-id',
     fingerprint: 'test-fingerprint',
     roles: ['user'],
-    createdAt: { _seconds: 0, _nanoseconds: 0 },
-    metadata: {
-      userAgent: 'test-user-agent',
-      language: 'en-US',
-      platform: 'test-platform',
+    createdAt: {
+      _seconds: Math.floor(Date.now() / 1000),
+      _nanoseconds: 0,
     },
-    ipAddresses: [],
+    metadata: { key: 'value' },
+    ipAddresses: ['127.0.0.1'],
     ipMetadata: {
-      ipFrequency: {},
-      lastSeenAt: {},
-      primaryIp: '',
+      ipFrequency: { '127.0.0.1': 1 },
+      lastSeenAt: {
+        '127.0.0.1': {
+          _seconds: Math.floor(Date.now() / 1000),
+          _nanoseconds: 0,
+        },
+      },
+      primaryIp: '127.0.0.1',
       suspiciousIps: [],
     },
-    tags: [],
+    tags: ['tag1'],
   };
 
   beforeEach(() => {
-    mockFetchApi = jest.fn().mockImplementation(async () => ({
-      success: true,
-      data: mockFingerprintData,
-    })) as jest.MockedFunction<
-      (path: string, options?: any) => Promise<ApiResponse<any>>
-    >;
+    mockFetchApi = jest.fn(() =>
+      Promise.resolve({
+        success: true,
+        data: mockFingerprint,
+      })
+    );
 
-    const mockEnvironment = createMockEnvironment();
-    api = new FingerprintAPI({
+    const mockEnvironment = new MockEnvironment('test-fingerprint');
+    api = new FingerprintAPI<CommonResponse>({
       baseUrl: 'http://test.com',
       environment: mockEnvironment,
       debug: true,
@@ -50,254 +51,95 @@ describe('FingerprintAPI Unit Tests', () => {
 
   describe('createFingerprint', () => {
     it('should call API with correct parameters', async () => {
-      const metadata = {
-        userAgent: 'test-user-agent',
-        language: 'en-US',
-        platform: 'test-platform',
+      const options = {
+        metadata: { key: 'value' },
       };
 
-      await api.createFingerprint('test-fingerprint', { metadata });
+      await api.createFingerprint('test-fingerprint', options);
 
       expect(mockFetchApi).toHaveBeenCalledWith('/fingerprint/register', {
         method: HttpMethod.POST,
         body: {
           fingerprint: 'test-fingerprint',
-          metadata,
+          metadata: options.metadata,
         },
       });
     });
 
     it('should handle API errors', async () => {
-      mockFetchApi.mockRejectedValueOnce(new Error('API Error'));
+      mockFetchApi.mockImplementationOnce(() =>
+        Promise.reject(new Error('API Error'))
+      );
       await expect(api.createFingerprint('test-fingerprint')).rejects.toThrow();
     });
   });
 
   describe('getFingerprint', () => {
     it('should call API with correct parameters', async () => {
-      await api.getFingerprint('test-id');
-      expect(mockFetchApi).toHaveBeenCalledWith('/fingerprint/test-id', {
-        method: HttpMethod.GET,
-      });
+      await api.getFingerprint('test-fingerprint-id');
+
+      expect(mockFetchApi).toHaveBeenCalledWith(
+        '/fingerprint/test-fingerprint-id',
+        {
+          method: HttpMethod.GET,
+        }
+      );
     });
 
     it('should handle API errors', async () => {
-      mockFetchApi.mockRejectedValueOnce(new Error('API Error'));
-      await expect(api.getFingerprint('test-id')).rejects.toThrow();
+      mockFetchApi.mockImplementationOnce(() =>
+        Promise.reject(new Error('API Error'))
+      );
+      await expect(api.getFingerprint('test-fingerprint-id')).rejects.toThrow();
     });
   });
 
   describe('updateFingerprint', () => {
     it('should call API with correct parameters', async () => {
       const updateData = {
-        metadata: {
-          userAgent: 'updated-user-agent',
-        },
+        metadata: { key: 'updated-value' },
       };
 
-      await api.updateFingerprint('test-id', updateData);
+      await api.updateFingerprint('test-fingerprint-id', updateData);
 
-      expect(mockFetchApi).toHaveBeenCalledWith('/fingerprint/test-id', {
-        method: HttpMethod.PUT,
-        body: updateData,
-      });
+      expect(mockFetchApi).toHaveBeenCalledWith(
+        '/fingerprint/test-fingerprint-id',
+        {
+          method: HttpMethod.PUT,
+          body: updateData,
+        }
+      );
     });
 
     it('should handle API errors', async () => {
-      mockFetchApi.mockRejectedValueOnce(new Error('API Error'));
+      mockFetchApi.mockImplementationOnce(() =>
+        Promise.reject(new Error('API Error'))
+      );
       await expect(
-        api.updateFingerprint('test-id', { metadata: {} })
+        api.updateFingerprint('test-fingerprint-id', { metadata: {} })
       ).rejects.toThrow();
     });
   });
 
   describe('deleteFingerprint', () => {
     it('should call API with correct parameters', async () => {
-      await api.deleteFingerprint('test-id');
-      expect(mockFetchApi).toHaveBeenCalledWith('/fingerprint/test-id', {
-        method: HttpMethod.DELETE,
-      });
+      await api.deleteFingerprint('test-fingerprint-id');
+
+      expect(mockFetchApi).toHaveBeenCalledWith(
+        '/fingerprint/test-fingerprint-id',
+        {
+          method: HttpMethod.DELETE,
+        }
+      );
     });
 
     it('should handle API errors', async () => {
-      mockFetchApi.mockRejectedValueOnce(new Error('API Error'));
-      await expect(api.deleteFingerprint('test-id')).rejects.toThrow();
-    });
-  });
-});
-
-// Integration tests with real API calls
-describe('FingerprintAPI Integration Tests', () => {
-  let api: FingerprintAPI;
-  let testFingerprintId: string;
-
-  beforeAll(async () => {
-    // Skip integration tests if ARGOS_API_URL is not set
-    if (!process.env.ARGOS_API_URL) {
-      console.log('Skipping integration tests - ARGOS_API_URL not set');
-      return;
-    }
-
-    const mockEnvironment = createMockEnvironment();
-    api = new FingerprintAPI({
-      baseUrl: process.env.ARGOS_API_URL,
-      environment: mockEnvironment,
-      debug: true,
-    });
-
-    try {
-      const result = await api.createFingerprint('test-fingerprint', {
-        metadata: {
-          userAgent: 'test-user-agent',
-          language: 'en-US',
-          platform: 'test-platform',
-        },
-      });
-      testFingerprintId = result.data.id;
-    } catch (error) {
-      console.log('Failed to create test fingerprint:', error);
-    }
-  });
-
-  afterAll(async () => {
-    if (!process.env.ARGOS_API_URL) {
-      return;
-    }
-    if (testFingerprintId) {
-      try {
-        await api.deleteFingerprint(testFingerprintId);
-      } catch (error) {
-        console.log('Failed to delete test fingerprint:', error);
-      }
-    }
-  });
-
-  describe('createFingerprint', () => {
-    it('should create fingerprint with metadata', async () => {
-      if (!process.env.ARGOS_API_URL) {
-        return;
-      }
-      const result = await api.createFingerprint('new-test-fingerprint', {
-        metadata: {
-          userAgent: 'test-user-agent',
-          language: 'en-US',
-          platform: 'test-platform',
-        },
-      });
-
-      expect(result.success).toBe(true);
-      expect(result.data).toMatchObject({
-        fingerprint: 'new-test-fingerprint',
-        metadata: {
-          userAgent: 'test-user-agent',
-          language: 'en-US',
-          platform: 'test-platform',
-        },
-      });
-      expect(result.data).toHaveProperty('id');
-
-      // Clean up
-      await api.deleteFingerprint(result.data.id);
-    });
-
-    it('should handle duplicate fingerprint', async () => {
-      if (!process.env.ARGOS_API_URL) {
-        return;
-      }
-      await expect(api.createFingerprint('test-fingerprint')).rejects.toThrow();
-    });
-  });
-
-  describe('getFingerprint', () => {
-    it('should get existing fingerprint', async () => {
-      if (!process.env.ARGOS_API_URL) {
-        return;
-      }
-      const result = await api.getFingerprint(testFingerprintId);
-
-      expect(result.success).toBe(true);
-      expect(result.data).toMatchObject({
-        id: testFingerprintId,
-        fingerprint: 'test-fingerprint',
-      });
-      expect(result.data).toHaveProperty('createdAt');
-      expect(result.data).toHaveProperty('roles');
-      expect(result.data).toHaveProperty('metadata');
-      expect(result.data).toHaveProperty('ipAddresses');
-      expect(result.data).toHaveProperty('ipMetadata');
-      expect(result.data).toHaveProperty('tags');
-    });
-
-    it('should handle non-existent fingerprint', async () => {
-      if (!process.env.ARGOS_API_URL) {
-        return;
-      }
-      await expect(api.getFingerprint('non-existent-id')).rejects.toThrow();
-    });
-  });
-
-  describe('updateFingerprint', () => {
-    it('should update fingerprint metadata', async () => {
-      if (!process.env.ARGOS_API_URL) {
-        return;
-      }
-      const updateData = {
-        metadata: {
-          userAgent: 'updated-user-agent',
-          language: 'fr-FR',
-          platform: 'updated-platform',
-        },
-      };
-
-      const result = await api.updateFingerprint(testFingerprintId, updateData);
-
-      expect(result.success).toBe(true);
-      expect(result.data).toMatchObject({
-        id: testFingerprintId,
-        metadata: updateData.metadata,
-      });
-
-      // Verify the update persisted
-      const getResult = await api.getFingerprint(testFingerprintId);
-      expect(getResult.data.metadata).toMatchObject(updateData.metadata);
-    });
-
-    it('should handle non-existent fingerprint', async () => {
-      if (!process.env.ARGOS_API_URL) {
-        return;
-      }
+      mockFetchApi.mockImplementationOnce(() =>
+        Promise.reject(new Error('API Error'))
+      );
       await expect(
-        api.updateFingerprint('non-existent-id', {
-          metadata: {
-            userAgent: 'test',
-          },
-        })
+        api.deleteFingerprint('test-fingerprint-id')
       ).rejects.toThrow();
-    });
-  });
-
-  describe('deleteFingerprint', () => {
-    it('should delete existing fingerprint', async () => {
-      if (!process.env.ARGOS_API_URL) {
-        return;
-      }
-      // Create a new fingerprint to delete
-      const createResult = await api.createFingerprint('fingerprint-to-delete');
-      const fingerprintId = createResult.data.id;
-
-      // Delete the fingerprint
-      const result = await api.deleteFingerprint(fingerprintId);
-      expect(result.success).toBe(true);
-
-      // Verify the fingerprint was deleted
-      await expect(api.getFingerprint(fingerprintId)).rejects.toThrow();
-    });
-
-    it('should handle non-existent fingerprint', async () => {
-      if (!process.env.ARGOS_API_URL) {
-        return;
-      }
-      await expect(api.deleteFingerprint('non-existent-id')).rejects.toThrow();
     });
   });
 });

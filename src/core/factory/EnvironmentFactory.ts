@@ -6,6 +6,7 @@ import {
 } from '../../shared/interfaces/environment';
 import { CookieStorage } from '../../client/storage/CookieStorage';
 import { SecureStorage } from '../../server/storage/SecureStorage';
+import type { Response as NodeResponse } from 'node-fetch';
 
 export interface EnvironmentFactoryConfig {
   runtime?: RuntimeEnvironment;
@@ -14,7 +15,9 @@ export interface EnvironmentFactoryConfig {
 }
 
 export class EnvironmentFactory {
-  static create(config: EnvironmentFactoryConfig = {}): EnvironmentInterface {
+  static create(
+    config: EnvironmentFactoryConfig = {}
+  ): EnvironmentInterface<Response> | EnvironmentInterface<NodeResponse> {
     const runtime = config.runtime || RuntimeEnvironment.Browser;
 
     switch (runtime) {

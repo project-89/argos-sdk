@@ -1,6 +1,6 @@
 import { BaseAPI, BaseAPIConfig } from './BaseAPI';
 import { ApiResponse, RoleData } from '../interfaces/api';
-import { HttpMethod } from '../interfaces/http';
+import { HttpMethod, CommonResponse } from '../interfaces/http';
 
 export interface RoleCreateRequest {
   name: string;
@@ -14,8 +14,8 @@ export interface RoleUpdateRequest {
 
 export type RoleResponse = ApiResponse<RoleData>;
 
-export class RoleAPI extends BaseAPI {
-  constructor(config: BaseAPIConfig) {
+export class RoleAPI<T extends CommonResponse> extends BaseAPI<T> {
+  constructor(config: BaseAPIConfig<T>) {
     super(config);
   }
 
@@ -23,14 +23,9 @@ export class RoleAPI extends BaseAPI {
    * List available roles (public endpoint)
    */
   public async listAvailableRoles(): Promise<ApiResponse<string[]>> {
-    try {
-      return await this.fetchApi<string[]>('/role', {
-        method: HttpMethod.GET,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to list roles: ${message}`);
-    }
+    return this.fetchApi<string[]>('/role', {
+      method: HttpMethod.GET,
+    });
   }
 
   /**
@@ -40,32 +35,22 @@ export class RoleAPI extends BaseAPI {
     fingerprintId: string,
     roles: string[]
   ): Promise<ApiResponse<RoleData>> {
-    try {
-      return await this.fetchApi<RoleData>('/role', {
-        method: HttpMethod.POST,
-        body: JSON.stringify({
-          fingerprintId,
-          roles,
-        }),
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to add roles: ${message}`);
-    }
+    return this.fetchApi<RoleData>('/role', {
+      method: HttpMethod.POST,
+      body: {
+        fingerprintId,
+        roles,
+      },
+    });
   }
 
   /**
    * Get roles for a fingerprint (protected endpoint - requires API key)
    */
   public async getRoles(fingerprintId: string): Promise<ApiResponse<RoleData>> {
-    try {
-      return await this.fetchApi<RoleData>(`/role/${fingerprintId}`, {
-        method: HttpMethod.GET,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to get roles: ${message}`);
-    }
+    return this.fetchApi<RoleData>(`/role/${fingerprintId}`, {
+      method: HttpMethod.GET,
+    });
   }
 
   /**
@@ -75,17 +60,12 @@ export class RoleAPI extends BaseAPI {
     fingerprintId: string,
     roles: string[]
   ): Promise<ApiResponse<RoleData>> {
-    try {
-      return await this.fetchApi<RoleData>('/role', {
-        method: HttpMethod.DELETE,
-        body: JSON.stringify({
-          fingerprintId,
-          roles,
-        }),
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to remove roles: ${message}`);
-    }
+    return this.fetchApi<RoleData>('/role', {
+      method: HttpMethod.DELETE,
+      body: {
+        fingerprintId,
+        roles,
+      },
+    });
   }
 }

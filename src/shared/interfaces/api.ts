@@ -148,8 +148,8 @@ export interface ValidateAPIKeyRequest {
 }
 
 export interface ValidateAPIKeyResponse {
-  valid: boolean;
-  fingerprintId?: string;
+  isValid: boolean;
+  needsRefresh: boolean;
 }
 
 export interface GetVisitHistoryOptions {

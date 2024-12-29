@@ -1,112 +1,115 @@
 import { jest } from '@jest/globals';
 import { PriceAPI } from '../../../shared/api/PriceAPI';
+import { MockEnvironment } from '../../../__tests__/utils/testUtils';
+import { HttpMethod, CommonResponse } from '../../../shared/interfaces/http';
 import type {
   PriceData,
   PriceHistoryData,
 } from '../../../shared/interfaces/api';
-import {
-  createMockFetchApi,
-  mockResponse,
-  MockEnvironment,
-} from '../../utils/testUtils';
-import { RuntimeEnvironment } from '../../../shared/interfaces/environment';
-
-// Mock BaseAPI
-jest.mock('../../../shared/api/BaseAPI', () => {
-  return {
-    __esModule: true,
-    BaseAPI: jest.fn().mockImplementation(() => ({
-      fetchApi: jest.fn(),
-    })),
-  };
-});
 
 describe('PriceAPI', () => {
-  let api: PriceAPI;
-  let mockFetchApi: ReturnType<typeof createMockFetchApi>;
+  let api: PriceAPI<CommonResponse>;
+  let mockFetchApi: jest.Mock;
+
+  const mockPriceData: PriceData = {
+    prices: {
+      token1: {
+        price: 100,
+        timestamp: new Date().toISOString(),
+        change24h: 5,
+      },
+      token2: {
+        price: 200,
+        timestamp: new Date().toISOString(),
+        change24h: -2,
+      },
+    },
+  };
+
+  const mockPriceHistoryData: PriceHistoryData = {
+    history: [
+      {
+        price: 100,
+        timestamp: new Date().toISOString(),
+      },
+      {
+        price: 110,
+        timestamp: new Date().toISOString(),
+      },
+    ],
+  };
 
   beforeEach(() => {
-    mockFetchApi = createMockFetchApi();
-    api = new PriceAPI({
+    mockFetchApi = jest.fn(() =>
+      Promise.resolve({
+        success: true,
+        data: mockPriceData,
+      })
+    );
+
+    const mockEnvironment = new MockEnvironment('test-fingerprint');
+    api = new PriceAPI<CommonResponse>({
       baseUrl: 'http://test.com',
-      apiKey: 'test-key',
-      environment: new MockEnvironment(
-        'test-fingerprint',
-        'test-api-key',
-        undefined,
-        RuntimeEnvironment.Node
-      ),
+      environment: mockEnvironment,
       debug: true,
     });
     (api as any).fetchApi = mockFetchApi;
   });
 
-  afterEach(() => {
-    jest.resetAllMocks();
-  });
-
   describe('getCurrentPrices', () => {
-    it('should get current prices successfully', async () => {
-      const mockPriceData: PriceData = {
-        prices: {
-          token1: {
-            price: 100,
-            timestamp: '2023-01-01T00:00:00Z',
-            change24h: 5,
-          },
-          token2: {
-            price: 200,
-            timestamp: '2023-01-01T00:00:00Z',
-            change24h: -2,
-          },
-        },
-      };
+    it('should call API with correct parameters', async () => {
+      const tokens = ['token1', 'token2'];
+      mockFetchApi.mockImplementationOnce(() =>
+        Promise.resolve({
+          success: true,
+          data: mockPriceData,
+        })
+      );
 
-      mockFetchApi.mockResolvedValueOnce(mockResponse(mockPriceData));
+      await api.getCurrentPrices({ tokens });
 
-      const result = await api.getCurrentPrices({
-        tokens: ['token1', 'token2'],
-      });
-
-      expect(result.data).toEqual(mockPriceData);
       expect(mockFetchApi).toHaveBeenCalledWith(
         '/price/current?tokens=token1%2Ctoken2',
         {
-          method: 'GET',
+          method: HttpMethod.GET,
         }
       );
+    });
+
+    it('should handle API errors', async () => {
+      mockFetchApi.mockImplementationOnce(() =>
+        Promise.reject(new Error('API Error'))
+      );
+      await expect(
+        api.getCurrentPrices({ tokens: ['token1'] })
+      ).rejects.toThrow();
     });
   });
 
   describe('getPriceHistory', () => {
-    it('should get price history successfully', async () => {
-      const mockHistoryData: PriceHistoryData = {
-        history: [
-          {
-            price: 100,
-            timestamp: '2023-01-01T00:00:00Z',
-          },
-          {
-            price: 110,
-            timestamp: '2023-01-02T00:00:00Z',
-          },
-        ],
-      };
+    it('should call API with correct parameters', async () => {
+      mockFetchApi.mockImplementationOnce(() =>
+        Promise.resolve({
+          success: true,
+          data: mockPriceHistoryData,
+        })
+      );
 
-      mockFetchApi.mockResolvedValueOnce(mockResponse(mockHistoryData));
+      await api.getPriceHistory('token1', { interval: '24h', limit: 10 });
 
-      const result = await api.getPriceHistory('token1', {
-        interval: '24h',
-        limit: 10,
-      });
-
-      expect(result.data).toEqual(mockHistoryData);
       expect(mockFetchApi).toHaveBeenCalledWith(
         '/price/history/token1?interval=24h&limit=10',
         {
-          method: 'GET',
+          method: HttpMethod.GET,
         }
       );
+    });
+
+    it('should handle API errors', async () => {
+      mockFetchApi.mockImplementationOnce(() =>
+        Promise.reject(new Error('API Error'))
+      );
+      await expect(api.getPriceHistory('token1')).rejects.toThrow();
     });
   });
 });

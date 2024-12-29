@@ -1,9 +1,9 @@
 import { BaseAPI, BaseAPIConfig } from './BaseAPI';
 import { ApiResponse, DebugData } from '../interfaces/api';
-import { HttpMethod } from '../interfaces/http';
+import { HttpMethod, CommonResponse } from '../interfaces/http';
 
-export class DebugAPI extends BaseAPI {
-  constructor(config: BaseAPIConfig) {
+export class DebugAPI<T extends CommonResponse> extends BaseAPI<T> {
+  constructor(config: BaseAPIConfig<T>) {
     super(config);
   }
 

@@ -4,6 +4,15 @@ export enum HttpMethod {
   PUT = 'PUT',
   DELETE = 'DELETE',
   PATCH = 'PATCH',
-  HEAD = 'HEAD',
-  OPTIONS = 'OPTIONS',
+}
+
+export interface CommonResponse {
+  ok: boolean;
+  status: number;
+  headers: {
+    get(name: string): string | null;
+    forEach(callbackfn: (value: string, key: string) => void): void;
+  };
+  json(): Promise<any>;
+  text(): Promise<string>;
 }

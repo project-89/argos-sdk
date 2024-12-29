@@ -1,4 +1,6 @@
+import type { Response as NodeResponse } from 'node-fetch';
 import { BaseAPIConfig } from '../../shared/api/BaseAPI';
+import type { EnvironmentInterface } from '../../shared/interfaces/environment';
 import {
   ApiResponse,
   Fingerprint,
@@ -24,6 +26,7 @@ import {
   CreateVisitRequest,
   UpdatePresenceRequest,
   UpdateTagsRequest,
+  ValidateAPIKeyResponse,
 } from '../../shared/interfaces/api';
 import { FingerprintAPI } from '../../shared/api/FingerprintAPI';
 import { VisitAPI } from '../../shared/api/VisitAPI';
@@ -36,7 +39,7 @@ import { ImpressionAPI } from '../../shared/api/ImpressionAPI';
 
 export type TrackEventType = 'visit' | 'presence' | 'custom';
 
-export interface ServerSDKConfig extends BaseAPIConfig {
+export interface ServerSDKConfig extends BaseAPIConfig<NodeResponse> {
   apiKey?: string;
   defaultFingerprint?: string;
   debug?: boolean;
@@ -44,25 +47,25 @@ export interface ServerSDKConfig extends BaseAPIConfig {
 
 export class ArgosServerSDK {
   private config: ServerSDKConfig;
-  private fingerprintAPI: FingerprintAPI;
-  private visitAPI: VisitAPI;
-  private roleAPI: RoleAPI;
-  private tagAPI: TagAPI;
-  private priceAPI: PriceAPI;
-  private systemAPI: SystemAPI;
-  private apiKeyAPI: APIKeyAPI;
-  private impressionAPI: ImpressionAPI;
+  private fingerprintAPI: FingerprintAPI<NodeResponse>;
+  private visitAPI: VisitAPI<NodeResponse>;
+  private roleAPI: RoleAPI<NodeResponse>;
+  private tagAPI: TagAPI<NodeResponse>;
+  private priceAPI: PriceAPI<NodeResponse>;
+  private systemAPI: SystemAPI<NodeResponse>;
+  private apiKeyAPI: APIKeyAPI<NodeResponse>;
+  private impressionAPI: ImpressionAPI<NodeResponse>;
 
   constructor(config: ServerSDKConfig) {
     this.config = config;
-    this.fingerprintAPI = new FingerprintAPI(config);
-    this.visitAPI = new VisitAPI(config);
-    this.roleAPI = new RoleAPI(config);
-    this.tagAPI = new TagAPI(config);
-    this.priceAPI = new PriceAPI(config);
-    this.systemAPI = new SystemAPI(config);
-    this.apiKeyAPI = new APIKeyAPI(config);
-    this.impressionAPI = new ImpressionAPI(config);
+    this.fingerprintAPI = new FingerprintAPI<NodeResponse>(config);
+    this.visitAPI = new VisitAPI<NodeResponse>(config);
+    this.roleAPI = new RoleAPI<NodeResponse>(config);
+    this.tagAPI = new TagAPI<NodeResponse>(config);
+    this.priceAPI = new PriceAPI<NodeResponse>(config);
+    this.systemAPI = new SystemAPI<NodeResponse>(config);
+    this.apiKeyAPI = new APIKeyAPI<NodeResponse>(config);
+    this.impressionAPI = new ImpressionAPI<NodeResponse>(config);
   }
 
   setApiKey(apiKey: string): void {
@@ -120,15 +123,15 @@ export class ArgosServerSDK {
     return this.roleAPI.listAvailableRoles();
   }
 
-  async getRoles(fingerprintId: string): Promise<ApiResponse<RoleData>> {
-    return this.roleAPI.getRoles(fingerprintId);
-  }
-
   async addRoles(
     fingerprintId: string,
     roles: string[]
   ): Promise<ApiResponse<RoleData>> {
     return this.roleAPI.addRoles(fingerprintId, roles);
+  }
+
+  async getRoles(fingerprintId: string): Promise<ApiResponse<RoleData>> {
+    return this.roleAPI.getRoles(fingerprintId);
   }
 
   async removeRoles(
@@ -154,124 +157,28 @@ export class ArgosServerSDK {
     return this.tagAPI.deleteTags(fingerprintId);
   }
 
-  // API Key Management
-  async registerApiKey(
-    fingerprintId: string,
-    metadata?: Record<string, unknown>
-  ): Promise<ApiResponse<APIKeyData>> {
-    try {
-      const response = await this.apiKeyAPI.registerInitialApiKey(
-        fingerprintId,
-        metadata || {}
-      );
-      return response;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to register API key: ${message}`);
-    }
+  // Visit Management
+  async createVisit(
+    request: CreateVisitRequest
+  ): Promise<ApiResponse<VisitData>> {
+    return this.visitAPI.createVisit(request);
   }
 
-  async createApiKey(
-    request: CreateAPIKeyRequest
-  ): Promise<ApiResponse<APIKeyData>> {
-    return this.apiKeyAPI.createAPIKey(request);
+  async getVisit(id: string): Promise<ApiResponse<VisitData>> {
+    return this.visitAPI.getVisit(id);
   }
 
-  async validateApiKey(apiKey: string): Promise<ApiResponse<boolean>> {
-    return this.apiKeyAPI.validateAPIKey(apiKey);
+  async updatePresence(
+    presenceData: UpdatePresenceRequest
+  ): Promise<ApiResponse<PresenceData>> {
+    return this.visitAPI.updatePresence(presenceData);
   }
 
-  async revokeApiKey(request: RevokeAPIKeyRequest): Promise<ApiResponse<void>> {
-    return this.apiKeyAPI.revokeAPIKey(request);
-  }
-
-  async listApiKeys(): Promise<ApiResponse<APIKeyData[]>> {
-    return this.apiKeyAPI.listAPIKeys();
-  }
-
-  async updateApiKey(
-    id: string,
-    request: UpdateAPIKeyRequest
-  ): Promise<ApiResponse<APIKeyData>> {
-    return this.apiKeyAPI.updateAPIKey(id, request);
-  }
-
-  async deleteApiKey(id: string): Promise<ApiResponse<boolean>> {
-    return this.apiKeyAPI.deleteAPIKey(id);
-  }
-
-  // Visit Tracking
-  public async track(
-    event: 'visit',
-    data: Omit<CreateVisitRequest, 'timestamp' | 'type'>
-  ): Promise<ApiResponse<VisitData>>;
-  public async track(
-    event: 'presence',
-    data: Omit<UpdatePresenceRequest, 'timestamp'>
-  ): Promise<ApiResponse<PresenceData>>;
-  public async track(
-    event: 'custom',
-    data: Omit<CreateVisitRequest, 'timestamp' | 'type'>
-  ): Promise<ApiResponse<VisitData>>;
-  public async track(
-    event: TrackEventType,
-    data: Omit<CreateVisitRequest | UpdatePresenceRequest, 'timestamp'>
-  ): Promise<ApiResponse<VisitData | PresenceData>> {
-    try {
-      if (this.config.debug) {
-        console.log('[Argos Server] Tracking event:', event, data);
-      }
-
-      const timestamp = new Date().toISOString();
-
-      switch (event) {
-        case 'visit': {
-          const visitData = {
-            ...data,
-            timestamp,
-            type: 'visit',
-          } as CreateVisitRequest;
-          return await this.visitAPI.createVisit(visitData);
-        }
-        case 'presence': {
-          const presenceData = {
-            ...data,
-            timestamp,
-          } as UpdatePresenceRequest;
-          return await this.visitAPI.updatePresence(presenceData);
-        }
-        case 'custom': {
-          const customData = {
-            ...data,
-            type: 'custom',
-            timestamp,
-          } as CreateVisitRequest;
-          return await this.visitAPI.createVisit(customData);
-        }
-        default:
-          throw new Error(`Unknown event type: ${event}`);
-      }
-    } catch (error) {
-      if (this.config.debug) {
-        console.error('[Argos Server] Error:', error);
-      }
-      throw error;
-    }
-  }
-
-  /**
-   * Visit tracking methods
-   */
   async getVisitHistory(
     fingerprintId: string,
     options?: GetVisitHistoryOptions
   ): Promise<ApiResponse<{ visits: VisitData[] }>> {
     return this.visitAPI.getVisitHistory(fingerprintId, options);
-  }
-
-  // System Health
-  async checkHealth(): Promise<ApiResponse<SystemHealthData>> {
-    return this.systemAPI.checkHealth();
   }
 
   // Impression Management
@@ -301,6 +208,42 @@ export class ArgosServerSDK {
     metadata: Record<string, unknown>
   ): Promise<ApiResponse<APIKeyData>> {
     return this.apiKeyAPI.registerInitialApiKey(fingerprintId, metadata);
+  }
+
+  async createApiKey(
+    request: CreateAPIKeyRequest
+  ): Promise<ApiResponse<APIKeyData>> {
+    return this.apiKeyAPI.createAPIKey(request);
+  }
+
+  async validateApiKey(
+    apiKey: string
+  ): Promise<ApiResponse<ValidateAPIKeyResponse>> {
+    return this.apiKeyAPI.validateAPIKey(apiKey);
+  }
+
+  async revokeApiKey(request: RevokeAPIKeyRequest): Promise<ApiResponse<void>> {
+    return this.apiKeyAPI.revokeAPIKey(request);
+  }
+
+  async listApiKeys(): Promise<ApiResponse<APIKeyData[]>> {
+    return this.apiKeyAPI.listAPIKeys();
+  }
+
+  async updateApiKey(
+    id: string,
+    request: UpdateAPIKeyRequest
+  ): Promise<ApiResponse<APIKeyData>> {
+    return this.apiKeyAPI.updateAPIKey(id, request);
+  }
+
+  async deleteApiKey(id: string): Promise<ApiResponse<boolean>> {
+    return this.apiKeyAPI.deleteAPIKey(id);
+  }
+
+  // System Health
+  async checkHealth(): Promise<ApiResponse<SystemHealthData>> {
+    return this.systemAPI.checkHealth();
   }
 
   async getPlatformInfo(): Promise<Record<string, unknown>> {

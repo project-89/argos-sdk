@@ -1,19 +1,26 @@
-import { BaseAPI } from './BaseAPI';
+import { BaseAPI, BaseAPIConfig } from './BaseAPI';
 import {
   ApiResponse,
   APIKeyData,
   CreateAPIKeyRequest,
   RevokeAPIKeyRequest,
   UpdateAPIKeyRequest,
+  ValidateAPIKeyResponse,
 } from '../interfaces/api';
-import { HttpMethod } from '../interfaces/http';
+import { HttpMethod, CommonResponse } from '../interfaces/http';
 
-export class APIKeyAPI extends BaseAPI {
-  async validateAPIKey(apiKey: string): Promise<ApiResponse<boolean>> {
-    return this.fetchApi<boolean>('/api-key/validate', {
+export class APIKeyAPI<T extends CommonResponse> extends BaseAPI<T> {
+  constructor(config: BaseAPIConfig<T>) {
+    super(config);
+  }
+
+  async validateAPIKey(
+    apiKey: string
+  ): Promise<ApiResponse<ValidateAPIKeyResponse>> {
+    return this.fetchApi<ValidateAPIKeyResponse>('/api-key/validate', {
       method: HttpMethod.POST,
-      headers: {
-        'x-api-key': apiKey,
+      body: {
+        key: apiKey,
       },
     });
   }
@@ -36,14 +43,14 @@ export class APIKeyAPI extends BaseAPI {
   ): Promise<ApiResponse<APIKeyData>> {
     return this.fetchApi<APIKeyData>('/api-key', {
       method: HttpMethod.POST,
-      body: JSON.stringify(request),
+      body: request,
     });
   }
 
   async revokeAPIKey(request: RevokeAPIKeyRequest): Promise<ApiResponse<void>> {
     return this.fetchApi<void>('/api-key/revoke', {
       method: HttpMethod.POST,
-      body: JSON.stringify(request),
+      body: request,
     });
   }
 
@@ -61,7 +68,7 @@ export class APIKeyAPI extends BaseAPI {
   ): Promise<ApiResponse<APIKeyData>> {
     return this.fetchApi<APIKeyData>(`/api-key/${id}`, {
       method: HttpMethod.PUT,
-      body: JSON.stringify(request),
+      body: request,
     });
   }
 

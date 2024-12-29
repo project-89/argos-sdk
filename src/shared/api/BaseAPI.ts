@@ -1,23 +1,23 @@
 import { EnvironmentInterface } from '../interfaces/environment';
 import { ApiResponse } from '../interfaces/api';
-import { HttpMethod } from '../interfaces/http';
+import { HttpMethod, CommonResponse } from '../interfaces/http';
 
-export interface BaseAPIConfig {
+export interface BaseAPIConfig<T extends CommonResponse> {
   baseUrl: string;
   apiKey?: string;
-  environment: EnvironmentInterface;
+  environment: EnvironmentInterface<T>;
   debug?: boolean;
   onApiKeyRefresh?: (newApiKey: string) => void;
 }
 
-export abstract class BaseAPI {
+export abstract class BaseAPI<T extends CommonResponse> {
   protected baseUrl: string;
   protected apiKey?: string;
-  protected environment: EnvironmentInterface;
+  protected environment: EnvironmentInterface<T>;
   protected debug: boolean;
   private onApiKeyRefresh?: (newApiKey: string) => void;
 
-  constructor(config: BaseAPIConfig) {
+  constructor(config: BaseAPIConfig<T>) {
     this.baseUrl = config.baseUrl;
     this.apiKey = config.apiKey;
     this.environment = config.environment;
@@ -38,7 +38,10 @@ export abstract class BaseAPI {
     const environmentHeaders = this.environment.createHeaders({
       'content-type': 'application/json',
       accept: '*/*',
-      origin: 'http://127.0.0.1:5001',
+      origin:
+        typeof window !== 'undefined'
+          ? window.location.origin
+          : 'http://localhost:5173',
       'user-agent': this.environment.getUserAgent(),
       ...headers,
     });
@@ -101,24 +104,10 @@ export abstract class BaseAPI {
         );
       }
 
-      // Handle 401 by attempting to refresh the API key
-      if (response.status === 401 && this.apiKey) {
-        try {
-          const newApiKey = await this.refreshApiKey(this.apiKey);
-          if (newApiKey) {
-            this.apiKey = newApiKey;
-            if (this.onApiKeyRefresh) {
-              this.onApiKeyRefresh(newApiKey);
-            }
-            // Retry the request with the new API key
-            return this.fetchApi(endpoint, options);
-          }
-        } catch (refreshError) {
-          if (this.debug) {
-            console.error('[Argos] Failed to refresh API key:', refreshError);
-          }
-          throw refreshError;
-        }
+      // Handle 401 by throwing an error
+      if (response.status === 401) {
+        const responseData = await response.json();
+        throw new Error(responseData.error || 'Unauthorized: Invalid API key');
       }
 
       const responseData = await response.json();

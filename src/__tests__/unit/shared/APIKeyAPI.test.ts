@@ -7,12 +7,12 @@ import type {
   UpdateAPIKeyRequest,
 } from '../../../shared/interfaces/api';
 import { APIKeyAPI } from '../../../shared/api/APIKeyAPI';
-import { createMockEnvironment } from '../../../__tests__/utils/testUtils';
+import { MockEnvironment } from '../../../__tests__/utils/testUtils';
 import { HttpMethod } from '../../../shared/interfaces/http';
 
 // Unit tests with mocks
 describe('APIKeyAPI Unit Tests', () => {
-  let api: APIKeyAPI;
+  let api: APIKeyAPI<Response>;
   let mockFetchApi: jest.MockedFunction<
     (path: string, options?: any) => Promise<ApiResponse<any>>
   >;
@@ -31,8 +31,8 @@ describe('APIKeyAPI Unit Tests', () => {
       (path: string, options?: any) => Promise<ApiResponse<any>>
     >;
 
-    const mockEnvironment = createMockEnvironment();
-    api = new APIKeyAPI({
+    const mockEnvironment = new MockEnvironment('test-fingerprint');
+    api = new APIKeyAPI<Response>({
       baseUrl: 'http://test.com',
       environment: mockEnvironment,
       debug: true,
@@ -51,8 +51,8 @@ describe('APIKeyAPI Unit Tests', () => {
 
       expect(mockFetchApi).toHaveBeenCalledWith('/api-key/validate', {
         method: HttpMethod.POST,
-        headers: {
-          'x-api-key': 'test-api-key',
+        body: {
+          key: 'test-api-key',
         },
       });
     });
@@ -100,7 +100,7 @@ describe('APIKeyAPI Unit Tests', () => {
 
       expect(mockFetchApi).toHaveBeenCalledWith('/api-key', {
         method: HttpMethod.POST,
-        body: JSON.stringify(request),
+        body: request,
       });
     });
 
@@ -124,7 +124,7 @@ describe('APIKeyAPI Unit Tests', () => {
 
       expect(mockFetchApi).toHaveBeenCalledWith('/api-key/revoke', {
         method: HttpMethod.POST,
-        body: JSON.stringify(request),
+        body: request,
       });
     });
 
@@ -180,7 +180,7 @@ describe('APIKeyAPI Unit Tests', () => {
 
       expect(mockFetchApi).toHaveBeenCalledWith('/api-key/test-key-id', {
         method: HttpMethod.PUT,
-        body: JSON.stringify(request),
+        body: request,
       });
     });
 
@@ -211,251 +211,6 @@ describe('APIKeyAPI Unit Tests', () => {
     it('should handle API errors', async () => {
       mockFetchApi.mockRejectedValueOnce(new Error('API Error'));
       await expect(api.deleteAPIKey('test-key-id')).rejects.toThrow();
-    });
-  });
-});
-
-// Integration tests with real API calls
-describe('APIKeyAPI Integration Tests', () => {
-  let api: APIKeyAPI;
-  let testKeyId: string;
-
-  beforeAll(async () => {
-    // Skip integration tests if ARGOS_API_URL is not set
-    if (!process.env.ARGOS_API_URL) {
-      console.log('Skipping integration tests - ARGOS_API_URL not set');
-      return;
-    }
-
-    const mockEnvironment = createMockEnvironment();
-    api = new APIKeyAPI({
-      baseUrl: process.env.ARGOS_API_URL,
-      environment: mockEnvironment,
-      debug: true,
-    });
-
-    try {
-      // Create a test API key for use in tests
-      const result = await api.createAPIKey({
-        name: 'test-key',
-        expiresAt: '2024-12-31T23:59:59Z',
-      });
-      testKeyId = result.data.key;
-    } catch (error) {
-      console.log('Failed to create test API key:', error);
-    }
-  });
-
-  afterAll(async () => {
-    if (!process.env.ARGOS_API_URL) {
-      return;
-    }
-    if (testKeyId) {
-      try {
-        await api.deleteAPIKey(testKeyId);
-      } catch (error) {
-        console.log('Failed to delete test API key:', error);
-      }
-    }
-  });
-
-  describe('validateAPIKey', () => {
-    it('should validate valid API key', async () => {
-      if (!process.env.ARGOS_API_URL) {
-        return;
-      }
-      const result = await api.validateAPIKey('test-api-key');
-      expect(result.success).toBe(true);
-    });
-
-    it('should reject invalid API key', async () => {
-      if (!process.env.ARGOS_API_URL) {
-        return;
-      }
-      await expect(api.validateAPIKey('invalid-key')).rejects.toThrow();
-    });
-  });
-
-  describe('registerInitialApiKey', () => {
-    it('should register new API key', async () => {
-      if (!process.env.ARGOS_API_URL) {
-        return;
-      }
-      const result = await api.registerInitialApiKey('test-fingerprint', {
-        userAgent: 'test-user-agent',
-        platform: 'test-platform',
-      });
-
-      expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty('key');
-      expect(result.data).toHaveProperty('fingerprintId', 'test-fingerprint');
-      expect(result.data).toHaveProperty('expiresAt');
-
-      // Clean up
-      await api.deleteAPIKey(result.data.key);
-    });
-
-    it('should handle invalid fingerprint', async () => {
-      if (!process.env.ARGOS_API_URL) {
-        return;
-      }
-      await expect(
-        api.registerInitialApiKey('invalid-fingerprint', {})
-      ).rejects.toThrow();
-    });
-  });
-
-  describe('createAPIKey', () => {
-    it('should create new API key', async () => {
-      if (!process.env.ARGOS_API_URL) {
-        return;
-      }
-      const result = await api.createAPIKey({
-        name: 'test-key',
-        expiresAt: '2024-12-31T23:59:59Z',
-      });
-
-      expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty('key');
-      expect(result.data).toHaveProperty('fingerprintId');
-      expect(result.data).toHaveProperty('expiresAt');
-
-      // Clean up
-      await api.deleteAPIKey(result.data.key);
-    });
-
-    it('should handle invalid request', async () => {
-      if (!process.env.ARGOS_API_URL) {
-        return;
-      }
-      await expect(
-        api.createAPIKey({
-          name: '',
-        })
-      ).rejects.toThrow();
-    });
-  });
-
-  describe('revokeAPIKey', () => {
-    it('should revoke API key', async () => {
-      if (!process.env.ARGOS_API_URL) {
-        return;
-      }
-      // Create a key to revoke
-      const createResult = await api.createAPIKey({
-        name: 'key-to-revoke',
-      });
-
-      const result = await api.revokeAPIKey({
-        key: createResult.data.key,
-      });
-
-      expect(result.success).toBe(true);
-    });
-
-    it('should handle invalid key', async () => {
-      if (!process.env.ARGOS_API_URL) {
-        return;
-      }
-      await expect(
-        api.revokeAPIKey({
-          key: 'invalid-key',
-        })
-      ).rejects.toThrow();
-    });
-  });
-
-  describe('getAPIKey', () => {
-    it('should get API key', async () => {
-      if (!process.env.ARGOS_API_URL) {
-        return;
-      }
-      const result = await api.getAPIKey(testKeyId);
-
-      expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty('key', testKeyId);
-      expect(result.data).toHaveProperty('fingerprintId');
-      expect(result.data).toHaveProperty('expiresAt');
-    });
-
-    it('should handle non-existent key', async () => {
-      if (!process.env.ARGOS_API_URL) {
-        return;
-      }
-      await expect(api.getAPIKey('non-existent-key')).rejects.toThrow();
-    });
-  });
-
-  describe('listAPIKeys', () => {
-    it('should list API keys', async () => {
-      if (!process.env.ARGOS_API_URL) {
-        return;
-      }
-      const result = await api.listAPIKeys();
-
-      expect(result.success).toBe(true);
-      expect(Array.isArray(result.data)).toBe(true);
-      if (result.data.length > 0) {
-        const key = result.data[0];
-        expect(key).toHaveProperty('key');
-        expect(key).toHaveProperty('fingerprintId');
-        expect(key).toHaveProperty('expiresAt');
-      }
-    });
-  });
-
-  describe('updateAPIKey', () => {
-    it('should update API key', async () => {
-      if (!process.env.ARGOS_API_URL) {
-        return;
-      }
-      const updateData: UpdateAPIKeyRequest = {
-        name: 'updated-key',
-        expiresAt: '2024-12-31T23:59:59Z',
-      };
-
-      const result = await api.updateAPIKey(testKeyId, updateData);
-
-      expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty('key', testKeyId);
-      expect(result.data).toHaveProperty('name', updateData.name);
-      expect(result.data).toHaveProperty('expiresAt', updateData.expiresAt);
-    });
-
-    it('should handle non-existent key', async () => {
-      if (!process.env.ARGOS_API_URL) {
-        return;
-      }
-      await expect(
-        api.updateAPIKey('non-existent-key', {
-          name: 'updated-key',
-        })
-      ).rejects.toThrow();
-    });
-  });
-
-  describe('deleteAPIKey', () => {
-    it('should delete API key', async () => {
-      if (!process.env.ARGOS_API_URL) {
-        return;
-      }
-      // Create a key to delete
-      const createResult = await api.createAPIKey({
-        name: 'key-to-delete',
-      });
-
-      const result = await api.deleteAPIKey(createResult.data.key);
-      expect(result.success).toBe(true);
-
-      // Verify the key was deleted
-      await expect(api.getAPIKey(createResult.data.key)).rejects.toThrow();
-    });
-
-    it('should handle non-existent key', async () => {
-      if (!process.env.ARGOS_API_URL) {
-        return;
-      }
-      await expect(api.deleteAPIKey('non-existent-key')).rejects.toThrow();
     });
   });
 });

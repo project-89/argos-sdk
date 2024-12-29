@@ -8,7 +8,7 @@ import type { ApiResponse, Fingerprint } from '../../shared/interfaces/api';
 import { BrowserEnvironment } from '../environment/BrowserEnvironment';
 
 export class ArgosClientSDK implements SDKInterface {
-  private fingerprintAPI: FingerprintAPI;
+  private fingerprintAPI: FingerprintAPI<Response>;
   private environment: BrowserEnvironment;
   private debug: boolean;
 
@@ -16,7 +16,7 @@ export class ArgosClientSDK implements SDKInterface {
     this.environment = options.environment as BrowserEnvironment;
     this.debug = options.debug || false;
 
-    this.fingerprintAPI = new FingerprintAPI({
+    this.fingerprintAPI = new FingerprintAPI<Response>({
       baseUrl: options.baseUrl,
       apiKey: options.apiKey,
       environment: this.environment,
