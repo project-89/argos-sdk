@@ -27,15 +27,14 @@ class CookieStorage {
   private debug: boolean;
   private readonly defaultOptions: CookieOptions = {
     path: '/',
-    secure: window.location.protocol === 'https:',
-    sameSite: 'lax',
+    secure: true,
+    sameSite: 'strict',
     // Cookie expiry set to 30 days
     maxAge: 30 * 24 * 60 * 60,
   };
 
   private constructor() {
     this.debug = false;
-    this.migrateFromLegacyStorage();
   }
 
   static getInstance(): CookieStorage {
@@ -47,31 +46,6 @@ class CookieStorage {
 
   setDebug(enabled: boolean): void {
     this.debug = enabled;
-  }
-
-  private migrateFromLegacyStorage(): void {
-    try {
-      log(this.debug, 'Starting legacy storage migration');
-      const fingerprintId = localStorage.getItem('argos_fingerprint_id');
-      const apiKey = localStorage.getItem('argos_api_key');
-
-      log(this.debug, 'Found legacy storage:', {
-        hasFingerprintId: !!fingerprintId,
-        hasApiKey: !!apiKey,
-      });
-
-      if (fingerprintId) {
-        this.setItem('fingerprint_id', fingerprintId);
-        localStorage.removeItem('argos_fingerprint_id');
-      }
-
-      if (apiKey) {
-        this.setItem('api_key', apiKey);
-        localStorage.removeItem('argos_api_key');
-      }
-    } catch (err) {
-      console.warn('Failed to migrate from legacy storage:', err);
-    }
   }
 
   private getCookie(name: string): string | null {
@@ -105,7 +79,19 @@ class CookieStorage {
     value: string,
     options: CookieOptions = {}
   ): void {
+    // Ensure we're in a secure context before setting cookies
+    if (!window.isSecureContext) {
+      console.warn('Attempting to set cookie in non-secure context');
+      return;
+    }
+
     const mergedOptions = { ...this.defaultOptions, ...options };
+    // Force secure and SameSite in production
+    if (process.env.NODE_ENV === 'production') {
+      mergedOptions.secure = true;
+      mergedOptions.sameSite = 'strict';
+    }
+
     let cookieString = `${this.prefix}${name}=${encodeURIComponent(value)}`;
 
     if (mergedOptions.path) {
@@ -138,6 +124,9 @@ class CookieStorage {
 
     // Verify the cookie was set
     const verifyValue = this.getCookie(name);
+    if (!verifyValue) {
+      console.warn('Failed to set cookie:', name);
+    }
     log(this.debug, 'Cookie set verification:', {
       name: this.prefix + name,
       wasSet: !!verifyValue,
