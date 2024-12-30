@@ -1,15 +1,22 @@
 import { BaseAPI, BaseAPIConfig } from './BaseAPI';
-import {
+import type {
   ApiResponse,
   VisitData,
   CreateVisitRequest,
   UpdatePresenceRequest,
   PresenceData,
 } from '../interfaces/api';
-import { HttpMethod, CommonResponse } from '../interfaces/http';
+import {
+  HttpMethod,
+  CommonResponse,
+  CommonRequestInit,
+} from '../interfaces/http';
 
-export class VisitAPI<T extends CommonResponse> extends BaseAPI<T> {
-  constructor(config: BaseAPIConfig<T>) {
+export class VisitAPI<
+  T extends CommonResponse,
+  R extends CommonRequestInit = CommonRequestInit
+> extends BaseAPI<T, R> {
+  constructor(config: BaseAPIConfig<T, R>) {
     super(config);
   }
 

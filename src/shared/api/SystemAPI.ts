@@ -1,26 +1,36 @@
-import { BaseAPI, BaseAPIConfig } from './BaseAPI';
-import { ApiResponse, SystemHealthData } from '../interfaces/api';
-import { HttpMethod, CommonResponse } from '../interfaces/http';
+import { BaseAPI } from './BaseAPI';
+import { ApiResponse } from '../interfaces/api';
+import {
+  CommonResponse,
+  CommonRequestInit,
+  HttpMethod,
+} from '../interfaces/http';
 
-export class SystemAPI<T extends CommonResponse> extends BaseAPI<T> {
-  constructor(config: BaseAPIConfig<T>) {
-    super(config);
-  }
+export interface HealthCheckResponse {
+  status: 'healthy' | 'unhealthy';
+  version: string;
+  uptime: number;
+}
 
-  /**
-   * Check system health
-   */
-  public async checkHealth(): Promise<ApiResponse<SystemHealthData>> {
-    return this.fetchApi<SystemHealthData>('/health', {
+export interface RoleInfo {
+  id: string;
+  name: string;
+  description: string;
+  permissions: string[];
+}
+
+export class SystemAPI<
+  T extends CommonResponse = CommonResponse,
+  R extends CommonRequestInit = CommonRequestInit
+> extends BaseAPI<T, R> {
+  async checkHealth(): Promise<ApiResponse<HealthCheckResponse>> {
+    return this.fetchApi<HealthCheckResponse>('/health', {
       method: HttpMethod.GET,
     });
   }
 
-  /**
-   * Get available roles
-   */
-  public async getAvailableRoles(): Promise<ApiResponse<string[]>> {
-    return this.fetchApi<string[]>('/role/available', {
+  async getAvailableRoles(): Promise<ApiResponse<RoleInfo[]>> {
+    return this.fetchApi<RoleInfo[]>('/roles', {
       method: HttpMethod.GET,
     });
   }

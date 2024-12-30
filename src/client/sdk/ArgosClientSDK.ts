@@ -1,51 +1,135 @@
+import { BaseAPIConfig } from '../../shared/api/BaseAPI';
+import {
+  ApiResponse,
+  Fingerprint,
+  ImpressionData,
+  CreateImpressionRequest,
+  CreateAPIKeyRequest,
+  DeleteImpressionsResponse,
+} from '../../shared/interfaces/api';
 import { FingerprintAPI } from '../../shared/api/FingerprintAPI';
-import type {
-  SDKInterface,
-  SDKOptions,
-  IdentifyOptions,
-} from '../../shared/interfaces/sdk';
-import type { ApiResponse, Fingerprint } from '../../shared/interfaces/api';
-import { BrowserEnvironment } from '../environment/BrowserEnvironment';
+import { APIKeyAPI } from '../../shared/api/APIKeyAPI';
+import { ImpressionAPI } from '../../shared/api/ImpressionAPI';
+import { EnvironmentFactory } from '../../core/factory/EnvironmentFactory';
+import { EnvironmentInterface } from '../../shared/interfaces/environment';
 
-export class ArgosClientSDK implements SDKInterface {
-  private fingerprintAPI: FingerprintAPI<Response>;
-  private environment: BrowserEnvironment;
-  private debug: boolean;
+export interface ClientSDKConfig
+  extends Omit<BaseAPIConfig<Response, RequestInit>, 'environment'> {
+  debug?: boolean;
+  presenceInterval?: number;
+  environment?: EnvironmentInterface<Response, RequestInit>;
+}
 
-  constructor(options: SDKOptions) {
-    this.environment = options.environment as BrowserEnvironment;
-    this.debug = options.debug || false;
+export interface TrackOptions {
+  fingerprintId: string;
+  status?: 'online' | 'offline';
+  url?: string;
+  title?: string;
+  metadata?: Record<string, unknown>;
+}
 
-    this.fingerprintAPI = new FingerprintAPI<Response>({
-      baseUrl: options.baseUrl,
-      apiKey: options.apiKey,
-      environment: this.environment,
-      debug: this.debug,
-    });
+export class ArgosClientSDK {
+  private config: ClientSDKConfig;
+  private presenceInterval: number;
+  private environment;
+  private fingerprintAPI: FingerprintAPI<Response, RequestInit>;
+  private apiKeyAPI: APIKeyAPI<Response, RequestInit>;
+  private impressionAPI: ImpressionAPI<Response, RequestInit>;
 
-    if (options.apiKey) {
-      this.setApiKey(options.apiKey);
+  constructor(config: ClientSDKConfig) {
+    this.config = config;
+    this.presenceInterval = config.presenceInterval || 30000; // 30 seconds default
+
+    // Initialize environment
+    this.environment =
+      config.environment || EnvironmentFactory.createBrowserEnvironment();
+    if (config.apiKey) {
+      this.environment.setApiKey(config.apiKey);
     }
+
+    const apiConfig: BaseAPIConfig<Response, RequestInit> = {
+      ...config,
+      environment: this.environment,
+    };
+
+    // Initialize APIs
+    this.fingerprintAPI = new FingerprintAPI(apiConfig);
+    this.apiKeyAPI = new APIKeyAPI(apiConfig);
+    this.impressionAPI = new ImpressionAPI(apiConfig);
   }
 
-  async identify(options: IdentifyOptions): Promise<ApiResponse<Fingerprint>> {
-    // In browser environment, we can generate fingerprint if not provided
-    const fingerprint =
-      options.fingerprint || (await this.environment.getFingerprint());
-    return this.fingerprintAPI.createFingerprint(fingerprint, {
-      metadata: options.metadata || {},
+  isOnline(): boolean {
+    return typeof navigator !== 'undefined' ? navigator.onLine : true;
+  }
+
+  getPresenceInterval(): number {
+    return this.presenceInterval;
+  }
+
+  async track(
+    type: string,
+    options: TrackOptions
+  ): Promise<ApiResponse<ImpressionData>> {
+    return this.impressionAPI.createImpression({
+      type,
+      fingerprintId: options.fingerprintId,
+      data: {
+        status: options.status,
+        url: options.url,
+        title: options.title,
+        ...options.metadata,
+      },
     });
   }
 
-  async getIdentity(fingerprintId: string): Promise<ApiResponse<Fingerprint>> {
-    return this.fingerprintAPI.getFingerprint(fingerprintId);
+  // Method required by useImpressions hook
+  async createImpression(
+    request: CreateImpressionRequest
+  ): Promise<ApiResponse<ImpressionData>> {
+    return this.impressionAPI.createImpression(request);
   }
 
+  async registerApiKey(
+    fingerprintId: string
+  ): Promise<ApiResponse<{ key: string }>> {
+    const request: CreateAPIKeyRequest = {
+      name: `client-sdk-${fingerprintId}`,
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+      metadata: { fingerprintId },
+    };
+
+    const response = await this.apiKeyAPI.createAPIKey(request);
+
+    if (response.success && response.data) {
+      this.setApiKey(response.data.key);
+    }
+
+    return response;
+  }
+
+  async identify(data: {
+    fingerprint?: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<ApiResponse<Fingerprint>> {
+    let fingerprint = data.fingerprint;
+    if (!fingerprint) {
+      fingerprint = await this.environment.getFingerprint();
+    }
+    return this.fingerprintAPI.createFingerprint(fingerprint, {
+      metadata: data.metadata,
+    });
+  }
+
+  // Method required by useMetadata hook
   async updateFingerprint(
     fingerprintId: string,
     metadata: Record<string, unknown>
   ): Promise<ApiResponse<Fingerprint>> {
     return this.fingerprintAPI.updateFingerprint(fingerprintId, metadata);
+  }
+
+  async getIdentity(id: string): Promise<ApiResponse<Fingerprint>> {
+    return this.fingerprintAPI.getFingerprint(id);
   }
 
   setApiKey(apiKey: string): void {
@@ -56,7 +140,10 @@ export class ArgosClientSDK implements SDKInterface {
     return this.environment.getApiKey();
   }
 
-  async getPlatformInfo(): Promise<Record<string, unknown>> {
-    return this.environment.getPlatformInfo();
+  async deleteImpressions(
+    fingerprintId: string,
+    type?: string
+  ): Promise<ApiResponse<DeleteImpressionsResponse>> {
+    return this.impressionAPI.deleteImpressions(fingerprintId, type);
   }
 }

@@ -2,49 +2,86 @@ import {
   EnvironmentInterface,
   RuntimeEnvironment,
 } from '../../shared/interfaces/environment';
+import type { Response, RequestInit } from 'node-fetch';
 import { SecureStorage } from '../storage/SecureStorage';
-import * as os from 'os';
-import { createHash } from 'crypto';
-import fetch from 'node-fetch';
-import type {
-  Response as NodeResponse,
-  RequestInit as NodeRequestInit,
-} from 'node-fetch';
 
-export class NodeEnvironment implements EnvironmentInterface<NodeResponse> {
+export class NodeEnvironment
+  implements EnvironmentInterface<Response, RequestInit>
+{
+  readonly type = RuntimeEnvironment.Node;
+  private apiKey?: string;
   private storage: SecureStorage;
+  private fingerprint?: string;
   private onApiKeyUpdate?: (apiKey: string) => void;
 
   constructor(
-    storage: SecureStorage,
+    encryptionKeyOrStorage: string | SecureStorage,
+    fingerprint?: string,
     onApiKeyUpdate?: (apiKey: string) => void
   ) {
-    this.storage = storage;
+    this.storage =
+      typeof encryptionKeyOrStorage === 'string'
+        ? new SecureStorage({ encryptionKey: encryptionKeyOrStorage })
+        : encryptionKeyOrStorage;
+    this.fingerprint = fingerprint;
     this.onApiKeyUpdate = onApiKeyUpdate;
   }
 
-  isOnline(): boolean {
-    // In Node.js, we assume we're online unless proven otherwise
-    return true;
+  createHeaders(headers: Record<string, string> = {}): Record<string, string> {
+    return {
+      ...headers,
+      'content-type': 'application/json',
+      'user-agent': this.getUserAgent(),
+      'x-api-key': this.apiKey || '',
+    };
   }
 
-  getUserAgent(): string {
-    return `Node.js/${process.version} (${os.platform()}; ${os.arch()})`;
+  async handleResponse<T>(response: Response): Promise<T> {
+    const contentType = response.headers.get('content-type');
+    const isJson = contentType && contentType.includes('application/json');
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        this.apiKey = undefined;
+      }
+      const errorData = isJson ? await response.json() : await response.text();
+      throw new Error(
+        typeof errorData === 'string' ? errorData : JSON.stringify(errorData)
+      );
+    }
+
+    if (isJson) {
+      const data = await response.json();
+      return data;
+    }
+
+    const text = await response.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      return text as unknown as T;
+    }
   }
 
-  getLanguage(): string {
-    return process.env.LANG || 'en-US';
+  async getFingerprint(): Promise<string> {
+    if (!this.fingerprint) {
+      throw new Error(
+        'Fingerprints must be explicitly provided in server environment'
+      );
+    }
+    return this.fingerprint;
   }
 
   async getPlatformInfo(): Promise<Record<string, unknown>> {
     return {
-      platform: 'node',
-      osType: os.platform(),
-      arch: os.arch(),
+      platform: process.platform,
+      arch: process.arch,
       version: process.version,
       userAgent: this.getUserAgent(),
       language: this.getLanguage(),
       online: this.isOnline(),
+      url: this.getUrl(),
+      referrer: this.getReferrer(),
       runtime: RuntimeEnvironment.Node,
     };
   }
@@ -53,42 +90,22 @@ export class NodeEnvironment implements EnvironmentInterface<NodeResponse> {
     if (!apiKey) {
       throw new Error('API key cannot be empty');
     }
-    this.storage.setItem('apiKey', apiKey);
+    this.apiKey = apiKey;
     if (this.onApiKeyUpdate) {
       this.onApiKeyUpdate(apiKey);
     }
   }
 
   getApiKey(): string | undefined {
-    return this.storage.getItem('apiKey') || undefined;
+    return this.apiKey;
   }
 
-  createHeaders(headers: Record<string, string>): Record<string, string> {
-    const result = { ...headers };
-    const apiKey = this.getApiKey();
-    if (apiKey) {
-      result['x-api-key'] = apiKey;
-    }
-    result['user-agent'] = this.getUserAgent();
-    result['content-type'] = 'application/json';
-    return result;
+  getUserAgent(): string {
+    return `Node.js/${process.version}`;
   }
 
-  async handleResponse(response: NodeResponse): Promise<unknown> {
-    const contentType = response.headers.get('content-type');
-    const isJson = contentType && contentType.includes('application/json');
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        this.storage.removeItem('apiKey');
-      }
-      const errorData = isJson ? await response.json() : await response.text();
-      throw new Error(
-        typeof errorData === 'string' ? errorData : JSON.stringify(errorData)
-      );
-    }
-
-    return isJson ? response.json() : response.text();
+  getLanguage(): string {
+    return process.env.LANG || 'en-US';
   }
 
   getUrl(): string | null {
@@ -99,25 +116,26 @@ export class NodeEnvironment implements EnvironmentInterface<NodeResponse> {
     return null;
   }
 
-  async getFingerprint(): Promise<string> {
-    const systemInfo = {
-      platform: os.platform(),
-      arch: os.arch(),
-      cpuModel: os.cpus()[0]?.model || 'unknown',
-      cpuCount: os.cpus().length,
-      totalMem: os.totalmem(),
-      hostname: os.hostname(),
-    };
-
-    const hash = createHash('sha256')
-      .update(JSON.stringify(systemInfo))
-      .digest('hex');
-
-    return `node-${hash}`;
+  isOnline(): boolean {
+    return true; // Node is always considered online
   }
 
-  async fetch(url: string, init?: RequestInit): Promise<NodeResponse> {
-    const response = await fetch(url, init as NodeRequestInit);
-    return response;
+  async fetch(url: string, options?: RequestInit): Promise<Response> {
+    const { default: nodeFetch } = await import('node-fetch');
+    const headers = this.createHeaders(
+      (options?.headers as Record<string, string>) || {}
+    );
+    const requestOptions: RequestInit = {
+      ...options,
+      headers,
+    };
+
+    if (requestOptions.body && typeof requestOptions.body === 'object') {
+      requestOptions.body = JSON.stringify(requestOptions.body);
+      (requestOptions.headers as Record<string, string>)['content-type'] =
+        'application/json';
+    }
+
+    return nodeFetch(url, requestOptions);
   }
 }

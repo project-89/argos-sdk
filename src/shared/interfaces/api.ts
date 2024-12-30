@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 declare global {
   interface Navigator {
     userAgentData?: {
@@ -131,7 +132,8 @@ export interface UpdatePresenceRequest {
 
 export interface CreateAPIKeyRequest {
   name: string;
-  expiresAt?: string;
+  expiresAt: string;
+  metadata?: Record<string, any>;
 }
 
 export interface UpdateAPIKeyRequest {

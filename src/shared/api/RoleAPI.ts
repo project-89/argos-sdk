@@ -1,71 +1,50 @@
 import { BaseAPI, BaseAPIConfig } from './BaseAPI';
-import { ApiResponse, RoleData } from '../interfaces/api';
-import { HttpMethod, CommonResponse } from '../interfaces/http';
+import type { ApiResponse, RoleData } from '../interfaces/api';
+import {
+  HttpMethod,
+  CommonResponse,
+  CommonRequestInit,
+} from '../interfaces/http';
 
-export interface RoleCreateRequest {
-  name: string;
-  permissions: string[];
-}
-
-export interface RoleUpdateRequest {
-  name?: string;
-  permissions?: string[];
-}
-
-export type RoleResponse = ApiResponse<RoleData>;
-
-export class RoleAPI<T extends CommonResponse> extends BaseAPI<T> {
-  constructor(config: BaseAPIConfig<T>) {
+export class RoleAPI<
+  T extends CommonResponse,
+  R extends CommonRequestInit = CommonRequestInit
+> extends BaseAPI<T, R> {
+  constructor(config: BaseAPIConfig<T, R>) {
     super(config);
   }
 
-  /**
-   * List available roles (public endpoint)
-   */
-  public async listAvailableRoles(): Promise<ApiResponse<string[]>> {
-    return this.fetchApi<string[]>('/role', {
+  async getAvailableRoles(): Promise<ApiResponse<string[]>> {
+    return this.fetchApi<string[]>('/role/available', {
       method: HttpMethod.GET,
     });
   }
 
-  /**
-   * Add roles to a fingerprint (protected endpoint - requires API key)
-   */
-  public async addRoles(
+  async addRolesToFingerprint(
     fingerprintId: string,
     roles: string[]
   ): Promise<ApiResponse<RoleData>> {
     return this.fetchApi<RoleData>('/role', {
       method: HttpMethod.POST,
-      body: {
-        fingerprintId,
-        roles,
-      },
+      body: { fingerprintId, roles },
     });
   }
 
-  /**
-   * Get roles for a fingerprint (protected endpoint - requires API key)
-   */
-  public async getRoles(fingerprintId: string): Promise<ApiResponse<RoleData>> {
+  async getFingerprintRoles(
+    fingerprintId: string
+  ): Promise<ApiResponse<RoleData>> {
     return this.fetchApi<RoleData>(`/role/${fingerprintId}`, {
       method: HttpMethod.GET,
     });
   }
 
-  /**
-   * Remove roles from a fingerprint (protected endpoint - requires API key)
-   */
-  public async removeRoles(
+  async removeRolesFromFingerprint(
     fingerprintId: string,
     roles: string[]
   ): Promise<ApiResponse<RoleData>> {
     return this.fetchApi<RoleData>('/role', {
       method: HttpMethod.DELETE,
-      body: {
-        fingerprintId,
-        roles,
-      },
+      body: { fingerprintId, roles },
     });
   }
 }

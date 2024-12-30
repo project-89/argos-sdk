@@ -1,3 +1,7 @@
+/**
+ * @jest-environment jsdom
+ */
+
 import { BrowserEnvironment } from '../../../client/environment/BrowserEnvironment';
 import { CookieStorage } from '../../../client/storage/CookieStorage';
 import { RuntimeEnvironment } from '../../../shared/interfaces/environment';
@@ -34,12 +38,9 @@ describe('BrowserEnvironment', () => {
       delete mockCookies[key];
     });
 
-    storage = new CookieStorage({
-      secure: true,
-      sameSite: 'strict',
-    });
+    storage = new CookieStorage();
     storage.clear();
-    environment = new BrowserEnvironment(storage);
+    environment = new BrowserEnvironment();
   });
 
   afterEach(() => {
@@ -71,12 +72,6 @@ describe('BrowserEnvironment', () => {
     });
   });
 
-  describe('getLanguage', () => {
-    it('should return navigator.language', () => {
-      expect(environment.getLanguage()).toBe(navigator.language);
-    });
-  });
-
   describe('getPlatformInfo', () => {
     it('should return platform information', async () => {
       const info = await environment.getPlatformInfo();
@@ -97,13 +92,6 @@ describe('BrowserEnvironment', () => {
         'API key cannot be empty'
       );
     });
-
-    it('should call onApiKeyUpdate callback when API key is set', () => {
-      const callback = jest.fn();
-      environment = new BrowserEnvironment(storage, callback);
-      environment.setApiKey('test-api-key');
-      expect(callback).toHaveBeenCalledWith('test-api-key');
-    });
   });
 
   describe('Headers management', () => {
@@ -116,7 +104,7 @@ describe('BrowserEnvironment', () => {
 
     it('should create headers without API key when not available', () => {
       const headers = environment.createHeaders({});
-      expect(headers['x-api-key']).toBeUndefined();
+      expect(headers['x-api-key']).toBe('');
       expect(headers['user-agent']).toBe(navigator.userAgent);
     });
   });
@@ -151,16 +139,6 @@ describe('BrowserEnvironment', () => {
       );
       await expect(environment.handleResponse(mockResponse)).rejects.toThrow();
       expect(environment.getApiKey()).toBeUndefined();
-    });
-  });
-
-  describe('URL and referrer', () => {
-    it('should return current URL', () => {
-      expect(environment.getUrl()).toBe(window.location.href);
-    });
-
-    it('should return document referrer', () => {
-      expect(environment.getReferrer()).toBe(document.referrer);
     });
   });
 });

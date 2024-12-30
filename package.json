@@ -1,7 +1,7 @@
 {
   "name": "@project89/argos-sdk",
   "version": "0.1.35",
-  "description": "Environment-agnostic tracking and analytics SDK for Project 89's Argos platform",
+  "description": "SDK for Project89 Argos",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
   "types": "dist/types/index.d.ts",
@@ -28,17 +28,17 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "npm run clean && tsc --emitDeclarationOnly && rollup -c",
     "clean": "rimraf dist",
+    "build:types": "tsc -p tsconfig.declarations.json",
+    "build:ts": "tsc -p tsconfig.build.json",
+    "build:bundle": "rollup -c",
+    "build": "npm run clean && npm run build:types && npm run build:ts && npm run build:bundle",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:integration": "TEST_MODE=integration jest --config jest.integration.config.js",
-    "lint": "eslint . --ext .ts,.tsx",
-    "lint:fix": "eslint . --ext .ts,.tsx --fix",
-    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
-    "prepare": "husky install",
-    "prepublishOnly": "npm run build"
+    "lint": "eslint src --ext .ts,.tsx",
+    "lint:fix": "eslint src --ext .ts,.tsx --fix",
+    "prepare": "npm run build"
   },
   "dependencies": {
     "@fingerprintjs/fingerprintjs": "^4.5.1",
@@ -50,7 +50,7 @@
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^24.1.0",
-    "@rollup/plugin-json": "^6.0.0",
+    "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^15.0.0",
     "@rollup/plugin-typescript": "^11.1.0",
     "@testing-library/jest-dom": "^6.6.3",

@@ -1,26 +1,37 @@
 import { BaseAPI, BaseAPIConfig } from './BaseAPI';
-import { ApiResponse, PriceData, PriceHistoryData } from '../interfaces/api';
-import { HttpMethod, CommonResponse } from '../interfaces/http';
+import type {
+  ApiResponse,
+  PriceData,
+  PriceHistoryData,
+  GetCurrentPricesOptions,
+  GetPriceHistoryOptions,
+} from '../interfaces/api';
+import {
+  HttpMethod,
+  CommonResponse,
+  CommonRequestInit,
+} from '../interfaces/http';
 
-export interface GetCurrentPricesOptions {
-  tokens: string[];
-}
-
-export interface GetPriceHistoryOptions {
-  interval?: string;
-  limit?: number;
-}
-
-export class PriceAPI<T extends CommonResponse> extends BaseAPI<T> {
-  constructor(config: BaseAPIConfig<T>) {
+export class PriceAPI<
+  T extends CommonResponse,
+  R extends CommonRequestInit = CommonRequestInit
+> extends BaseAPI<T, R> {
+  constructor(config: BaseAPIConfig<T, R>) {
     super(config);
   }
 
   async getCurrentPrices(
-    options: GetCurrentPricesOptions
+    options?: GetCurrentPricesOptions
   ): Promise<ApiResponse<PriceData>> {
+    const queryParams = new URLSearchParams();
+    if (options?.tokens) {
+      queryParams.append('tokens', options.tokens.join(','));
+    }
+
     return this.fetchApi<PriceData>(
-      `/price/current?tokens=${encodeURIComponent(options.tokens.join(','))}`,
+      `/price/current${
+        queryParams.toString() ? `?${queryParams.toString()}` : ''
+      }`,
       {
         method: HttpMethod.GET,
       }
@@ -28,20 +39,20 @@ export class PriceAPI<T extends CommonResponse> extends BaseAPI<T> {
   }
 
   async getPriceHistory(
-    token: string,
+    tokenId: string,
     options?: GetPriceHistoryOptions
   ): Promise<ApiResponse<PriceHistoryData>> {
     const queryParams = new URLSearchParams();
-    if (options?.interval) queryParams.set('interval', options.interval);
-    if (options?.limit) queryParams.set('limit', String(options.limit));
+    if (options?.interval) queryParams.append('interval', options.interval);
+    if (options?.limit) queryParams.append('limit', options.limit.toString());
 
-    const query = queryParams.toString();
-    const url = `/price/history/${encodeURIComponent(token)}${
-      query ? `?${query}` : ''
-    }`;
-
-    return this.fetchApi<PriceHistoryData>(url, {
-      method: HttpMethod.GET,
-    });
+    return this.fetchApi<PriceHistoryData>(
+      `/price/history/${tokenId}${
+        queryParams.toString() ? `?${queryParams.toString()}` : ''
+      }`,
+      {
+        method: HttpMethod.GET,
+      }
+    );
   }
 }

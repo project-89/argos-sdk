@@ -1,112 +1,134 @@
 import { jest } from '@jest/globals';
 import { RoleAPI } from '../../../shared/api/RoleAPI';
-import { MockEnvironment } from '../../../__tests__/utils/testUtils';
-import { HttpMethod, CommonResponse } from '../../../shared/interfaces/http';
+import {
+  MockBrowserEnvironment,
+  createMockResponse,
+} from '../../utils/testUtils';
+import { HttpMethod } from '../../../shared/interfaces/http';
+import type { Response, RequestInit } from 'node-fetch';
 import type { RoleData } from '../../../shared/interfaces/api';
 
+type FetchFunction = (url: string, init?: RequestInit) => Promise<Response>;
+
 describe('RoleAPI', () => {
-  let api: RoleAPI<CommonResponse>;
-  let mockFetchApi: jest.Mock;
+  const BASE_URL = 'https://test.example.com';
+  let api: RoleAPI<Response, RequestInit>;
+  let mockFetch: jest.MockedFunction<FetchFunction>;
+  let mockEnvironment: MockBrowserEnvironment;
 
   const mockRoleData: RoleData = {
     roles: ['admin', 'user'],
   };
 
   beforeEach(() => {
-    mockFetchApi = jest.fn(() =>
-      Promise.resolve({
-        success: true,
-        data: mockRoleData,
-      })
-    );
-
-    const mockEnvironment = new MockEnvironment('test-fingerprint');
-    api = new RoleAPI<CommonResponse>({
-      baseUrl: 'http://test.com',
-      environment: mockEnvironment,
-      debug: true,
+    mockEnvironment = new MockBrowserEnvironment('test-fingerprint');
+    mockFetch = jest.fn<FetchFunction>();
+    mockEnvironment.fetch = mockFetch as any;
+    api = new RoleAPI({
+      baseUrl: BASE_URL,
+      environment: mockEnvironment as any,
     });
-    (api as any).fetchApi = mockFetchApi;
   });
 
-  describe('listAvailableRoles', () => {
+  describe('getAvailableRoles', () => {
     it('should call API with correct parameters', async () => {
-      await api.listAvailableRoles();
+      mockFetch.mockResolvedValueOnce(createMockResponse(mockRoleData));
 
-      expect(mockFetchApi).toHaveBeenCalledWith('/role', {
+      await api.getAvailableRoles();
+
+      expect(mockFetch).toHaveBeenCalledWith(`${BASE_URL}/role/available`, {
         method: HttpMethod.GET,
+        headers: {
+          'user-agent': 'test-fingerprint',
+          'content-type': 'application/json',
+        },
       });
     });
 
     it('should handle API errors', async () => {
-      mockFetchApi.mockImplementationOnce(() =>
-        Promise.reject(new Error('API Error'))
-      );
-      await expect(api.listAvailableRoles()).rejects.toThrow();
+      mockFetch.mockRejectedValueOnce(new Error('API Error'));
+      await expect(api.getAvailableRoles()).rejects.toThrow();
     });
   });
 
-  describe('addRoles', () => {
+  describe('addRolesToFingerprint', () => {
     it('should call API with correct parameters', async () => {
       const roles = ['admin', 'user'];
-      await api.addRoles('test-fingerprint-id', roles);
+      mockFetch.mockResolvedValueOnce(createMockResponse(mockRoleData));
 
-      expect(mockFetchApi).toHaveBeenCalledWith('/role', {
+      await api.addRolesToFingerprint('test-fingerprint-id', roles);
+
+      expect(mockFetch).toHaveBeenCalledWith(`${BASE_URL}/role`, {
         method: HttpMethod.POST,
         body: {
           fingerprintId: 'test-fingerprint-id',
           roles,
         },
-      });
-    });
-
-    it('should handle API errors', async () => {
-      mockFetchApi.mockImplementationOnce(() =>
-        Promise.reject(new Error('API Error'))
-      );
-      await expect(
-        api.addRoles('test-fingerprint-id', ['admin'])
-      ).rejects.toThrow();
-    });
-  });
-
-  describe('getRoles', () => {
-    it('should call API with correct parameters', async () => {
-      await api.getRoles('test-fingerprint-id');
-
-      expect(mockFetchApi).toHaveBeenCalledWith('/role/test-fingerprint-id', {
-        method: HttpMethod.GET,
-      });
-    });
-
-    it('should handle API errors', async () => {
-      mockFetchApi.mockImplementationOnce(() =>
-        Promise.reject(new Error('API Error'))
-      );
-      await expect(api.getRoles('test-fingerprint-id')).rejects.toThrow();
-    });
-  });
-
-  describe('removeRoles', () => {
-    it('should call API with correct parameters', async () => {
-      const roles = ['admin', 'user'];
-      await api.removeRoles('test-fingerprint-id', roles);
-
-      expect(mockFetchApi).toHaveBeenCalledWith('/role', {
-        method: HttpMethod.DELETE,
-        body: {
-          fingerprintId: 'test-fingerprint-id',
-          roles,
+        headers: {
+          'content-type': 'application/json',
+          'user-agent': 'test-fingerprint',
         },
       });
     });
 
     it('should handle API errors', async () => {
-      mockFetchApi.mockImplementationOnce(() =>
-        Promise.reject(new Error('API Error'))
-      );
+      mockFetch.mockRejectedValueOnce(new Error('API Error'));
       await expect(
-        api.removeRoles('test-fingerprint-id', ['admin'])
+        api.addRolesToFingerprint('test-fingerprint-id', ['admin'])
+      ).rejects.toThrow();
+    });
+  });
+
+  describe('getFingerprintRoles', () => {
+    it('should call API with correct parameters', async () => {
+      mockFetch.mockResolvedValueOnce(createMockResponse(mockRoleData));
+
+      await api.getFingerprintRoles('test-fingerprint-id');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${BASE_URL}/role/test-fingerprint-id`,
+        {
+          method: HttpMethod.GET,
+          headers: {
+            'user-agent': 'test-fingerprint',
+            'content-type': 'application/json',
+          },
+        }
+      );
+    });
+
+    it('should handle API errors', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('API Error'));
+      await expect(
+        api.getFingerprintRoles('test-fingerprint-id')
+      ).rejects.toThrow();
+    });
+  });
+
+  describe('removeRolesFromFingerprint', () => {
+    it('should call API with correct parameters', async () => {
+      const roles = ['admin', 'user'];
+      mockFetch.mockResolvedValueOnce(createMockResponse(undefined));
+
+      await api.removeRolesFromFingerprint('test-fingerprint-id', roles);
+
+      expect(mockFetch).toHaveBeenCalledWith(`${BASE_URL}/role`, {
+        method: HttpMethod.DELETE,
+        body: {
+          fingerprintId: 'test-fingerprint-id',
+          roles,
+        },
+        headers: {
+          'content-type': 'application/json',
+          'user-agent': 'test-fingerprint',
+        },
+      });
+    });
+
+    it('should handle API errors', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('API Error'));
+      await expect(
+        api.removeRolesFromFingerprint('test-fingerprint-id', ['admin'])
       ).rejects.toThrow();
     });
   });

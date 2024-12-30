@@ -1,3 +1,8 @@
+import type {
+  Response as NodeResponse,
+  RequestInit as NodeRequestInit,
+} from 'node-fetch';
+
 export enum HttpMethod {
   GET = 'GET',
   POST = 'POST',
@@ -6,13 +11,11 @@ export enum HttpMethod {
   PATCH = 'PATCH',
 }
 
-export interface CommonResponse {
-  ok: boolean;
-  status: number;
-  headers: {
-    get(name: string): string | null;
-    forEach(callbackfn: (value: string, key: string) => void): void;
-  };
-  json(): Promise<any>;
-  text(): Promise<string>;
+export type CommonResponse = Response | NodeResponse;
+export type CommonRequestInit = RequestInit | NodeRequestInit;
+
+export interface RequestOptions extends Omit<RequestInit, 'method' | 'body'> {
+  method?: HttpMethod;
+  body?: unknown;
+  headers?: Record<string, string>;
 }

@@ -1,20 +1,22 @@
-import { BaseAPI, BaseAPIConfig } from './BaseAPI';
-import { ApiResponse, DebugData } from '../interfaces/api';
-import { HttpMethod, CommonResponse } from '../interfaces/http';
+import { BaseAPI } from './BaseAPI';
+import { ApiResponse } from '../interfaces/api';
+import {
+  CommonResponse,
+  CommonRequestInit,
+  HttpMethod,
+} from '../interfaces/http';
 
-export class DebugAPI<T extends CommonResponse> extends BaseAPI<T> {
-  constructor(config: BaseAPIConfig<T>) {
-    super(config);
-  }
-
-  public async getDebugInfo(): Promise<ApiResponse<DebugData>> {
+export class DebugAPI<
+  T extends CommonResponse = CommonResponse,
+  R extends CommonRequestInit = CommonRequestInit
+> extends BaseAPI<T, R> {
+  async getDebugInfo(): Promise<ApiResponse<any>> {
     try {
-      return await this.fetchApi<DebugData>('/debug/info', {
+      return await this.fetchApi('/debug', {
         method: HttpMethod.GET,
       });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to get debug info: ${message}`);
+    } catch (error: any) {
+      throw new Error(`Failed to get debug info: ${error.message}`);
     }
   }
 }

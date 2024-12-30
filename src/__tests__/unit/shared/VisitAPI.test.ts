@@ -1,20 +1,25 @@
 import { jest } from '@jest/globals';
 import { VisitAPI } from '../../../shared/api/VisitAPI';
-import { MockEnvironment } from '../../../__tests__/utils/testUtils';
+import {
+  MockBrowserEnvironment,
+  createMockResponse,
+} from '../../utils/testUtils';
+import { HttpMethod } from '../../../shared/interfaces/http';
+import type { Response, RequestInit } from 'node-fetch';
 import type {
-  ApiResponse,
   VisitData,
   CreateVisitRequest,
   UpdatePresenceRequest,
   PresenceData,
 } from '../../../shared/interfaces/api';
-import { HttpMethod } from '../../../shared/interfaces/http';
+
+type FetchFunction = (url: string, init?: RequestInit) => Promise<Response>;
 
 describe('VisitAPI Unit Tests', () => {
-  let api: VisitAPI<Response>;
-  let mockFetchApi: jest.MockedFunction<
-    (path: string, options?: any) => Promise<ApiResponse<any>>
-  >;
+  const BASE_URL = 'https://test.example.com';
+  let api: VisitAPI<Response, RequestInit>;
+  let mockFetch: jest.MockedFunction<FetchFunction>;
+  let mockEnvironment: MockBrowserEnvironment;
 
   const mockVisitData: VisitData = {
     id: 'test-visit-id',
@@ -34,20 +39,13 @@ describe('VisitAPI Unit Tests', () => {
   };
 
   beforeEach(() => {
-    mockFetchApi = jest.fn().mockImplementation(async () => ({
-      success: true,
-      data: mockVisitData,
-    })) as jest.MockedFunction<
-      (path: string, options?: any) => Promise<ApiResponse<any>>
-    >;
-
-    const mockEnvironment = new MockEnvironment('test-fingerprint');
-    api = new VisitAPI<Response>({
-      baseUrl: 'http://test.com',
-      environment: mockEnvironment,
-      debug: true,
+    mockEnvironment = new MockBrowserEnvironment('test-fingerprint');
+    mockFetch = jest.fn<FetchFunction>();
+    mockEnvironment.fetch = mockFetch as any;
+    api = new VisitAPI({
+      baseUrl: BASE_URL,
+      environment: mockEnvironment as any,
     });
-    (api as any).fetchApi = mockFetchApi;
   });
 
   describe('createVisit', () => {
@@ -62,16 +60,22 @@ describe('VisitAPI Unit Tests', () => {
         },
       };
 
+      mockFetch.mockResolvedValueOnce(createMockResponse(mockVisitData));
+
       await api.createVisit(request);
 
-      expect(mockFetchApi).toHaveBeenCalledWith('/visit/create', {
+      expect(mockFetch).toHaveBeenCalledWith(`${BASE_URL}/visit/create`, {
         method: HttpMethod.POST,
         body: request,
+        headers: {
+          'content-type': 'application/json',
+          'user-agent': 'test-fingerprint',
+        },
       });
     });
 
     it('should handle API errors', async () => {
-      mockFetchApi.mockRejectedValueOnce(new Error('API Error'));
+      mockFetch.mockRejectedValueOnce(new Error('API Error'));
       await expect(
         api.createVisit({
           fingerprintId: 'test-fingerprint-id',
@@ -83,14 +87,24 @@ describe('VisitAPI Unit Tests', () => {
 
   describe('getVisit', () => {
     it('should call API with correct parameters', async () => {
+      mockFetch.mockResolvedValueOnce(createMockResponse(mockVisitData));
+
       await api.getVisit('test-visit-id');
-      expect(mockFetchApi).toHaveBeenCalledWith('/visit/test-visit-id', {
-        method: HttpMethod.GET,
-      });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${BASE_URL}/visit/test-visit-id`,
+        {
+          method: HttpMethod.GET,
+          headers: {
+            'user-agent': 'test-fingerprint',
+            'content-type': 'application/json',
+          },
+        }
+      );
     });
 
     it('should handle API errors', async () => {
-      mockFetchApi.mockRejectedValueOnce(new Error('API Error'));
+      mockFetch.mockRejectedValueOnce(new Error('API Error'));
       await expect(api.getVisit('test-visit-id')).rejects.toThrow();
     });
   });
@@ -106,21 +120,22 @@ describe('VisitAPI Unit Tests', () => {
         },
       };
 
-      mockFetchApi.mockResolvedValueOnce({
-        success: true,
-        data: mockPresenceData,
-      });
+      mockFetch.mockResolvedValueOnce(createMockResponse(mockPresenceData));
 
       await api.updatePresence(request);
 
-      expect(mockFetchApi).toHaveBeenCalledWith('/visit/presence', {
+      expect(mockFetch).toHaveBeenCalledWith(`${BASE_URL}/visit/presence`, {
         method: HttpMethod.POST,
         body: request,
+        headers: {
+          'content-type': 'application/json',
+          'user-agent': 'test-fingerprint',
+        },
       });
     });
 
     it('should handle API errors', async () => {
-      mockFetchApi.mockRejectedValueOnce(new Error('API Error'));
+      mockFetch.mockRejectedValueOnce(new Error('API Error'));
       await expect(
         api.updatePresence({
           fingerprintId: 'test-fingerprint-id',
@@ -132,23 +147,26 @@ describe('VisitAPI Unit Tests', () => {
 
   describe('getVisitHistory', () => {
     it('should call API with correct parameters', async () => {
-      mockFetchApi.mockResolvedValueOnce({
-        success: true,
-        data: { visits: [mockVisitData] },
-      });
+      mockFetch.mockResolvedValueOnce(
+        createMockResponse({ visits: [mockVisitData] })
+      );
 
       await api.getVisitHistory('test-fingerprint-id', { limit: 10 });
 
-      expect(mockFetchApi).toHaveBeenCalledWith(
-        '/visit/history/test-fingerprint-id?limit=10',
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${BASE_URL}/visit/history/test-fingerprint-id?limit=10`,
         {
           method: HttpMethod.GET,
+          headers: {
+            'content-type': 'application/json',
+            'user-agent': 'test-fingerprint',
+          },
         }
       );
     });
 
     it('should handle API errors', async () => {
-      mockFetchApi.mockRejectedValueOnce(new Error('API Error'));
+      mockFetch.mockRejectedValueOnce(new Error('API Error'));
       await expect(
         api.getVisitHistory('test-fingerprint-id')
       ).rejects.toThrow();

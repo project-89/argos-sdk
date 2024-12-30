@@ -1,15 +1,23 @@
 import { jest } from '@jest/globals';
 import { PriceAPI } from '../../../shared/api/PriceAPI';
-import { MockEnvironment } from '../../../__tests__/utils/testUtils';
-import { HttpMethod, CommonResponse } from '../../../shared/interfaces/http';
+import {
+  MockBrowserEnvironment,
+  createMockResponse,
+} from '../../utils/testUtils';
+import { HttpMethod } from '../../../shared/interfaces/http';
+import type { Response, RequestInit } from 'node-fetch';
 import type {
   PriceData,
   PriceHistoryData,
 } from '../../../shared/interfaces/api';
 
+type FetchFunction = (url: string, init?: RequestInit) => Promise<Response>;
+
 describe('PriceAPI', () => {
-  let api: PriceAPI<CommonResponse>;
-  let mockFetchApi: jest.Mock;
+  const BASE_URL = 'https://test.example.com';
+  let api: PriceAPI<Response, RequestInit>;
+  let mockFetch: jest.MockedFunction<FetchFunction>;
+  let mockEnvironment: MockBrowserEnvironment;
 
   const mockPriceData: PriceData = {
     prices: {
@@ -40,46 +48,36 @@ describe('PriceAPI', () => {
   };
 
   beforeEach(() => {
-    mockFetchApi = jest.fn(() =>
-      Promise.resolve({
-        success: true,
-        data: mockPriceData,
-      })
-    );
-
-    const mockEnvironment = new MockEnvironment('test-fingerprint');
-    api = new PriceAPI<CommonResponse>({
-      baseUrl: 'http://test.com',
-      environment: mockEnvironment,
-      debug: true,
+    mockEnvironment = new MockBrowserEnvironment('test-fingerprint');
+    mockFetch = jest.fn<FetchFunction>();
+    mockEnvironment.fetch = mockFetch as any;
+    api = new PriceAPI({
+      baseUrl: BASE_URL,
+      environment: mockEnvironment as any,
     });
-    (api as any).fetchApi = mockFetchApi;
   });
 
   describe('getCurrentPrices', () => {
     it('should call API with correct parameters', async () => {
       const tokens = ['token1', 'token2'];
-      mockFetchApi.mockImplementationOnce(() =>
-        Promise.resolve({
-          success: true,
-          data: mockPriceData,
-        })
-      );
+      mockFetch.mockResolvedValueOnce(createMockResponse(mockPriceData));
 
       await api.getCurrentPrices({ tokens });
 
-      expect(mockFetchApi).toHaveBeenCalledWith(
-        '/price/current?tokens=token1%2Ctoken2',
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${BASE_URL}/price/current?tokens=token1%2Ctoken2`,
         {
           method: HttpMethod.GET,
+          headers: {
+            'user-agent': 'test-fingerprint',
+            'content-type': 'application/json',
+          },
         }
       );
     });
 
     it('should handle API errors', async () => {
-      mockFetchApi.mockImplementationOnce(() =>
-        Promise.reject(new Error('API Error'))
-      );
+      mockFetch.mockRejectedValueOnce(new Error('API Error'));
       await expect(
         api.getCurrentPrices({ tokens: ['token1'] })
       ).rejects.toThrow();
@@ -88,27 +86,24 @@ describe('PriceAPI', () => {
 
   describe('getPriceHistory', () => {
     it('should call API with correct parameters', async () => {
-      mockFetchApi.mockImplementationOnce(() =>
-        Promise.resolve({
-          success: true,
-          data: mockPriceHistoryData,
-        })
-      );
+      mockFetch.mockResolvedValueOnce(createMockResponse(mockPriceHistoryData));
 
       await api.getPriceHistory('token1', { interval: '24h', limit: 10 });
 
-      expect(mockFetchApi).toHaveBeenCalledWith(
-        '/price/history/token1?interval=24h&limit=10',
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${BASE_URL}/price/history/token1?interval=24h&limit=10`,
         {
           method: HttpMethod.GET,
+          headers: {
+            'user-agent': 'test-fingerprint',
+            'content-type': 'application/json',
+          },
         }
       );
     });
 
     it('should handle API errors', async () => {
-      mockFetchApi.mockImplementationOnce(() =>
-        Promise.reject(new Error('API Error'))
-      );
+      mockFetch.mockRejectedValueOnce(new Error('API Error'));
       await expect(api.getPriceHistory('token1')).rejects.toThrow();
     });
   });

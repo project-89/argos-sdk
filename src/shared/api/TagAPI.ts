@@ -1,18 +1,30 @@
 import { BaseAPI, BaseAPIConfig } from './BaseAPI';
-import { ApiResponse, TagData } from '../interfaces/api';
-import { HttpMethod, CommonResponse } from '../interfaces/http';
+import type {
+  ApiResponse,
+  TagData,
+  UpdateTagsRequest,
+} from '../interfaces/api';
+import {
+  HttpMethod,
+  CommonResponse,
+  CommonRequestInit,
+} from '../interfaces/http';
 
-export interface UpdateTagsRequest {
-  tags: string[];
-  metadata?: Record<string, any>;
-}
-
-export class TagAPI<T extends CommonResponse> extends BaseAPI<T> {
-  constructor(config: BaseAPIConfig<T>) {
+export class TagAPI<
+  T extends CommonResponse,
+  R extends CommonRequestInit = CommonRequestInit
+> extends BaseAPI<T, R> {
+  constructor(config: BaseAPIConfig<T, R>) {
     super(config);
   }
 
-  public async updateTags(
+  async getTags(fingerprintId: string): Promise<ApiResponse<TagData>> {
+    return this.fetchApi<TagData>(`/tag/${fingerprintId}`, {
+      method: HttpMethod.GET,
+    });
+  }
+
+  async updateTags(
     fingerprintId: string,
     request: UpdateTagsRequest
   ): Promise<ApiResponse<TagData>> {
@@ -22,14 +34,8 @@ export class TagAPI<T extends CommonResponse> extends BaseAPI<T> {
     });
   }
 
-  public async getTags(fingerprintId: string): Promise<ApiResponse<TagData>> {
-    return this.fetchApi<TagData>(`/tag/${fingerprintId}`, {
-      method: HttpMethod.GET,
-    });
-  }
-
-  public async deleteTags(fingerprintId: string): Promise<void> {
-    await this.fetchApi(`/tag/${fingerprintId}`, {
+  async deleteTags(fingerprintId: string): Promise<ApiResponse<void>> {
+    return this.fetchApi<void>(`/tag/${fingerprintId}`, {
       method: HttpMethod.DELETE,
     });
   }

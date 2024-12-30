@@ -3,19 +3,19 @@ import { StorageInterface } from '../../shared/interfaces/environment';
 export class MemoryStorage implements StorageInterface {
   private store: Map<string, string> = new Map();
 
-  getItem(key: string): string | null {
+  async get(key: string): Promise<string | null> {
     return this.store.get(key) || null;
   }
 
-  setItem(key: string, value: string): void {
+  async set(key: string, value: string): Promise<void> {
     this.store.set(key, value);
   }
 
-  removeItem(key: string): void {
+  async remove(key: string): Promise<void> {
     this.store.delete(key);
   }
 
-  clear(): void {
+  async clear(): Promise<void> {
     this.store.clear();
   }
 }

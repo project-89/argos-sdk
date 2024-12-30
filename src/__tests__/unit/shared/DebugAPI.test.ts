@@ -1,37 +1,48 @@
+import { jest } from '@jest/globals';
 import { DebugAPI } from '../../../shared/api/DebugAPI';
-import { MockEnvironment } from '../../../__tests__/utils/testUtils';
-import { HttpMethod, CommonResponse } from '../../../shared/interfaces/http';
+import {
+  MockBrowserEnvironment,
+  createMockResponse,
+} from '../../utils/testUtils';
+import { HttpMethod } from '../../../shared/interfaces/http';
+import type { Response, RequestInit } from 'node-fetch';
+
+type FetchFunction = (url: string, init?: RequestInit) => Promise<Response>;
 
 describe('DebugAPI', () => {
-  let debugAPI: DebugAPI<CommonResponse>;
-  let mockFetchApi: jest.MockedFunction<any>;
+  const BASE_URL = 'https://test.example.com';
+  let debugAPI: DebugAPI<Response, RequestInit>;
+  let mockFetch: jest.MockedFunction<FetchFunction>;
+  let mockEnvironment: MockBrowserEnvironment;
 
   beforeEach(() => {
-    mockFetchApi = jest.fn().mockResolvedValue({
-      success: true,
-      data: { debug: 'info' },
+    mockEnvironment = new MockBrowserEnvironment('test-fingerprint');
+    mockFetch = jest.fn<FetchFunction>();
+    mockEnvironment.fetch = mockFetch as any;
+    debugAPI = new DebugAPI({
+      baseUrl: BASE_URL,
+      environment: mockEnvironment as any,
     });
-
-    const mockEnvironment = new MockEnvironment('test-fingerprint');
-    debugAPI = new DebugAPI<CommonResponse>({
-      baseUrl: 'http://test.com',
-      environment: mockEnvironment,
-      debug: true,
-    });
-    (debugAPI as any).fetchApi = mockFetchApi;
   });
 
   describe('getDebugInfo', () => {
     it('should call API with correct parameters', async () => {
+      const mockDebugInfo = { debug: 'info' };
+      mockFetch.mockResolvedValueOnce(createMockResponse(mockDebugInfo));
+
       await debugAPI.getDebugInfo();
 
-      expect(mockFetchApi).toHaveBeenCalledWith('/debug/info', {
+      expect(mockFetch).toHaveBeenCalledWith(`${BASE_URL}/debug`, {
         method: HttpMethod.GET,
+        headers: {
+          'content-type': 'application/json',
+          'user-agent': 'test-fingerprint',
+        },
       });
     });
 
     it('should handle API errors', async () => {
-      mockFetchApi.mockRejectedValueOnce(new Error('API Error'));
+      mockFetch.mockRejectedValueOnce(new Error('API Error'));
       await expect(debugAPI.getDebugInfo()).rejects.toThrow(
         'Failed to get debug info: API Error'
       );

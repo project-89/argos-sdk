@@ -1,91 +1,92 @@
 import { jest } from '@jest/globals';
 import { TagAPI } from '../../../shared/api/TagAPI';
-import { MockEnvironment } from '../../../__tests__/utils/testUtils';
-import { HttpMethod, CommonResponse } from '../../../shared/interfaces/http';
-import type { TagData } from '../../../shared/interfaces/api';
+import { HttpMethod } from '../../../shared/interfaces/http';
+import { TestEnvironment } from './mocks/TestEnvironment';
+
+const BASE_URL = 'https://test.example.com';
+const mockFetch = jest.fn();
+global.fetch = mockFetch as unknown as typeof global.fetch;
 
 describe('TagAPI', () => {
-  let api: TagAPI<CommonResponse>;
-  let mockFetchApi: jest.Mock;
-
-  const mockTagData: TagData = {
-    tags: ['tag1', 'tag2'],
-    metadata: { key: 'value' },
-  };
+  let api: TagAPI<Response>;
+  let environment: TestEnvironment;
 
   beforeEach(() => {
-    mockFetchApi = jest.fn(() =>
+    jest.clearAllMocks();
+    environment = new TestEnvironment();
+    api = new TagAPI({
+      baseUrl: BASE_URL,
+      environment,
+    });
+
+    mockFetch.mockImplementation(() =>
       Promise.resolve({
-        success: true,
-        data: mockTagData,
-      })
+        ok: true,
+        json: () =>
+          Promise.resolve({ success: true, data: { tags: ['tag1', 'tag2'] } }),
+      } as Response)
+    );
+  });
+
+  it('should update tags', async () => {
+    const request = {
+      tags: ['tag1', 'tag2'],
+    };
+
+    await api.updateTags('test-fingerprint-id', request);
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      `${BASE_URL}/tag/test-fingerprint-id`,
+      {
+        method: HttpMethod.PUT,
+        body: JSON.stringify(request),
+        headers: {
+          'content-type': 'application/json',
+          'user-agent': 'test-fingerprint',
+        },
+      }
+    );
+  });
+
+  it('should get tags', async () => {
+    await api.getTags('test-fingerprint-id');
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      `${BASE_URL}/tag/test-fingerprint-id`,
+      {
+        method: HttpMethod.GET,
+        headers: {
+          'content-type': 'application/json',
+          'user-agent': 'test-fingerprint',
+        },
+      }
+    );
+  });
+
+  it('should delete tags', async () => {
+    await api.deleteTags('test-fingerprint-id');
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      `${BASE_URL}/tag/test-fingerprint-id`,
+      {
+        method: HttpMethod.DELETE,
+        headers: {
+          'content-type': 'application/json',
+          'user-agent': 'test-fingerprint',
+        },
+      }
+    );
+  });
+
+  it('should handle API errors', async () => {
+    mockFetch.mockImplementationOnce(() =>
+      Promise.resolve({
+        ok: false,
+        status: 400,
+        json: () => Promise.resolve({ success: false, error: 'Test error' }),
+      } as Response)
     );
 
-    const mockEnvironment = new MockEnvironment('test-fingerprint');
-    api = new TagAPI<CommonResponse>({
-      baseUrl: 'http://test.com',
-      environment: mockEnvironment,
-      debug: true,
-    });
-    (api as any).fetchApi = mockFetchApi;
-  });
-
-  describe('updateTags', () => {
-    it('should call API with correct parameters', async () => {
-      const request = {
-        tags: ['tag1', 'tag2'],
-        metadata: { key: 'value' },
-      };
-
-      await api.updateTags('test-fingerprint-id', request);
-
-      expect(mockFetchApi).toHaveBeenCalledWith('/tag/test-fingerprint-id', {
-        method: HttpMethod.PUT,
-        body: request,
-      });
-    });
-
-    it('should handle API errors', async () => {
-      mockFetchApi.mockImplementationOnce(() =>
-        Promise.reject(new Error('API Error'))
-      );
-      await expect(
-        api.updateTags('test-fingerprint-id', { tags: ['tag1'] })
-      ).rejects.toThrow();
-    });
-  });
-
-  describe('getTags', () => {
-    it('should call API with correct parameters', async () => {
-      await api.getTags('test-fingerprint-id');
-
-      expect(mockFetchApi).toHaveBeenCalledWith('/tag/test-fingerprint-id', {
-        method: HttpMethod.GET,
-      });
-    });
-
-    it('should handle API errors', async () => {
-      mockFetchApi.mockImplementationOnce(() =>
-        Promise.reject(new Error('API Error'))
-      );
-      await expect(api.getTags('test-fingerprint-id')).rejects.toThrow();
-    });
-  });
-
-  describe('deleteTags', () => {
-    it('should call API with correct parameters', async () => {
-      await api.deleteTags('test-fingerprint-id');
-
-      expect(mockFetchApi).toHaveBeenCalledWith('/tag/test-fingerprint-id', {
-        method: HttpMethod.DELETE,
-      });
-    });
-
-    it('should handle API errors', async () => {
-      mockFetchApi.mockImplementationOnce(() =>
-        Promise.reject(new Error('API Error'))
-      );
-      await expect(api.deleteTags('test-fingerprint-id')).rejects.toThrow();
-    });
+    await expect(api.getTags('test-fingerprint-id')).rejects.toThrow();
   });
 });

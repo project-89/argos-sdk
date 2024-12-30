@@ -1,57 +1,79 @@
-import { BaseAPI, BaseAPIConfig } from '../../../shared/api/BaseAPI';
-import { MockEnvironment } from '../../../__tests__/utils/testUtils';
-import { HttpMethod, CommonResponse } from '../../../shared/interfaces/http';
+import { jest } from '@jest/globals';
+import { BaseAPI } from '../../../shared/api/BaseAPI';
+import { HttpMethod } from '../../../shared/interfaces/http';
+import { TestEnvironment } from './mocks/TestEnvironment';
+import type { BaseAPIRequestOptions } from '../../../shared/api/BaseAPI';
+import type { ApiResponse } from '../../../shared/interfaces/api';
 
-// Create a concrete implementation for testing
-class TestAPI<T extends CommonResponse> extends BaseAPI<T> {
-  constructor(config: BaseAPIConfig<T>) {
-    super(config);
+const BASE_URL = 'https://test.example.com';
+const mockFetch = jest.fn();
+global.fetch = mockFetch as unknown as typeof global.fetch;
+
+class TestAPI extends BaseAPI<Response, RequestInit> {
+  constructor() {
+    super({
+      baseUrl: BASE_URL,
+      environment: new TestEnvironment(),
+    });
   }
 
-  public async testFetch(path: string, options = {}) {
-    return this.fetchApi(path, options);
+  async testFetch<T>(
+    path: string,
+    options?: BaseAPIRequestOptions
+  ): Promise<ApiResponse<T>> {
+    return this.fetchApi<T>(path, options);
   }
 }
 
 describe('BaseAPI', () => {
-  let api: TestAPI<Response>;
-  let mockEnvironment: InstanceType<typeof MockEnvironment>;
+  let api: TestAPI;
 
   beforeEach(() => {
-    mockEnvironment = new MockEnvironment('test-fingerprint');
-    api = new TestAPI<Response>({
-      baseUrl: 'https://test.example.com',
-      environment: mockEnvironment,
+    jest.clearAllMocks();
+    api = new TestAPI();
+
+    mockFetch.mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ success: true, data: { test: 'data' } }),
+      } as Response)
+    );
+  });
+
+  it('should call fetch with correct parameters', async () => {
+    const testData = { test: 'data' };
+    await api.testFetch('/test', {
+      method: HttpMethod.POST,
+      body: JSON.stringify(testData),
+      headers: {
+        'content-type': 'application/json',
+      },
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(`${BASE_URL}/test`, {
+      method: HttpMethod.POST,
+      body: JSON.stringify(testData),
+      headers: {
+        'content-type': 'application/json',
+        'user-agent': 'test-fingerprint',
+      },
     });
   });
 
-  describe('fetchApi', () => {
-    it('should make requests with correct headers', async () => {
-      const response = await api.testFetch('/test');
-      expect(response.success).toBe(true);
-    });
+  it('should handle API errors', async () => {
+    mockFetch.mockImplementationOnce(() =>
+      Promise.resolve({
+        ok: false,
+        status: 400,
+        json: () => Promise.resolve({ success: false, error: 'Test error' }),
+      } as Response)
+    );
 
-    it('should handle different HTTP methods', async () => {
-      const response = await api.testFetch('/test', {
+    await expect(
+      api.testFetch('/test', {
         method: HttpMethod.POST,
-        body: { test: true },
-      });
-      expect(response.success).toBe(true);
-    });
-
-    it('should handle errors', async () => {
-      const mockFetch = jest
-        .spyOn(mockEnvironment, 'fetch')
-        .mockImplementation(async () => {
-          return new Response(JSON.stringify({ error: 'Test error' }), {
-            status: 400,
-            statusText: 'Bad Request',
-            headers: { 'content-type': 'application/json' },
-          });
-        });
-
-      await expect(api.testFetch('/test')).rejects.toThrow();
-      expect(mockFetch).toHaveBeenCalled();
-    });
+        body: JSON.stringify({ test: 'data' }),
+      })
+    ).rejects.toThrow();
   });
 });

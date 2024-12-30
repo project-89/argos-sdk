@@ -1,16 +1,21 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { BaseAPI, BaseAPIConfig } from './BaseAPI';
 import type { ApiResponse, Fingerprint } from '../interfaces/api';
-import { HttpMethod, CommonResponse } from '../interfaces/http';
+import {
+  HttpMethod,
+  CommonResponse,
+  CommonRequestInit,
+} from '../interfaces/http';
 
 interface CreateFingerprintOptions {
-  metadata?: {
-    [key: string]: any;
-  };
+  metadata?: Record<string, unknown>;
 }
 
-export class FingerprintAPI<T extends CommonResponse> extends BaseAPI<T> {
-  constructor(config: BaseAPIConfig<T>) {
+export class FingerprintAPI<
+  T extends CommonResponse,
+  R extends CommonRequestInit = CommonRequestInit
+> extends BaseAPI<T, R> {
+  constructor(config: BaseAPIConfig<T, R>) {
     super(config);
   }
 
@@ -35,11 +40,11 @@ export class FingerprintAPI<T extends CommonResponse> extends BaseAPI<T> {
 
   async updateFingerprint(
     id: string,
-    data: Partial<Fingerprint>
+    metadata: Record<string, unknown>
   ): Promise<ApiResponse<Fingerprint>> {
     return this.fetchApi<Fingerprint>(`/fingerprint/${id}`, {
       method: HttpMethod.PUT,
-      body: data,
+      body: { metadata },
     });
   }
 

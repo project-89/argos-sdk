@@ -6,56 +6,81 @@ export interface CookieStorageOptions {
   sameSite?: 'strict' | 'lax' | 'none';
   domain?: string;
   path?: string;
+  expires?: number;
 }
 
 export class CookieStorage implements StorageInterface {
+  private prefix: string;
   private options: CookieStorageOptions;
-  private readonly prefix = 'argos_';
 
   constructor(options: CookieStorageOptions = {}) {
+    this.prefix = 'argos_';
     this.options = {
       secure: true,
       sameSite: 'strict',
+      path: '/',
       ...options,
     };
   }
 
-  private getPrefixedKey(key: string): string {
+  private getKey(key: string): string {
     return `${this.prefix}${key}`;
   }
 
-  getItem(key: string): string | null {
-    if (typeof document === 'undefined') {
-      return null;
-    }
-    return Cookies.get(this.getPrefixedKey(key)) ?? null;
+  async get(key: string): Promise<string | null> {
+    const prefixedKey = this.getKey(key);
+    const value = Cookies.get(prefixedKey);
+    return value === undefined ? null : value;
   }
 
-  setItem(key: string, value: string): void {
-    if (typeof document === 'undefined') {
-      return;
-    }
-    Cookies.set(this.getPrefixedKey(key), value, {
+  async set(key: string, value: string): Promise<void> {
+    const prefixedKey = this.getKey(key);
+    const cookieOptions = {
       ...this.options,
-      expires: 7, // 7 days
-    });
-  }
+      expires: this.options.expires ? this.options.expires : undefined,
+    };
 
-  removeItem(key: string): void {
-    if (typeof document === 'undefined') {
+    // Handle empty string case
+    if (value === '') {
+      Cookies.set(prefixedKey, value, cookieOptions);
       return;
     }
-    Cookies.remove(this.getPrefixedKey(key), this.options);
+
+    try {
+      Cookies.set(prefixedKey, value, cookieOptions);
+    } catch (error) {
+      console.error('Failed to set cookie:', error);
+      throw error;
+    }
   }
 
-  clear(): void {
-    if (typeof document === 'undefined') {
-      return;
+  async remove(key: string): Promise<void> {
+    const prefixedKey = this.getKey(key);
+    const removeOptions = {
+      ...this.options,
+      expires: undefined,
+    };
+
+    try {
+      Cookies.remove(prefixedKey, removeOptions);
+    } catch (error) {
+      console.error('Failed to remove cookie:', error);
+      throw error;
     }
+  }
+
+  async clear(): Promise<void> {
     const cookies = Cookies.get();
     Object.keys(cookies).forEach((key) => {
       if (key.startsWith(this.prefix)) {
-        Cookies.remove(key, this.options);
+        try {
+          Cookies.remove(key, {
+            ...this.options,
+            expires: undefined,
+          });
+        } catch (error) {
+          console.error(`Failed to remove cookie ${key}:`, error);
+        }
       }
     });
   }

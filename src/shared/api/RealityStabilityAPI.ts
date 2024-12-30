@@ -1,22 +1,41 @@
 import { BaseAPI, BaseAPIConfig } from './BaseAPI';
-import { ApiResponse, RealityStabilityData } from '../interfaces/api';
-import { HttpMethod, CommonResponse } from '../interfaces/http';
+import type { ApiResponse } from '../interfaces/api';
+import {
+  HttpMethod,
+  CommonResponse,
+  CommonRequestInit,
+} from '../interfaces/http';
 
-export class RealityStabilityAPI<T extends CommonResponse> extends BaseAPI<T> {
-  constructor(config: BaseAPIConfig<T>) {
+interface RealityStabilityData {
+  stability: number;
+  factors: Record<string, unknown>;
+}
+
+export interface StabilityData {
+  status: 'stable' | 'unstable';
+  lastChecked: string;
+  metrics: {
+    [key: string]: number;
+  };
+}
+
+export class RealityStabilityAPI<
+  T extends CommonResponse,
+  R extends CommonRequestInit = CommonRequestInit
+> extends BaseAPI<T, R> {
+  constructor(config: BaseAPIConfig<T, R>) {
     super(config);
   }
 
-  public async getCurrentStability(): Promise<
-    ApiResponse<RealityStabilityData>
-  > {
-    try {
-      return await this.fetchApi<RealityStabilityData>('/reality-stability', {
-        method: HttpMethod.GET,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to get reality stability: ${message}`);
-    }
+  async getStability(): Promise<ApiResponse<RealityStabilityData>> {
+    return this.fetchApi<RealityStabilityData>('/reality-stability', {
+      method: HttpMethod.GET,
+    });
+  }
+
+  async getCurrentStability(): Promise<ApiResponse<StabilityData>> {
+    return this.fetchApi<StabilityData>('/stability/current', {
+      method: HttpMethod.GET,
+    });
   }
 }

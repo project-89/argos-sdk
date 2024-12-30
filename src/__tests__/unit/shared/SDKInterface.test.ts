@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { ArgosServerSDK } from '../../../server/sdk/ArgosServerSDK';
 import { ArgosClientSDK } from '../../../client/sdk/ArgosClientSDK';
 import { RuntimeEnvironment } from '../../../shared/interfaces/environment';
+import type { Response, RequestInit } from 'node-fetch';
 import {
   MockBrowserEnvironment,
   MockNodeEnvironment,
@@ -22,12 +23,12 @@ describe('SDK Interface', () => {
     // Initialize SDKs with appropriate environments
     serverSDK = new ArgosServerSDK({
       baseUrl: 'https://test.example.com',
-      environment: nodeEnvironment,
+      environment: nodeEnvironment as any,
     });
 
     clientSDK = new ArgosClientSDK({
       baseUrl: 'https://test.example.com',
-      environment: browserEnvironment,
+      environment: browserEnvironment as any,
       debug: true,
     });
   });
@@ -117,7 +118,7 @@ describe('SDK Interface', () => {
         } as any;
       });
 
-      await expect(sdk.revokeApiKey({ key: apiKey })).rejects.toThrow();
+      await expect(sdk.revokeAPIKey({ key: apiKey })).rejects.toThrow();
       expect(nodeEnvironment.fetch).toHaveBeenCalled();
       expect(sdk.getApiKey()).toBeUndefined();
     });

@@ -1,145 +1,187 @@
 import { jest } from '@jest/globals';
 import { FingerprintAPI } from '../../../shared/api/FingerprintAPI';
-import { MockEnvironment } from '../../../__tests__/utils/testUtils';
-import { HttpMethod, CommonResponse } from '../../../shared/interfaces/http';
-import type { Fingerprint } from '../../../shared/interfaces/api';
+import {
+  MockBrowserEnvironment,
+  createMockResponse,
+} from '../../utils/testUtils';
+import { HttpMethod } from '../../../shared/interfaces/http';
+import type { Response, RequestInit } from 'node-fetch';
+import type { ApiResponse, Fingerprint } from '../../../shared/interfaces/api';
+
+type FetchFunction = (url: string, init?: RequestInit) => Promise<Response>;
 
 describe('FingerprintAPI', () => {
-  let api: FingerprintAPI<CommonResponse>;
-  let mockFetchApi: jest.Mock;
-
-  const mockFingerprint: Fingerprint = {
-    id: 'test-fingerprint-id',
-    fingerprint: 'test-fingerprint',
-    roles: ['user'],
-    createdAt: {
-      _seconds: Math.floor(Date.now() / 1000),
-      _nanoseconds: 0,
-    },
-    metadata: { key: 'value' },
-    ipAddresses: ['127.0.0.1'],
-    ipMetadata: {
-      ipFrequency: { '127.0.0.1': 1 },
-      lastSeenAt: {
-        '127.0.0.1': {
-          _seconds: Math.floor(Date.now() / 1000),
-          _nanoseconds: 0,
-        },
-      },
-      primaryIp: '127.0.0.1',
-      suspiciousIps: [],
-    },
-    tags: ['tag1'],
-  };
+  const BASE_URL = 'https://test.example.com';
+  let api: FingerprintAPI<Response, RequestInit>;
+  let mockFetch: jest.MockedFunction<FetchFunction>;
+  let mockEnvironment: MockBrowserEnvironment;
 
   beforeEach(() => {
-    mockFetchApi = jest.fn(() =>
-      Promise.resolve({
-        success: true,
-        data: mockFingerprint,
-      })
-    );
-
-    const mockEnvironment = new MockEnvironment('test-fingerprint');
-    api = new FingerprintAPI<CommonResponse>({
-      baseUrl: 'http://test.com',
-      environment: mockEnvironment,
-      debug: true,
+    mockEnvironment = new MockBrowserEnvironment('test-fingerprint');
+    mockFetch = jest.fn<FetchFunction>();
+    mockEnvironment.fetch = mockFetch as any;
+    api = new FingerprintAPI({
+      baseUrl: BASE_URL,
+      environment: mockEnvironment as any,
     });
-    (api as any).fetchApi = mockFetchApi;
   });
 
   describe('createFingerprint', () => {
     it('should call API with correct parameters', async () => {
-      const options = {
-        metadata: { key: 'value' },
+      const fingerprintId = 'test-fingerprint-id';
+      const options = { metadata: { key: 'value' } };
+
+      const mockFingerprint: Fingerprint = {
+        id: fingerprintId,
+        fingerprint: fingerprintId,
+        roles: [],
+        createdAt: { _seconds: 0, _nanoseconds: 0 },
+        metadata: options.metadata,
+        ipAddresses: [],
+        ipMetadata: {
+          ipFrequency: {},
+          lastSeenAt: {},
+          primaryIp: '',
+          suspiciousIps: [],
+        },
+        tags: [],
       };
 
-      await api.createFingerprint('test-fingerprint', options);
+      mockFetch.mockResolvedValueOnce(createMockResponse(mockFingerprint));
 
-      expect(mockFetchApi).toHaveBeenCalledWith('/fingerprint/register', {
-        method: HttpMethod.POST,
-        body: {
-          fingerprint: 'test-fingerprint',
-          metadata: options.metadata,
-        },
-      });
+      await api.createFingerprint(fingerprintId, options);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${BASE_URL}/fingerprint/register`,
+        {
+          method: HttpMethod.POST,
+          body: {
+            fingerprint: fingerprintId,
+            metadata: options.metadata,
+          },
+          headers: {
+            'content-type': 'application/json',
+            'user-agent': 'test-fingerprint',
+          },
+        }
+      );
     });
 
     it('should handle API errors', async () => {
-      mockFetchApi.mockImplementationOnce(() =>
-        Promise.reject(new Error('API Error'))
-      );
-      await expect(api.createFingerprint('test-fingerprint')).rejects.toThrow();
+      mockFetch.mockRejectedValueOnce(new Error('API Error'));
+      await expect(api.createFingerprint('test-id', {})).rejects.toThrow();
     });
   });
 
   describe('getFingerprint', () => {
     it('should call API with correct parameters', async () => {
-      await api.getFingerprint('test-fingerprint-id');
+      const fingerprintId = 'test-fingerprint-id';
 
-      expect(mockFetchApi).toHaveBeenCalledWith(
-        '/fingerprint/test-fingerprint-id',
+      const mockFingerprint: Fingerprint = {
+        id: fingerprintId,
+        fingerprint: fingerprintId,
+        roles: [],
+        createdAt: { _seconds: 0, _nanoseconds: 0 },
+        metadata: {},
+        ipAddresses: [],
+        ipMetadata: {
+          ipFrequency: {},
+          lastSeenAt: {},
+          primaryIp: '',
+          suspiciousIps: [],
+        },
+        tags: [],
+      };
+
+      mockFetch.mockResolvedValueOnce(createMockResponse(mockFingerprint));
+
+      await api.getFingerprint(fingerprintId);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${BASE_URL}/fingerprint/${fingerprintId}`,
         {
           method: HttpMethod.GET,
+          headers: {
+            'user-agent': 'test-fingerprint',
+            'content-type': 'application/json',
+          },
         }
       );
     });
 
     it('should handle API errors', async () => {
-      mockFetchApi.mockImplementationOnce(() =>
-        Promise.reject(new Error('API Error'))
-      );
-      await expect(api.getFingerprint('test-fingerprint-id')).rejects.toThrow();
+      mockFetch.mockRejectedValueOnce(new Error('API Error'));
+      await expect(api.getFingerprint('test-id')).rejects.toThrow();
     });
   });
 
   describe('updateFingerprint', () => {
     it('should call API with correct parameters', async () => {
-      const updateData = {
-        metadata: { key: 'updated-value' },
+      const fingerprintId = 'test-fingerprint-id';
+      const metadata = { key: 'updated-value' };
+
+      const mockFingerprint: Fingerprint = {
+        id: fingerprintId,
+        fingerprint: fingerprintId,
+        roles: [],
+        createdAt: { _seconds: 0, _nanoseconds: 0 },
+        metadata,
+        ipAddresses: [],
+        ipMetadata: {
+          ipFrequency: {},
+          lastSeenAt: {},
+          primaryIp: '',
+          suspiciousIps: [],
+        },
+        tags: [],
       };
 
-      await api.updateFingerprint('test-fingerprint-id', updateData);
+      mockFetch.mockResolvedValueOnce(createMockResponse(mockFingerprint));
 
-      expect(mockFetchApi).toHaveBeenCalledWith(
-        '/fingerprint/test-fingerprint-id',
+      await api.updateFingerprint(fingerprintId, metadata);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${BASE_URL}/fingerprint/${fingerprintId}`,
         {
           method: HttpMethod.PUT,
-          body: updateData,
+          body: { metadata },
+          headers: {
+            'content-type': 'application/json',
+            'user-agent': 'test-fingerprint',
+          },
         }
       );
     });
 
     it('should handle API errors', async () => {
-      mockFetchApi.mockImplementationOnce(() =>
-        Promise.reject(new Error('API Error'))
-      );
-      await expect(
-        api.updateFingerprint('test-fingerprint-id', { metadata: {} })
-      ).rejects.toThrow();
+      mockFetch.mockRejectedValueOnce(new Error('API Error'));
+      await expect(api.updateFingerprint('test-id', {})).rejects.toThrow();
     });
   });
 
   describe('deleteFingerprint', () => {
     it('should call API with correct parameters', async () => {
-      await api.deleteFingerprint('test-fingerprint-id');
+      const fingerprintId = 'test-fingerprint-id';
 
-      expect(mockFetchApi).toHaveBeenCalledWith(
-        '/fingerprint/test-fingerprint-id',
+      mockFetch.mockResolvedValueOnce(createMockResponse(undefined));
+
+      await api.deleteFingerprint(fingerprintId);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${BASE_URL}/fingerprint/${fingerprintId}`,
         {
           method: HttpMethod.DELETE,
+          headers: {
+            'content-type': 'application/json',
+            'user-agent': 'test-fingerprint',
+          },
         }
       );
     });
 
     it('should handle API errors', async () => {
-      mockFetchApi.mockImplementationOnce(() =>
-        Promise.reject(new Error('API Error'))
-      );
-      await expect(
-        api.deleteFingerprint('test-fingerprint-id')
-      ).rejects.toThrow();
+      mockFetch.mockRejectedValueOnce(new Error('API Error'));
+      await expect(api.deleteFingerprint('test-id')).rejects.toThrow();
     });
   });
 });

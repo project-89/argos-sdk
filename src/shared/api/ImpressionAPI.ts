@@ -1,23 +1,26 @@
 import { BaseAPI, BaseAPIConfig } from './BaseAPI';
-import {
+import type {
   ApiResponse,
   ImpressionData,
   CreateImpressionRequest,
   GetImpressionsOptions,
   DeleteImpressionsResponse,
 } from '../interfaces/api';
-import { HttpMethod, CommonResponse } from '../interfaces/http';
+import {
+  HttpMethod,
+  CommonResponse,
+  CommonRequestInit,
+} from '../interfaces/http';
 
-export class ImpressionAPI<T extends CommonResponse> extends BaseAPI<T> {
-  constructor(config: BaseAPIConfig<T>) {
+export class ImpressionAPI<
+  T extends CommonResponse,
+  R extends CommonRequestInit = CommonRequestInit
+> extends BaseAPI<T, R> {
+  constructor(config: BaseAPIConfig<T, R>) {
     super(config);
   }
 
-  /**
-   * Create a new impression
-   * POST /impressions
-   */
-  public async createImpression(
+  async createImpression(
     request: CreateImpressionRequest
   ): Promise<ApiResponse<ImpressionData>> {
     return this.fetchApi<ImpressionData>('/impressions', {
@@ -26,48 +29,41 @@ export class ImpressionAPI<T extends CommonResponse> extends BaseAPI<T> {
     });
   }
 
-  /**
-   * Get impressions for a fingerprint
-   * GET /impressions/:fingerprintId
-   */
-  public async getImpressions(
+  async getImpressions(
     fingerprintId: string,
     options?: GetImpressionsOptions
   ): Promise<ApiResponse<ImpressionData[]>> {
     const queryParams = new URLSearchParams();
-    if (options?.type) queryParams.set('type', options.type);
-    if (options?.startTime) queryParams.set('startTime', options.startTime);
-    if (options?.endTime) queryParams.set('endTime', options.endTime);
-    if (options?.limit) queryParams.set('limit', String(options.limit));
-    if (options?.sessionId) queryParams.set('sessionId', options.sessionId);
+    if (options?.type) queryParams.append('type', options.type);
+    if (options?.startTime) queryParams.append('startTime', options.startTime);
+    if (options?.endTime) queryParams.append('endTime', options.endTime);
+    if (options?.limit) queryParams.append('limit', options.limit.toString());
+    if (options?.sessionId) queryParams.append('sessionId', options.sessionId);
 
-    const query = queryParams.toString();
-    const url = `/impressions/${fingerprintId}${query ? `?${query}` : ''}`;
-
-    return this.fetchApi<ImpressionData[]>(url, {
-      method: HttpMethod.GET,
-    });
+    return this.fetchApi<ImpressionData[]>(
+      `/impressions/${fingerprintId}${
+        queryParams.toString() ? `?${queryParams.toString()}` : ''
+      }`,
+      {
+        method: HttpMethod.GET,
+      }
+    );
   }
 
-  /**
-   * Delete impressions for a fingerprint
-   * DELETE /impressions/:fingerprintId
-   */
-  public async deleteImpressions(
+  async deleteImpressions(
     fingerprintId: string,
-    options?: GetImpressionsOptions
+    type?: string
   ): Promise<ApiResponse<DeleteImpressionsResponse>> {
     const queryParams = new URLSearchParams();
-    if (options?.type) queryParams.set('type', options.type);
-    if (options?.startTime) queryParams.set('startTime', options.startTime);
-    if (options?.endTime) queryParams.set('endTime', options.endTime);
-    if (options?.sessionId) queryParams.set('sessionId', options.sessionId);
+    if (type) queryParams.append('type', type);
 
-    const query = queryParams.toString();
-    const url = `/impressions/${fingerprintId}${query ? `?${query}` : ''}`;
-
-    return this.fetchApi<DeleteImpressionsResponse>(url, {
-      method: HttpMethod.DELETE,
-    });
+    return this.fetchApi<DeleteImpressionsResponse>(
+      `/impressions/${fingerprintId}${
+        queryParams.toString() ? `?${queryParams.toString()}` : ''
+      }`,
+      {
+        method: HttpMethod.DELETE,
+      }
+    );
   }
 }

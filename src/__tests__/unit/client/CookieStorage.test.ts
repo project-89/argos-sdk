@@ -5,111 +5,160 @@
 import { CookieStorage } from '../../../client/storage/CookieStorage';
 import Cookies from 'js-cookie';
 
+// Mock js-cookie
+jest.mock('js-cookie', () => ({
+  get: jest.fn(),
+  set: jest.fn(),
+  remove: jest.fn(),
+}));
+
 describe('CookieStorage', () => {
   let storage: CookieStorage;
+  let mockCookies: { [key: string]: string } = {};
 
   beforeEach(() => {
-    // Clear all cookies
-    Object.keys(Cookies.get()).forEach((key) => {
-      Cookies.remove(key);
+    // Reset mock cookies
+    mockCookies = {};
+
+    // Mock js-cookie implementation
+    (Cookies.get as jest.Mock).mockImplementation((key?: string) =>
+      key ? mockCookies[key] : mockCookies
+    );
+    (Cookies.set as jest.Mock).mockImplementation(
+      (key: string, value: string) => {
+        mockCookies[key] = value;
+      }
+    );
+    (Cookies.remove as jest.Mock).mockImplementation((key: string) => {
+      delete mockCookies[key];
     });
 
     storage = new CookieStorage({
       secure: false,
-      sameSite: 'strict',
+      sameSite: 'lax',
     });
   });
 
-  it('should store and retrieve a value', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should store and retrieve a value', async () => {
     const key = 'testKey';
     const value = 'testValue';
 
-    storage.setItem(key, value);
-    console.log('All cookies after set:', Cookies.get());
+    await storage.set(key, value);
+    const retrieved = await storage.get(key);
 
-    const retrieved = storage.getItem(key);
-    console.log('Retrieved value:', retrieved);
-
+    expect(Cookies.set).toHaveBeenCalledWith(
+      'argos_testKey',
+      'testValue',
+      expect.any(Object)
+    );
     expect(retrieved).toBe(value);
   });
 
   describe('edge cases', () => {
-    it('should handle empty string values', () => {
-      // Test js-cookie directly first
-      Cookies.set('direct_test', '');
-      console.log('Direct cookie value:', Cookies.get('direct_test'));
-
-      // Then test through CookieStorage
-      storage.setItem('test', '');
-      console.log('All cookies after empty set:', Cookies.get());
-      const value = storage.getItem('test');
-      console.log('Retrieved empty value:', value);
+    it('should handle empty string values', async () => {
+      await storage.set('test', '');
+      const value = await storage.get('test');
       expect(value).toBe('');
+      expect(Cookies.set).toHaveBeenCalledWith(
+        'argos_test',
+        '',
+        expect.any(Object)
+      );
     });
 
-    it('should handle special characters in keys', () => {
+    it('should handle special characters in keys', async () => {
       const key = 'test@#$%^&*';
       const value = 'value';
-      storage.setItem(key, value);
-      expect(storage.getItem(key)).toBe(value);
+      await storage.set(key, value);
+      expect(await storage.get(key)).toBe(value);
+      expect(Cookies.set).toHaveBeenCalledWith(
+        `argos_${key}`,
+        value,
+        expect.any(Object)
+      );
     });
 
-    it('should handle special characters in values', () => {
+    it('should handle special characters in values', async () => {
       const key = 'test';
       const value = 'value@#$%^&*';
-      storage.setItem(key, value);
-      expect(storage.getItem(key)).toBe(value);
+      await storage.set(key, value);
+      expect(await storage.get(key)).toBe(value);
+      expect(Cookies.set).toHaveBeenCalledWith(
+        'argos_test',
+        value,
+        expect.any(Object)
+      );
     });
 
-    it('should handle very long values', () => {
+    it('should handle very long values', async () => {
       const key = 'test';
       const value = 'x'.repeat(1000);
-      storage.setItem(key, value);
-      expect(storage.getItem(key)).toBe(value);
+      await storage.set(key, value);
+      expect(await storage.get(key)).toBe(value);
+      expect(Cookies.set).toHaveBeenCalledWith(
+        'argos_test',
+        value,
+        expect.any(Object)
+      );
     });
 
-    it('should handle JSON stringified values', () => {
+    it('should handle JSON stringified values', async () => {
       const key = 'test';
       const value = JSON.stringify({ test: 'value' });
-      storage.setItem(key, value);
-      expect(storage.getItem(key)).toBe(value);
+      await storage.set(key, value);
+      expect(await storage.get(key)).toBe(value);
+      expect(Cookies.set).toHaveBeenCalledWith(
+        'argos_test',
+        value,
+        expect.any(Object)
+      );
     });
   });
 
-  it('should return null for non-existent key', () => {
-    expect(storage.getItem('nonexistent')).toBeNull();
+  it('should return null for non-existent key', async () => {
+    expect(await storage.get('nonexistent')).toBeNull();
+    expect(Cookies.get).toHaveBeenCalledWith('argos_nonexistent');
   });
 
-  it('should remove stored value', () => {
+  it('should remove stored value', async () => {
     const key = 'testKey';
     const value = 'testValue';
 
-    storage.setItem(key, value);
-    expect(storage.getItem(key)).toBe(value);
+    await storage.set(key, value);
+    expect(await storage.get(key)).toBe(value);
 
-    storage.removeItem(key);
-    expect(storage.getItem(key)).toBeNull();
+    await storage.remove(key);
+    expect(await storage.get(key)).toBeNull();
+    expect(Cookies.remove).toHaveBeenCalledWith(
+      'argos_testKey',
+      expect.any(Object)
+    );
   });
 
-  it('should clear all stored values', () => {
-    storage.setItem('key1', 'value1');
-    storage.setItem('key2', 'value2');
+  it('should clear all stored values', async () => {
+    await storage.set('key1', 'value1');
+    await storage.set('key2', 'value2');
 
-    storage.clear();
+    mockCookies['other_cookie'] = 'value';
 
-    expect(storage.getItem('key1')).toBeNull();
-    expect(storage.getItem('key2')).toBeNull();
+    await storage.clear();
+
+    expect(await storage.get('key1')).toBeNull();
+    expect(await storage.get('key2')).toBeNull();
+    expect(mockCookies['other_cookie']).toBe('value');
   });
 
-  it('should not affect non-prefixed cookies', () => {
-    // Set a cookie without the prefix
-    Cookies.set('other_cookie', 'value');
+  it('should not affect non-prefixed cookies', async () => {
+    mockCookies['other_cookie'] = 'value';
 
-    storage.setItem('key1', 'value1');
-    storage.clear();
+    await storage.set('key1', 'value1');
+    await storage.clear();
 
-    // Our prefixed cookie should be gone but the other should remain
-    expect(storage.getItem('key1')).toBeNull();
-    expect(Cookies.get('other_cookie')).toBe('value');
+    expect(await storage.get('key1')).toBeNull();
+    expect(mockCookies['other_cookie']).toBe('value');
   });
 });

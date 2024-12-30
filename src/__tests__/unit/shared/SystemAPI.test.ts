@@ -1,73 +1,87 @@
 import { jest } from '@jest/globals';
-import { SystemAPI } from '../../../shared/api/SystemAPI';
-import { MockEnvironment } from '../../../__tests__/utils/testUtils';
-import type {
-  ApiResponse,
-  SystemHealthData,
-} from '../../../shared/interfaces/api';
+import {
+  SystemAPI,
+  HealthCheckResponse,
+  RoleInfo,
+} from '../../../shared/api/SystemAPI';
+import {
+  MockBrowserEnvironment,
+  createMockResponse,
+} from '../../utils/testUtils';
 import { HttpMethod } from '../../../shared/interfaces/http';
+import type { Response, RequestInit } from 'node-fetch';
 
-describe('SystemAPI Unit Tests', () => {
-  let api: SystemAPI<Response>;
-  let mockFetchApi: jest.MockedFunction<
-    (path: string, options?: any) => Promise<ApiResponse<any>>
-  >;
+type FetchFunction = (url: string, init?: RequestInit) => Promise<Response>;
 
-  const mockHealthData: SystemHealthData = {
-    status: 'ok',
-    version: '1.0.0',
-    timestamp: new Date().toISOString(),
-  };
+describe('SystemAPI', () => {
+  const BASE_URL = 'https://test.example.com';
+  let api: SystemAPI<Response, RequestInit>;
+  let mockFetch: jest.MockedFunction<FetchFunction>;
+  let mockEnvironment: MockBrowserEnvironment;
 
   beforeEach(() => {
-    mockFetchApi = jest.fn().mockImplementation(async () => ({
-      success: true,
-      data: mockHealthData,
-    })) as jest.MockedFunction<
-      (path: string, options?: any) => Promise<ApiResponse<any>>
-    >;
-
-    const mockEnvironment = new MockEnvironment('test-fingerprint');
-    api = new SystemAPI<Response>({
-      baseUrl: 'http://test.com',
-      environment: mockEnvironment,
-      debug: true,
+    mockEnvironment = new MockBrowserEnvironment('test-fingerprint');
+    mockFetch = jest.fn<FetchFunction>();
+    mockEnvironment.fetch = mockFetch as any;
+    api = new SystemAPI({
+      baseUrl: BASE_URL,
+      environment: mockEnvironment as any,
     });
-    (api as any).fetchApi = mockFetchApi;
   });
 
   describe('checkHealth', () => {
     it('should call API with correct parameters', async () => {
+      const mockHealthData: HealthCheckResponse = {
+        status: 'healthy',
+        version: '1.0.0',
+        uptime: 3600,
+      };
+
+      mockFetch.mockResolvedValueOnce(createMockResponse(mockHealthData));
+
       await api.checkHealth();
 
-      expect(mockFetchApi).toHaveBeenCalledWith('/health', {
+      expect(mockFetch).toHaveBeenCalledWith(`${BASE_URL}/health`, {
         method: HttpMethod.GET,
+        headers: {
+          'user-agent': 'test-fingerprint',
+          'content-type': 'application/json',
+        },
       });
     });
 
     it('should handle API errors', async () => {
-      mockFetchApi.mockRejectedValueOnce(new Error('API Error'));
+      mockFetch.mockRejectedValueOnce(new Error('API Error'));
       await expect(api.checkHealth()).rejects.toThrow();
     });
   });
 
   describe('getAvailableRoles', () => {
     it('should call API with correct parameters', async () => {
-      const mockRoles = ['admin', 'user'];
-      mockFetchApi.mockResolvedValueOnce({
-        success: true,
-        data: mockRoles,
-      });
+      const mockRoles: RoleInfo[] = [
+        {
+          id: 'admin',
+          name: 'Administrator',
+          description: 'Full system access',
+          permissions: ['read', 'write', 'delete'],
+        },
+      ];
+
+      mockFetch.mockResolvedValueOnce(createMockResponse(mockRoles));
 
       await api.getAvailableRoles();
 
-      expect(mockFetchApi).toHaveBeenCalledWith('/role/available', {
+      expect(mockFetch).toHaveBeenCalledWith(`${BASE_URL}/roles`, {
         method: HttpMethod.GET,
+        headers: {
+          'content-type': 'application/json',
+          'user-agent': 'test-fingerprint',
+        },
       });
     });
 
     it('should handle API errors', async () => {
-      mockFetchApi.mockRejectedValueOnce(new Error('API Error'));
+      mockFetch.mockRejectedValueOnce(new Error('API Error'));
       await expect(api.getAvailableRoles()).rejects.toThrow();
     });
   });

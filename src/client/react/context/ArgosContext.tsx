@@ -5,7 +5,8 @@ import React, {
   useState,
   useCallback,
 } from 'react';
-import { ArgosSDK, ArgosSDKConfig } from '../../../core/sdk/ArgosSDK';
+import { ArgosClientSDK as ArgosSDK } from '../../../client/sdk/ArgosClientSDK';
+import type { ClientSDKConfig as ArgosSDKConfig } from '../../../client/sdk/ArgosClientSDK';
 import { Fingerprint } from '../../../shared/interfaces/api';
 import { log } from '../../../shared/utils/logger';
 import * as fpjs from '@fingerprintjs/fingerprintjs';

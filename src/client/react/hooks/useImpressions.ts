@@ -1,121 +1,60 @@
-import { useCallback, useState } from 'react';
-import { useFingerprint } from './useFingerprint';
+import { useCallback } from 'react';
 import { useArgosSDK } from './useArgosSDK';
-import type {
-  ImpressionData,
-  GetImpressionsOptions,
-  CreateImpressionRequest,
-} from '../../../shared/interfaces/api';
+import { useFingerprint } from './useFingerprint';
 
-interface UseImpressionsReturn {
-  impressions: ImpressionData[];
-  isLoading: boolean;
-  error: Error | null;
-  createImpression: (type: string, data: Record<string, any>) => Promise<void>;
-  getImpressions: (options?: GetImpressionsOptions) => Promise<void>;
-  deleteImpressions: (options?: GetImpressionsOptions) => Promise<void>;
-  refresh: () => Promise<void>;
-}
+const MAX_RETRIES = 3;
+const RETRY_DELAYS = [1000, 2000, 4000]; // 1s, 2s, 4s delays
 
-export function useImpressions(): UseImpressionsReturn {
-  const { fingerprint } = useFingerprint();
+export function useImpressions() {
   const sdk = useArgosSDK();
-  const [impressions, setImpressions] = useState<ImpressionData[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+  const { fingerprintId } = useFingerprint();
 
   const createImpression = useCallback(
-    async (type: string, data: Record<string, any>) => {
-      if (!fingerprint?.id) {
-        throw new Error('Fingerprint ID is required');
+    async (
+      type: string,
+      data: Record<string, unknown> = {},
+      onSuccess?: () => void,
+      onError?: (error: Error) => void
+    ) => {
+      if (!fingerprintId) {
+        const error = new Error('No fingerprint ID available');
+        onError?.(error);
+        return;
       }
 
-      setIsLoading(true);
-      setError(null);
+      let attempt = 0;
+      while (attempt <= MAX_RETRIES) {
+        try {
+          const response = await sdk.createImpression({
+            fingerprintId,
+            type,
+            data,
+          });
 
-      try {
-        const response = await sdk.createImpression({
-          fingerprintId: fingerprint.id,
-          type,
-          data,
-        });
+          if (response.success) {
+            onSuccess?.();
+            return response;
+          }
 
-        if (response.success && response.data) {
-          setImpressions(
-            (prev) => [response.data, ...prev] as ImpressionData[]
+          throw new Error(response.error || 'Failed to create impression');
+        } catch (error) {
+          if (attempt === MAX_RETRIES) {
+            onError?.(
+              error instanceof Error ? error : new Error(String(error))
+            );
+            throw error;
+          }
+
+          // Wait before retrying
+          await new Promise((resolve) =>
+            setTimeout(resolve, RETRY_DELAYS[attempt])
           );
+          attempt++;
         }
-      } catch (err) {
-        const error = err instanceof Error ? err : new Error(String(err));
-        setError(error);
-        throw error;
-      } finally {
-        setIsLoading(false);
       }
     },
-    [fingerprint?.id, sdk]
+    [sdk, fingerprintId]
   );
 
-  const getImpressions = useCallback(
-    async (options?: GetImpressionsOptions) => {
-      if (!fingerprint?.id) {
-        throw new Error('Fingerprint ID is required');
-      }
-
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const response = await sdk.getImpressions(fingerprint.id, options);
-        if (response.success && response.data) {
-          setImpressions(response.data);
-        }
-      } catch (err) {
-        const error = err instanceof Error ? err : new Error(String(err));
-        setError(error);
-        throw error;
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [fingerprint?.id, sdk]
-  );
-
-  const deleteImpressions = useCallback(
-    async (options?: GetImpressionsOptions) => {
-      if (!fingerprint?.id) {
-        throw new Error('Fingerprint ID is required');
-      }
-
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        await sdk.deleteImpressions(fingerprint.id, options);
-        // Refresh the impressions list after deletion
-        await getImpressions(options);
-      } catch (err) {
-        const error = err instanceof Error ? err : new Error(String(err));
-        setError(error);
-        throw error;
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [fingerprint?.id, sdk, getImpressions]
-  );
-
-  const refresh = useCallback(async () => {
-    await getImpressions();
-  }, [getImpressions]);
-
-  return {
-    impressions,
-    isLoading,
-    error,
-    createImpression,
-    getImpressions,
-    deleteImpressions,
-    refresh,
-  };
+  return { createImpression };
 }

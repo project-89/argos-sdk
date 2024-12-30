@@ -91,6 +91,27 @@ export class SecureStorage implements StorageInterface {
     }
   }
 
+  // Implement StorageInterface methods
+  async get(key: string): Promise<string | null> {
+    return this.getItem(key);
+  }
+
+  async set(key: string, value: string): Promise<void> {
+    this.setItem(key, value);
+  }
+
+  async remove(key: string): Promise<void> {
+    this.removeItem(key);
+  }
+
+  async clear(): Promise<void> {
+    this.data.clear();
+    if (existsSync(this.storagePath)) {
+      unlinkSync(this.storagePath);
+    }
+  }
+
+  // Legacy methods for backward compatibility
   setItem(key: string, value: string): void {
     this.data.set(key, value);
     this.saveToDisk();
@@ -103,12 +124,5 @@ export class SecureStorage implements StorageInterface {
   removeItem(key: string): void {
     this.data.delete(key);
     this.saveToDisk();
-  }
-
-  clear(): void {
-    this.data.clear();
-    if (existsSync(this.storagePath)) {
-      unlinkSync(this.storagePath);
-    }
   }
 }
