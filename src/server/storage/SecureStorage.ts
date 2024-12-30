@@ -43,23 +43,33 @@ export class SecureStorage implements StorageInterface {
   }
 
   private encrypt(text: string): string {
-    const iv = randomBytes(16);
-    const cipher = createCipheriv('aes-256-cbc', this.encryptionKey, iv);
+    const iv = randomBytes(12); // GCM requires 12 bytes
+    const cipher = createCipheriv('aes-256-gcm', this.encryptionKey, iv);
     let encrypted = cipher.update(text, 'utf8', 'hex');
     encrypted += cipher.final('hex');
-    return `${iv.toString('hex')}:${encrypted}`;
+    const authTag = cipher.getAuthTag();
+    return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
   }
 
   private decrypt(text: string): string {
     try {
-      const [ivHex, encryptedText] = text.split(':');
+      const [ivHex, authTagHex, encryptedText] = text.split(':');
+      if (!ivHex || !authTagHex || !encryptedText) {
+        throw new Error('Invalid encrypted data format');
+      }
+
       const iv = Buffer.from(ivHex, 'hex');
-      const decipher = createDecipheriv('aes-256-cbc', this.encryptionKey, iv);
+      const authTag = Buffer.from(authTagHex, 'hex');
+      const decipher = createDecipheriv('aes-256-gcm', this.encryptionKey, iv);
+      decipher.setAuthTag(authTag);
       let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
       decrypted += decipher.final('utf8');
       return decrypted;
     } catch (error) {
-      console.error('Decryption failed:', error);
+      if (error instanceof Error) {
+        // Only log the error type and message, not the stack trace
+        console.error('Decryption error:', error.name, error.message);
+      }
       return '';
     }
   }
@@ -74,7 +84,9 @@ export class SecureStorage implements StorageInterface {
           this.data = new Map(Object.entries(parsed));
         }
       } catch (error) {
-        console.error('Failed to load secure storage:', error);
+        if (error instanceof Error) {
+          console.error('Storage load error:', error.name, error.message);
+        }
         this.data = new Map();
       }
     }
@@ -87,7 +99,9 @@ export class SecureStorage implements StorageInterface {
       mkdirSync(dirname(this.storagePath), { recursive: true });
       writeFileSync(this.storagePath, encrypted);
     } catch (error) {
-      console.error('Failed to save secure storage:', error);
+      if (error instanceof Error) {
+        console.error('Storage save error:', error.name, error.message);
+      }
     }
   }
 
