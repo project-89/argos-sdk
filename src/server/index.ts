@@ -1,29 +1,18 @@
+// Server SDK
 export { ArgosServerSDK } from './sdk/ArgosServerSDK';
+
+// Types
 export type { ServerSDKConfig } from './sdk/ArgosServerSDK';
 
-// Export all types from the API
+// Re-export shared types that are needed for server
 export type {
   ApiResponse,
+  ImpressionData,
   Fingerprint,
-  PresenceData,
-  VisitData,
-  RoleData,
-  TagData,
-  PriceData,
-  PriceHistoryData,
-  SystemHealthData,
-  GetCurrentPricesOptions,
-  GetPriceHistoryOptions,
-  GetVisitHistoryOptions,
-  CreateAPIKeyRequest,
-  RevokeAPIKeyRequest,
-  APIKeyData,
-  UpdateAPIKeyRequest,
   CreateImpressionRequest,
   GetImpressionsOptions,
-  ImpressionData,
-  DeleteImpressionsResponse,
-  CreateFingerprintRequest,
-  CreateVisitRequest,
-  UpdatePresenceRequest,
+  APIKeyData,
+  CreateAPIKeyRequest,
+  ValidateAPIKeyRequest,
+  ValidateAPIKeyResponse,
 } from '../shared/interfaces/api';

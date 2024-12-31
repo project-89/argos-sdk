@@ -1,16 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    externalDir: true,
-  },
+  reactStrictMode: true,
   webpack: (config, { isServer }) => {
-    // Prevent client-side bundling of server-only modules
+    // Handle client/server specific configurations
     if (!isServer) {
+      // Add fallback for node built-in modules on client-side only
       config.resolve.fallback = {
         ...config.resolve.fallback,
         fs: false,
+        net: false,
+        tls: false,
         crypto: false,
-        path: false,
       };
     }
 
