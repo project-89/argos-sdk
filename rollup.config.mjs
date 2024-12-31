@@ -13,42 +13,44 @@ const basePlugins = [peerDepsExternal(), resolve(), commonjs(), json()];
 export default [
   // Client build
   {
-    input: 'dist/cjs/index.js',
+    input: '.build-temp/index.js',
     output: [
       {
-        dir: 'dist/cjs',
+        dir: 'dist',
         format: 'cjs',
         sourcemap: true,
         preserveModules: true,
         exports: 'named',
       },
       {
-        dir: 'dist/esm',
+        dir: 'dist',
         format: 'esm',
         sourcemap: true,
         preserveModules: true,
         exports: 'named',
+        entryFileNames: '[name].mjs',
       },
     ],
     plugins: basePlugins,
   },
   // Server build
   {
-    input: 'dist/cjs/server/index.js',
+    input: '.build-temp/server/index.js',
     output: [
       {
-        dir: 'dist/server/cjs',
+        dir: 'dist/server',
         format: 'cjs',
         sourcemap: true,
         preserveModules: true,
         exports: 'named',
       },
       {
-        dir: 'dist/server/esm',
+        dir: 'dist/server',
         format: 'esm',
         sourcemap: true,
         preserveModules: true,
         exports: 'named',
+        entryFileNames: '[name].mjs',
       },
     ],
     plugins: basePlugins,

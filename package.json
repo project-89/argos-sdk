@@ -2,24 +2,19 @@
   "name": "@project89/argos-sdk",
   "version": "0.1.37",
   "description": "SDK for Project89 Argos",
-  "main": "dist/cjs/index.js",
-  "module": "dist/esm/index.js",
-  "types": "dist/types/index.d.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/types/index.d.ts",
   "exports": {
     ".": {
-      "require": "./dist/cjs/index.js",
-      "import": "./dist/esm/index.js",
-      "types": "./dist/types/index.d.ts"
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
     },
     "./server": {
-      "require": "./dist/cjs/server/index.js",
-      "import": "./dist/esm/server/index.js",
-      "types": "./dist/types/server/index.d.ts"
-    },
-    "./react": {
-      "require": "./dist/cjs/react/index.js",
-      "import": "./dist/esm/react/index.js",
-      "types": "./dist/types/react/index.d.ts"
+      "types": "./dist/types/server/index.d.ts",
+      "import": "./dist/server/index.mjs",
+      "require": "./dist/server/index.js"
     }
   },
   "files": [
@@ -28,24 +23,17 @@
     "LICENSE"
   ],
   "scripts": {
-    "clean": "rimraf dist",
+    "clean": "rimraf dist .build-temp",
     "build:types": "tsc -p tsconfig.declarations.json",
     "build:ts": "tsc -p tsconfig.build.json",
     "build:bundle": "rollup -c",
     "build": "npm run clean && npm run build:types && npm run build:ts && npm run build:bundle",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "lint": "eslint src --ext .ts,.tsx",
-    "lint:fix": "eslint src --ext .ts,.tsx --fix",
-    "prepare": "npm run build"
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@fingerprintjs/fingerprintjs": "^4.5.1",
     "cross-fetch": "^3.1.5",
     "js-cookie": "^3.0.5",
-    "react": ">=16.8.0",
-    "react-dom": ">=16.8.0",
     "tslib": "^2.8.1"
   },
   "devDependencies": {
