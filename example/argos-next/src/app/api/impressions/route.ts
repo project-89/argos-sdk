@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ArgosServerSDK } from '../../../../../../src/server/sdk/ArgosServerSDK';
+import { ArgosServerSDK } from '@project89/argos-sdk/server';
 
 const getSDK = (apiKey: string) => {
   return new ArgosServerSDK({
@@ -61,10 +61,9 @@ export async function POST(request: NextRequest) {
     }
 
     const sdk = getSDK(apiKey);
-    const response = await sdk.createImpression({
+    const response = await sdk.track(type, {
       fingerprintId,
-      type,
-      data,
+      ...data,
     });
     return NextResponse.json(response);
   } catch (error) {

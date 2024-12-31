@@ -12,6 +12,7 @@ import {
   DeleteImpressionsResponse,
   ValidateAPIKeyResponse,
   APIKeyData,
+  GetImpressionsOptions,
 } from '../../shared/interfaces/api';
 import { FingerprintAPI } from '../../shared/api/FingerprintAPI';
 import { APIKeyAPI } from '../../shared/api/APIKeyAPI';
@@ -82,6 +83,13 @@ export class ArgosServerSDK {
     request: CreateImpressionRequest
   ): Promise<ApiResponse<ImpressionData>> {
     return this.impressionAPI.createImpression(request);
+  }
+
+  async getImpressions(
+    fingerprintId: string,
+    options?: GetImpressionsOptions
+  ): Promise<ApiResponse<ImpressionData[]>> {
+    return this.impressionAPI.getImpressions(fingerprintId, options);
   }
 
   async createAPIKey(

@@ -3,7 +3,15 @@
 
 import { useImpressions, useFingerprint } from '@project89/argos-sdk';
 import { useEffect, useState, useCallback } from 'react';
-import type { ImpressionData } from '@project89/argos-sdk/server';
+
+// Define the ImpressionData type to match the SDK's type
+interface ImpressionData {
+  id: string;
+  type: string;
+  data: Record<string, any>;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 const getApiKey = () => {
   try {
@@ -19,12 +27,16 @@ const getApiKey = () => {
 };
 
 export function ImpressionManager() {
-  const { impressions, createImpression, isLoading } = useImpressions();
+  const { createImpression, getImpressions } = useImpressions();
   const { fingerprint, isLoading: isFingerprintLoading } = useFingerprint();
   const [serverImpressions, setServerImpressions] = useState<ImpressionData[]>(
     []
   );
+  const [clientImpressions, setClientImpressions] = useState<ImpressionData[]>(
+    []
+  );
   const [isServerLoading, setIsServerLoading] = useState(false);
+  const [isClientLoading, setIsClientLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState<string | null>(null);
 
@@ -39,26 +51,14 @@ export function ImpressionManager() {
   }, [fingerprint?.id, apiKey]);
 
   const loadServerImpressions = useCallback(async () => {
-    if (!fingerprint?.id || !apiKey) return;
+    if (!fingerprint?.id) return;
 
     setIsServerLoading(true);
     setError(null);
     try {
-      const response = await fetch(
-        `/api/impressions?fingerprintId=${fingerprint.id}`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-          },
-        }
-      );
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to load server impressions');
-      }
-      if (data.success && data.data) {
-        setServerImpressions(data.data);
+      const response = await getImpressions();
+      if (response?.success && response.data) {
+        setServerImpressions(response.data);
       }
     } catch (error) {
       console.error('Failed to load server impressions:', error);
@@ -67,18 +67,10 @@ export function ImpressionManager() {
           ? error.message
           : 'Failed to load server impressions'
       );
-
-      // If we get an unauthorized error, try to get a fresh API key
-      if (error instanceof Error && error.message.includes('Unauthorized')) {
-        const newKey = getApiKey();
-        if (newKey && newKey !== apiKey) {
-          setApiKey(newKey);
-        }
-      }
     } finally {
       setIsServerLoading(false);
     }
-  }, [fingerprint?.id, apiKey]);
+  }, [fingerprint?.id, getImpressions]);
 
   // Load server impressions initially when fingerprint and API key are ready
   useEffect(() => {
@@ -93,15 +85,22 @@ export function ImpressionManager() {
       return;
     }
 
+    setIsClientLoading(true);
     setError(null);
     try {
-      await createImpression('client-button-click', {
+      const response = await createImpression('client-button-click', {
         timestamp: new Date().toISOString(),
         source: 'client',
       });
+
+      if (response?.success && response.data) {
+        setClientImpressions((prev) => [...prev, response.data]);
+      }
     } catch (error) {
       console.error('Failed to create client impression:', error);
       setError('Failed to create client impression');
+    } finally {
+      setIsClientLoading(false);
     }
   };
 
@@ -206,11 +205,17 @@ export function ImpressionManager() {
           <button
             onClick={handleClientImpression}
             className="bg-blue-500 text-white px-4 py-2 rounded mb-4 disabled:opacity-50"
-            disabled={isLoading || isFingerprintLoading || !fingerprint?.id}
+            disabled={
+              isClientLoading || isFingerprintLoading || !fingerprint?.id
+            }
           >
             Create Client Impression
           </button>
-          {isLoading ? <p>Loading...</p> : renderImpressionList(impressions)}
+          {isClientLoading ? (
+            <p>Loading...</p>
+          ) : (
+            renderImpressionList(clientImpressions)
+          )}
         </div>
 
         <div className="border p-4 rounded">
