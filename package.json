@@ -4,7 +4,7 @@
   "description": "SDK for Project89 Argos",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
-  "types": "./dist/types/index.d.ts",
+  "types": "./dist/types/client/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/types/client/index.d.ts",
@@ -18,7 +18,14 @@
     }
   },
   "files": [
-    "dist",
+    "dist/_virtual",
+    "dist/node_modules",
+    "dist/server",
+    "dist/types",
+    "dist/index.js",
+    "dist/index.js.map",
+    "dist/index.mjs",
+    "dist/index.mjs.map",
     "README.md",
     "LICENSE"
   ],
