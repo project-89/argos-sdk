@@ -16,19 +16,16 @@ export default [
     input: '.build-temp/index.js',
     output: [
       {
-        dir: 'dist',
+        file: 'dist/index.js',
         format: 'cjs',
         sourcemap: true,
-        preserveModules: true,
         exports: 'named',
       },
       {
-        dir: 'dist',
+        file: 'dist/index.mjs',
         format: 'esm',
         sourcemap: true,
-        preserveModules: true,
         exports: 'named',
-        entryFileNames: '[name].mjs',
       },
     ],
     plugins: basePlugins,
@@ -38,19 +35,16 @@ export default [
     input: '.build-temp/server/index.js',
     output: [
       {
-        dir: 'dist/server',
+        file: 'dist/server/index.js',
         format: 'cjs',
         sourcemap: true,
-        preserveModules: true,
         exports: 'named',
       },
       {
-        dir: 'dist/server',
+        file: 'dist/server/index.mjs',
         format: 'esm',
         sourcemap: true,
-        preserveModules: true,
         exports: 'named',
-        entryFileNames: '[name].mjs',
       },
     ],
     plugins: basePlugins,
