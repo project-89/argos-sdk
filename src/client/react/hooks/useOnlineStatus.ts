@@ -5,7 +5,7 @@ import { ArgosContext } from '../context/ArgosContext';
  * Hook to access online status
  * Must be used within an ArgosProvider
  */
-export const useOnlineStatus = () => {
+export const useOnlineStatus = (): boolean => {
   const context = useContext(ArgosContext);
   if (!context) {
     throw new Error('useOnlineStatus must be used within an ArgosProvider');

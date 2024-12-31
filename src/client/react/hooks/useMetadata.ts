@@ -1,11 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback } from 'react';
 import { useFingerprint } from './useFingerprint';
 import { useArgosSDK } from './useArgosSDK';
 
 interface UseMetadataReturn {
-  metadata: Record<string, any> | undefined;
-  addMetadata: (fields: Record<string, any>) => Promise<void>;
+  metadata: Record<string, unknown> | undefined;
+  addMetadata: (fields: Record<string, unknown>) => Promise<void>;
 }
 
 export function useMetadata(): UseMetadataReturn {
@@ -13,7 +12,7 @@ export function useMetadata(): UseMetadataReturn {
   const sdk = useArgosSDK();
 
   const addMetadata = useCallback(
-    async (fields: Record<string, any>) => {
+    async (fields: Record<string, unknown>) => {
       if (!fingerprintId) {
         throw new Error('Fingerprint ID is required');
       }

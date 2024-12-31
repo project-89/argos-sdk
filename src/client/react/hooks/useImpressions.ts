@@ -1,6 +1,10 @@
 import { useCallback } from 'react';
 import { useArgosSDK } from './useArgosSDK';
 import { useFingerprint } from './useFingerprint';
+import type {
+  ApiResponse,
+  ImpressionData,
+} from '../../../shared/interfaces/api';
 import type { GetImpressionsOptions } from '../../../shared/interfaces/api';
 
 const MAX_RETRIES = 3;
@@ -16,7 +20,7 @@ export function useImpressions() {
       data: Record<string, unknown> = {},
       onSuccess?: () => void,
       onError?: (error: Error) => void
-    ) => {
+    ): Promise<ApiResponse<ImpressionData> | undefined> => {
       if (!fingerprintId) {
         const error = new Error('No fingerprint ID available');
         onError?.(error);
@@ -58,7 +62,9 @@ export function useImpressions() {
   );
 
   const getImpressions = useCallback(
-    async (options?: GetImpressionsOptions) => {
+    async (
+      options?: GetImpressionsOptions
+    ): Promise<ApiResponse<ImpressionData[]> | undefined> => {
       if (!fingerprintId) {
         throw new Error('No fingerprint ID available');
       }

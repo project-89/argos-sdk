@@ -9,12 +9,14 @@
     ".": {
       "types": "./dist/types/client/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./server": {
       "types": "./dist/types/server/index.d.ts",
       "import": "./dist/server/index.mjs",
-      "require": "./dist/server/index.js"
+      "require": "./dist/server/index.js",
+      "default": "./dist/server/index.js"
     }
   },
   "files": [
