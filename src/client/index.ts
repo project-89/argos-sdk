@@ -18,11 +18,12 @@ export {
 } from './react/hooks';
 
 // React Context
-export { ArgosContext } from './react/context/ArgosContext';
+export { ArgosContext, ArgosProvider } from './react/context/ArgosContext';
 
 // Types
 export type { ClientSDKConfig, TrackOptions } from './sdk/ArgosClientSDK';
 export type { ArgosTrackerProps } from './react/components/ArgosTracker';
+export type { ArgosProviderProps } from './react/context/ArgosContext';
 
 // Re-export shared types that are needed for client
 export type {
