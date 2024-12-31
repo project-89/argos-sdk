@@ -18,14 +18,13 @@
     }
   },
   "files": [
-    "dist/_virtual",
-    "dist/node_modules",
-    "dist/server",
-    "dist/types",
-    "dist/index.js",
-    "dist/index.js.map",
-    "dist/index.mjs",
-    "dist/index.mjs.map",
+    "dist/_virtual/**/*",
+    "dist/node_modules/**/*",
+    "dist/server/_virtual/**/*",
+    "dist/server/node_modules/**/*",
+    "dist/types/**/*",
+    "dist/index.*",
+    "dist/server/index.*",
     "README.md",
     "LICENSE"
   ],
