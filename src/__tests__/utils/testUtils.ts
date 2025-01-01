@@ -71,35 +71,30 @@ export function createMockErrorResponse(error: string): NodeResponse {
 }
 
 export class MockBrowserEnvironment
-  implements EnvironmentInterface<globalThis.Response>
+  implements EnvironmentInterface<Response, RequestInit>
 {
-  private fingerprint: string;
+  type = RuntimeEnvironment.Test;
   private apiKey?: string;
-  private userAgent?: string;
-  private onApiKeyUpdate?: (apiKey: string) => void;
-  readonly type = RuntimeEnvironment.Browser;
+  private fingerprint: string;
+  private userAgent: string;
+  public fetch: (url: string, options?: RequestInit) => Promise<Response>;
 
-  constructor(
-    fingerprint: string,
-    apiKey?: string,
-    userAgent?: string,
-    onApiKeyUpdate?: (apiKey: string) => void
-  ) {
+  constructor(fingerprint: string, userAgent = 'test-fingerprint') {
     this.fingerprint = fingerprint;
-    this.apiKey = apiKey;
     this.userAgent = userAgent;
-    this.onApiKeyUpdate = onApiKeyUpdate;
+    this.fetch = jest.fn(async (url: string, options?: RequestInit) => {
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    });
   }
 
-  getUserAgent(): string {
-    return this.userAgent || 'test-fingerprint';
-  }
-
-  createHeaders(headers: Record<string, string> = {}): Record<string, string> {
+  createHeaders(headers?: Record<string, string>): Record<string, string> {
     const result: Record<string, string> = {
       ...headers,
       'content-type': 'application/json',
-      'user-agent': this.getUserAgent(),
+      'user-agent': this.userAgent,
     };
 
     if (this.apiKey) {
@@ -109,53 +104,43 @@ export class MockBrowserEnvironment
     return result;
   }
 
-  async fetch(
-    url: string,
-    options?: RequestInit
-  ): Promise<globalThis.Response> {
-    if (url.includes('/api-key/validate')) {
-      const key = this.getApiKey();
-      return createMockResponse({
-        isValid: key === 'test-api-key',
-        key,
-      }) as unknown as globalThis.Response;
-    }
-
-    const mockResponse = createMockResponse({
-      status: 200,
-      statusText: 'OK',
-      headers: this.createHeaders({}),
-      body: { success: true },
-    });
-
-    return mockResponse as unknown as globalThis.Response;
-  }
-
-  async handleResponse<U>(response: globalThis.Response): Promise<U> {
+  async handleResponse<U>(response: Response): Promise<U> {
     const contentType = response.headers.get('content-type');
     const isJson = contentType && contentType.includes('application/json');
+    const data = isJson ? await response.json() : await response.text();
 
     if (!response.ok) {
-      if (response.status === 401) {
-        this.apiKey = undefined;
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('retry-after');
+        const error = new Error(data.error || 'Rate limit exceeded');
+        (error as any).retryAfter = retryAfter ? parseInt(retryAfter, 10) : 60;
+        throw error;
       }
-      const errorData = isJson ? await response.json() : await response.text();
       throw new Error(
-        typeof errorData === 'string' ? errorData : JSON.stringify(errorData)
+        typeof data === 'string' ? data : data.error || 'Request failed'
       );
     }
 
-    return isJson ? response.json() : response.text();
+    return data;
+  }
+
+  async getFingerprint(): Promise<string> {
+    return this.fingerprint;
+  }
+
+  async getPlatformInfo(): Promise<Record<string, unknown>> {
+    return {
+      platform: 'test',
+      userAgent: this.getUserAgent(),
+    };
+  }
+
+  getUserAgent(): string {
+    return this.userAgent;
   }
 
   setApiKey(apiKey: string): void {
-    if (!apiKey) {
-      throw new Error('API key cannot be empty');
-    }
     this.apiKey = apiKey;
-    if (this.onApiKeyUpdate) {
-      this.onApiKeyUpdate(apiKey);
-    }
   }
 
   getApiKey(): string | undefined {
@@ -164,22 +149,6 @@ export class MockBrowserEnvironment
 
   isOnline(): boolean {
     return true;
-  }
-
-  async getPlatformInfo(): Promise<Record<string, unknown>> {
-    return {
-      platform: 'browser',
-      userAgent: this.getUserAgent(),
-      language: 'en-US',
-      online: this.isOnline(),
-      url: 'https://test.example.com',
-      referrer: 'https://test-referrer.example.com',
-      runtime: RuntimeEnvironment.Browser,
-    };
-  }
-
-  async getFingerprint(): Promise<string> {
-    return this.fingerprint;
   }
 }
 

@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@project89/argos-sdk": "^0.1.45",
+    "@project89/argos-sdk": "^0.1.47",
     "buffer": "^6.0.3",
     "encoding": "^0.1.13",
     "next": "14.1.0",
