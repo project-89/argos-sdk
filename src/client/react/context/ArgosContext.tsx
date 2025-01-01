@@ -611,36 +611,3 @@ export function ArgosProvider({
     </ArgosContext.Provider>
   );
 }
-
-// Core SDK hook
-export const useArgosSDK = () => {
-  const context = useContext(ArgosContext);
-  if (!context) {
-    throw new Error('useArgosSDK must be used within an ArgosProvider');
-  }
-  return context.sdk;
-};
-
-// Fingerprint management hook
-export const useFingerprint = () => {
-  const context = useContext(ArgosContext);
-  if (!context) {
-    throw new Error('useFingerprint must be used within an ArgosProvider');
-  }
-
-  return {
-    fingerprintId: context.fingerprintId,
-    fingerprint: context.fingerprint,
-    isLoading: context.isLoading,
-    error: context.error,
-  };
-};
-
-// Online status hook
-export const useOnlineStatus = () => {
-  const context = useContext(ArgosContext);
-  if (!context) {
-    throw new Error('useOnlineStatus must be used within an ArgosProvider');
-  }
-  return context.isOnline;
-};
