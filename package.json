@@ -1,6 +1,6 @@
 {
   "name": "@project89/argos-sdk",
-  "version": "0.1.44",
+  "version": "0.1.45",
   "description": "SDK for Project89 Argos",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
