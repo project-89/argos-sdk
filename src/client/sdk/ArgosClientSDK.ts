@@ -19,6 +19,7 @@ export interface ClientSDKConfig
   debug?: boolean;
   presenceInterval?: number;
   environment?: EnvironmentInterface<Response, RequestInit>;
+  onApiKeyUpdate?: (apiKey: string) => void;
 }
 
 export interface TrackOptions {
@@ -43,7 +44,8 @@ export class ArgosClientSDK {
 
     // Initialize environment
     this.environment =
-      config.environment || EnvironmentFactory.createBrowserEnvironment();
+      config.environment ||
+      EnvironmentFactory.createBrowserEnvironment(config.onApiKeyUpdate);
     if (config.apiKey) {
       this.environment.setApiKey(config.apiKey);
     }

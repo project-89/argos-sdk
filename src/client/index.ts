@@ -1,35 +1,8 @@
-// Client SDK
+// Import polyfills first
+import './polyfills';
+
+export * from './react/hooks';
+export * from './react/context/ArgosContext';
+export * from './types/request';
+export { clientFetch } from './http/fetch';
 export { ArgosClientSDK } from './sdk/ArgosClientSDK';
-
-// React Components
-export {
-  ArgosTracker,
-  useTrackImpression,
-} from './react/components/ArgosTracker';
-export { withImpressionTracking } from './react/components/withImpressionTracking';
-
-// React Hooks
-export {
-  useArgosSDK,
-  useFingerprint,
-  useImpressions,
-  useMetadata,
-  useOnlineStatus,
-} from './react/hooks';
-
-// React Context
-export { ArgosContext, ArgosProvider } from './react/context/ArgosContext';
-
-// Types
-export type { ClientSDKConfig, TrackOptions } from './sdk/ArgosClientSDK';
-export type { ArgosTrackerProps } from './react/components/ArgosTracker';
-export type { ArgosProviderProps } from './react/context/ArgosContext';
-
-// Re-export shared types that are needed for client
-export type {
-  ApiResponse,
-  ImpressionData,
-  Fingerprint,
-  CreateImpressionRequest,
-  GetImpressionsOptions,
-} from '../shared/interfaces/api';

@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": ".build-temp",
+    "rootDir": "src",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "types": ["@types/react", "@types/react-dom"],
+    "jsx": "react-jsx",
+    "module": "esnext"
+  },
+  "include": ["src/client/**/*", "src/shared/**/*", "src/core/**/*"],
+  "exclude": ["src/server/**/*", "**/*.test.ts", "**/*.test.tsx"]
+} 

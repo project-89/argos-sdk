@@ -3,7 +3,7 @@
 import { ArgosProvider } from '@project89/argos-sdk';
 
 interface ProvidersProps {
-  children: JSX.Element | JSX.Element[];
+  children: React.ReactNode;
 }
 
 export function Providers({ children }: ProvidersProps) {

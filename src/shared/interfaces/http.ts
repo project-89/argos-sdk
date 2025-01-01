@@ -14,8 +14,11 @@ export enum HttpMethod {
 export type CommonResponse = Response | NodeResponse;
 export type CommonRequestInit = RequestInit | NodeRequestInit;
 
-export interface RequestOptions extends Omit<RequestInit, 'method' | 'body'> {
-  method?: HttpMethod;
-  body?: unknown;
+// Shared request options that work in both environments
+export interface RequestOptions {
+  method?: string;
   headers?: Record<string, string>;
+  body?: any;
+  signal?: AbortSignal;
+  timeout?: number;
 }

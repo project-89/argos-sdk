@@ -10,6 +10,8 @@ export interface BaseAPIConfig<
   environment: EnvironmentInterface<T, R>;
   apiKey?: string;
   debug?: boolean;
+  maxRequestsPerMinute?: number;
+  maxRequestsPerHour?: number;
 }
 
 export interface BaseAPIRequestOptions {
@@ -32,10 +34,14 @@ export interface BaseAPIRequestOptions {
 export class BaseAPI<T extends CommonResponse, R extends CommonRequestInit> {
   protected baseUrl: string;
   protected environment: EnvironmentInterface<T, R>;
+  protected maxRequestsPerMinute: number;
+  protected maxRequestsPerHour: number;
 
   constructor(config: BaseAPIConfig<T, R>) {
     this.baseUrl = config.baseUrl;
     this.environment = config.environment;
+    this.maxRequestsPerMinute = config.maxRequestsPerMinute || Infinity;
+    this.maxRequestsPerHour = config.maxRequestsPerHour || Infinity;
     if (config.apiKey) {
       this.environment.setApiKey(config.apiKey);
     }

@@ -5,8 +5,8 @@ import React, {
   useState,
   useCallback,
 } from 'react';
-import { ArgosClientSDK as ArgosSDK } from '../../../client/sdk/ArgosClientSDK';
-import type { ClientSDKConfig as ArgosSDKConfig } from '../../../client/sdk/ArgosClientSDK';
+import { ArgosClientSDK as ArgosSDK } from '../../sdk/ArgosClientSDK';
+import type { ClientSDKConfig as ArgosSDKConfig } from '../../sdk/ArgosClientSDK';
 import { Fingerprint } from '../../../shared/interfaces/api';
 import { log } from '../../../shared/utils/logger';
 import * as fpjs from '@fingerprintjs/fingerprintjs';
@@ -195,7 +195,7 @@ export function ArgosProvider({
   children,
   onError,
   debug = false,
-}: ArgosProviderProps) {
+}: ArgosProviderProps): JSX.Element {
   const [sdk] = useState(() => new ArgosSDK({ ...config, debug }));
   const [isOnline, setIsOnline] = useState(sdk.isOnline());
   const [fingerprintId, setFingerprintId] = useState<string | null>(null);

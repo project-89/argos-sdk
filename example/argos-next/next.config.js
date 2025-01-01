@@ -1,18 +1,24 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  webpack: (config, { isServer }) => {
-    // Handle client/server specific configurations
-    if (!isServer) {
-      // Add fallback for node built-in modules on client-side only
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        net: false,
-        tls: false,
-        crypto: false,
-      };
-    }
+  transpilePackages: ['@project89/argos-sdk'],
+  webpack: (config, { webpack }) => {
+    // Add fallbacks for node modules
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      encoding: false,
+      stream: false,
+      util: false,
+      fs: false,
+      buffer: require.resolve('buffer/'),
+    };
+
+    // Add global object polyfill
+    config.plugins.push(
+      new webpack.ProvidePlugin({
+        global: ['globalThis'],
+      })
+    );
 
     return config;
   },
