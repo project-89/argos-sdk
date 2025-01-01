@@ -2,10 +2,10 @@ import { useCallback } from 'react';
 import { useArgosSDK } from './useArgosSDK';
 import { useFingerprint } from './useFingerprint';
 import type {
-  ApiResponse,
   ImpressionData,
+  ApiResponse,
+  GetImpressionsOptions,
 } from '../../../shared/interfaces/api';
-import type { GetImpressionsOptions } from '../../../shared/interfaces/api';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAYS = [1000, 2000, 4000]; // 1s, 2s, 4s delays
