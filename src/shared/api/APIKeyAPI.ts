@@ -1,38 +1,23 @@
-import { BaseAPI } from './BaseAPI';
-import {
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { BaseAPI, BaseAPIConfig } from './BaseAPI';
+import type {
   ApiResponse,
   CreateAPIKeyRequest,
-  ValidateAPIKeyRequest,
   ValidateAPIKeyResponse,
-  RevokeAPIKeyRequest,
   APIKeyData,
 } from '../interfaces/api';
 import {
+  HttpMethod,
   CommonResponse,
   CommonRequestInit,
-  HttpMethod,
 } from '../interfaces/http';
 
-export interface APIKeyMetadata {
-  [key: string]: unknown;
-}
-
 export class APIKeyAPI<
-  T extends CommonResponse = CommonResponse,
+  T extends CommonResponse,
   R extends CommonRequestInit = CommonRequestInit
 > extends BaseAPI<T, R> {
-  async registerInitialApiKey(
-    fingerprintId: string,
-    metadata: APIKeyMetadata
-  ): Promise<ApiResponse<APIKeyData>> {
-    return this.fetchApi<APIKeyData>('/api-key/register', {
-      method: HttpMethod.POST,
-      body: {
-        fingerprintId,
-        metadata,
-      },
-      skipAuth: true,
-    });
+  constructor(config: BaseAPIConfig<T, R>) {
+    super(config);
   }
 
   async createAPIKey(
@@ -40,8 +25,8 @@ export class APIKeyAPI<
   ): Promise<ApiResponse<APIKeyData>> {
     return this.fetchApi<APIKeyData>('/api-key/register', {
       method: HttpMethod.POST,
-      body: request,
       skipAuth: true,
+      body: request,
     });
   }
 
@@ -54,8 +39,10 @@ export class APIKeyAPI<
     });
   }
 
-  async revokeAPIKey(request: RevokeAPIKeyRequest): Promise<ApiResponse<void>> {
-    return this.fetchApi<void>('/api-key/revoke', {
+  async revokeAPIKey(request: {
+    key: string;
+  }): Promise<ApiResponse<{ success: boolean }>> {
+    return this.fetchApi<{ success: boolean }>('/api-key/revoke', {
       method: HttpMethod.POST,
       body: request,
     });

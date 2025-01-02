@@ -11,14 +11,18 @@ export class NodeEnvironment
   readonly type = RuntimeEnvironment.Node;
   private apiKey?: string;
   private storage: SecureStorage;
-  private fingerprint?: string;
+  private fingerprint: string;
   private onApiKeyUpdate?: (apiKey: string) => void;
 
   constructor(
     encryptionKeyOrStorage: string | SecureStorage,
-    fingerprint?: string,
+    fingerprint: string,
     onApiKeyUpdate?: (apiKey: string) => void
   ) {
+    if (!fingerprint) {
+      throw new Error('Fingerprint is required for Node environment');
+    }
+
     this.storage =
       typeof encryptionKeyOrStorage === 'string'
         ? new SecureStorage({ encryptionKey: encryptionKeyOrStorage })
@@ -64,11 +68,6 @@ export class NodeEnvironment
   }
 
   async getFingerprint(): Promise<string> {
-    if (!this.fingerprint) {
-      throw new Error(
-        'Fingerprints must be explicitly provided in server environment'
-      );
-    }
     return this.fingerprint;
   }
 
@@ -117,7 +116,7 @@ export class NodeEnvironment
   }
 
   isOnline(): boolean {
-    return true; // Node is always considered online
+    return true;
   }
 
   async fetch(url: string, options?: RequestInit): Promise<Response> {

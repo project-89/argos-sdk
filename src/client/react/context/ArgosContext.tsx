@@ -1,3 +1,5 @@
+'use client';
+
 import React, {
   createContext,
   useContext,
@@ -5,175 +7,13 @@ import React, {
   useState,
   useCallback,
 } from 'react';
-import { ArgosClientSDK as ArgosSDK } from '../../sdk/ArgosClientSDK';
-import type { ClientSDKConfig as ArgosSDKConfig } from '../../sdk/ArgosClientSDK';
-import { Fingerprint } from '../../../shared/interfaces/api';
+import { ArgosClientSDK } from '../../sdk/ArgosClientSDK';
+import type { ClientSDKConfig } from '../../sdk/ArgosClientSDK';
+import { Fingerprint, ApiResponse } from '../../../shared/interfaces/api';
 import { log } from '../../../shared/utils/logger';
-import * as fpjs from '@fingerprintjs/fingerprintjs';
-
-// Add CookieOptions interface
-interface CookieOptions {
-  path?: string;
-  domain?: string;
-  maxAge?: number;
-  secure?: boolean;
-  sameSite?: 'strict' | 'lax' | 'none';
-}
-
-// Replace SecureStorage class with CookieStorage
-class CookieStorage {
-  private static instance: CookieStorage;
-  private readonly prefix = 'argos_';
-  private debug: boolean;
-  private readonly defaultOptions: CookieOptions = {
-    path: '/',
-    secure: true,
-    sameSite: 'strict',
-    // Cookie expiry set to 30 days
-    maxAge: 30 * 24 * 60 * 60,
-  };
-
-  private constructor() {
-    this.debug = false;
-  }
-
-  static getInstance(): CookieStorage {
-    if (!CookieStorage.instance) {
-      CookieStorage.instance = new CookieStorage();
-    }
-    return CookieStorage.instance;
-  }
-
-  setDebug(enabled: boolean): void {
-    this.debug = enabled;
-  }
-
-  private getCookie(name: string): string | null {
-    const cookies = document.cookie.split(';');
-    const cookieName = `${this.prefix}${name}=`;
-
-    log(this.debug, 'Getting cookie:', {
-      name: this.prefix + name,
-      allCookies: cookies.map((c) => c.trim()),
-    });
-
-    for (const cookie of cookies) {
-      const c = cookie.trim();
-      if (c.startsWith(cookieName)) {
-        const value = decodeURIComponent(c.substring(cookieName.length));
-        log(this.debug, 'Found cookie:', {
-          name: this.prefix + name,
-          hasValue: !!value,
-          value: value.substring(0, 10) + '...',
-        });
-        return value;
-      }
-    }
-
-    log(this.debug, 'Cookie not found:', this.prefix + name);
-    return null;
-  }
-
-  private setCookie(
-    name: string,
-    value: string,
-    options: CookieOptions = {}
-  ): void {
-    // Ensure we're in a secure context before setting cookies
-    if (!window.isSecureContext) {
-      console.warn('Attempting to set cookie in non-secure context');
-      return;
-    }
-
-    const mergedOptions = { ...this.defaultOptions, ...options };
-    // Force secure and SameSite in production
-    if (process.env.NODE_ENV === 'production') {
-      mergedOptions.secure = true;
-      mergedOptions.sameSite = 'strict';
-    }
-
-    let cookieString = `${this.prefix}${name}=${encodeURIComponent(value)}`;
-
-    if (mergedOptions.path) {
-      cookieString += `;path=${mergedOptions.path}`;
-    }
-    if (mergedOptions.domain) {
-      cookieString += `;domain=${mergedOptions.domain}`;
-    }
-    if (typeof mergedOptions.maxAge === 'number') {
-      cookieString += `;max-age=${mergedOptions.maxAge}`;
-      const expiresDate = new Date(Date.now() + mergedOptions.maxAge * 1000);
-      cookieString += `;expires=${expiresDate.toUTCString()}`;
-    }
-    if (mergedOptions.secure) {
-      cookieString += ';secure';
-    }
-    if (mergedOptions.sameSite) {
-      cookieString += `;samesite=${mergedOptions.sameSite}`;
-    }
-
-    log(this.debug, 'Setting cookie:', {
-      name: this.prefix + name,
-      hasValue: !!value,
-      value: value.substring(0, 10) + '...',
-      cookieString,
-      options: mergedOptions,
-    });
-
-    document.cookie = cookieString;
-
-    // Verify the cookie was set
-    const verifyValue = this.getCookie(name);
-    if (!verifyValue) {
-      console.warn('Failed to set cookie:', name);
-    }
-    log(this.debug, 'Cookie set verification:', {
-      name: this.prefix + name,
-      wasSet: !!verifyValue,
-      matches: verifyValue === value,
-    });
-  }
-
-  setItem(key: string, value: string): void {
-    log(this.debug, 'Setting storage item:', { key, hasValue: !!value });
-    this.setCookie(key, value);
-  }
-
-  getItem(key: string): string | null {
-    log(this.debug, 'Getting storage item:', { key });
-    const value = this.getCookie(key);
-    log(this.debug, 'Got storage item:', { key, hasValue: !!value });
-    return value;
-  }
-
-  removeItem(key: string): void {
-    log(this.debug, 'Removing storage item:', { key });
-    this.setCookie(key, '', { maxAge: -1 });
-  }
-
-  clear(): void {
-    log(this.debug, 'Clearing all storage items');
-    const cookies = document.cookie.split(';');
-    for (const cookie of cookies) {
-      const cookieName = cookie.split('=')[0].trim();
-      if (cookieName.startsWith(this.prefix)) {
-        const key = cookieName.substring(this.prefix.length);
-        log(this.debug, 'Clearing storage item:', { key });
-        this.removeItem(key);
-      }
-    }
-  }
-}
-
-const secureStorage = CookieStorage.getInstance();
-
-const STORAGE_KEYS = {
-  FINGERPRINT_ID: 'fingerprint_id',
-  API_KEY: 'api_key',
-} as const;
 
 export interface ArgosContextType {
-  sdk: ArgosSDK;
+  sdk: ArgosClientSDK | null;
   isOnline: boolean;
   fingerprintId: string | null;
   fingerprint: Fingerprint | null;
@@ -183,7 +23,7 @@ export interface ArgosContextType {
 
 export interface ArgosProviderProps {
   children: React.ReactNode;
-  config: ArgosSDKConfig;
+  config: ClientSDKConfig;
   onError?: (error: Error) => void;
   debug?: boolean;
 }
@@ -196,11 +36,11 @@ export function ArgosProvider({
   onError,
   debug = false,
 }: ArgosProviderProps): JSX.Element {
-  const [sdk] = useState(() => new ArgosSDK({ ...config, debug }));
-  const [isOnline, setIsOnline] = useState(sdk.isOnline());
+  const [sdk, setSdk] = useState<ArgosClientSDK | null>(null);
+  const [isOnline, setIsOnline] = useState(true);
   const [fingerprintId, setFingerprintId] = useState<string | null>(null);
   const [fingerprint, setFingerprint] = useState<Fingerprint | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -214,27 +54,24 @@ export function ArgosProvider({
     [onError, debug]
   );
 
-  const getPlatformInfo = useCallback(() => {
-    if (typeof navigator === 'undefined') return 'unknown';
+  const getPlatformInfo = useCallback(async () => {
+    if (!sdk) throw new Error('SDK not initialized');
+    if (!('environment' in sdk)) throw new Error('Environment not initialized');
+    const environment = sdk['environment'];
+    if (!environment) throw new Error('Environment not available');
+    return environment.getPlatformInfo();
+  }, [sdk]);
 
-    // Try modern API first
-    if ('userAgentData' in navigator && navigator.userAgentData?.platform) {
-      return navigator.userAgentData.platform;
-    }
-
-    // Fallback to user agent parsing
-    const ua = navigator.userAgent.toLowerCase();
-    if (ua.includes('win')) return 'Windows';
-    if (ua.includes('mac')) return 'macOS';
-    if (ua.includes('iphone') || ua.includes('ipad') || ua.includes('ipod'))
-      return 'iOS';
-    if (ua.includes('android')) return 'Android';
-    if (ua.includes('linux')) return 'Linux';
-
-    return 'unknown';
-  }, []);
+  const getBrowserFingerprint = useCallback(async () => {
+    if (!sdk) throw new Error('SDK not initialized');
+    if (!('environment' in sdk)) throw new Error('Environment not initialized');
+    const environment = sdk['environment'];
+    if (!environment) throw new Error('Environment not available');
+    return environment.getFingerprint();
+  }, [sdk]);
 
   const refreshApiKey = useCallback(async () => {
+    if (!sdk) throw new Error('SDK not initialized');
     try {
       if (!fingerprintId) {
         throw new Error('No fingerprint ID available');
@@ -250,8 +87,6 @@ export function ArgosProvider({
       const newApiKey = apiKeyResponse.data.key;
       log(debug, 'API key refreshed successfully');
 
-      // Update secure storage and SDK
-      secureStorage.setItem(STORAGE_KEYS.API_KEY, newApiKey);
       sdk.setApiKey(newApiKey);
 
       return true;
@@ -265,7 +100,6 @@ export function ArgosProvider({
     async (err: unknown) => {
       const errorMessage = err instanceof Error ? err.message : String(err);
 
-      // Check if error is due to invalid API key
       if (
         errorMessage.includes('Invalid API key') ||
         errorMessage.includes('Unauthorized') ||
@@ -274,11 +108,10 @@ export function ArgosProvider({
         log(debug, 'Invalid API key detected, attempting refresh');
         const refreshed = await refreshApiKey();
         if (refreshed) {
-          return true; // Error handled
+          return true;
         }
       }
 
-      // If not an API key error or refresh failed, handle normally
       handleError(err);
       return false;
     },
@@ -287,27 +120,20 @@ export function ArgosProvider({
 
   const trackVisit = useCallback(
     async (id: string) => {
+      if (!sdk || !id) return;
       try {
-        if (!id) return;
         log(debug, 'Tracking initial visit');
+        const platformInfo = await getPlatformInfo();
         await sdk.track('visit', {
           fingerprintId: id,
-          url: window.location.href,
-          title: document.title || window.location.pathname,
           metadata: {
-            referrer: document.referrer || '',
-            userAgent: navigator.userAgent,
-            language: navigator.language,
-            platform: getPlatformInfo(),
-            hostname: window.location.hostname,
-            path: window.location.pathname,
+            ...platformInfo,
           },
         });
         log(debug, 'Visit tracked successfully');
       } catch (err) {
         const handled = await handleApiError(err);
         if (handled) {
-          // Retry the operation with new API key
           await trackVisit(id);
         }
       }
@@ -315,41 +141,68 @@ export function ArgosProvider({
     [sdk, debug, handleApiError, getPlatformInfo]
   );
 
-  const getBrowserFingerprint = useCallback(async () => {
-    try {
-      // Initialize an agent at application startup.
-      const fpAgent = await fpjs.load();
+  useEffect(() => {
+    let isMounted = true;
 
-      // Get the visitor identifier when you need it.
-      const result = await fpAgent.get();
+    const initSDK = async () => {
+      try {
+        const sdkInstance = new ArgosClientSDK({ ...config, debug });
+        if (isMounted) {
+          setSdk(sdkInstance);
+          setIsLoading(true);
+        }
+      } catch (err) {
+        const errorObj = err instanceof Error ? err : new Error(String(err));
+        if (isMounted) {
+          setError(errorObj);
+          onError?.(errorObj);
+        }
+      }
+    };
 
-      // Use the visitor identifier as a stable identifier of the browser.
-      return result.visitorId;
-    } catch (err) {
-      log(debug, 'Error getting browser fingerprint:', err);
-      // Fallback to UUID if fingerprinting fails
-      return crypto.randomUUID();
-    }
-  }, [debug]);
+    initSDK();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [config, debug, onError]);
+
+  useEffect(() => {
+    if (!sdk) return;
+
+    const updateOnlineStatus = () => {
+      setIsOnline(navigator.onLine);
+    };
+
+    updateOnlineStatus();
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+
+    return () => {
+      window.removeEventListener('online', updateOnlineStatus);
+      window.removeEventListener('offline', updateOnlineStatus);
+    };
+  }, [sdk]);
 
   const initializeFingerprint = useCallback(async () => {
+    if (!sdk) {
+      log(debug, 'SDK not initialized');
+      return;
+    }
+
     try {
       setIsLoading(true);
       log(debug, 'Initializing new fingerprint');
 
-      // Get browser fingerprint
-      const browserFingerprint = await getBrowserFingerprint();
-      log(debug, 'Generated browser fingerprint:', browserFingerprint);
+      const fingerprint = await getBrowserFingerprint();
+      log(debug, 'Generated fingerprint:', fingerprint);
 
-      // Step 1: Register fingerprint (public endpoint)
+      const platformInfo = await getPlatformInfo();
+
       const fingerprintResponse = await sdk.identify({
-        fingerprint: browserFingerprint,
+        fingerprint,
         metadata: {
-          userAgent: navigator.userAgent,
-          language: navigator.language,
-          platform: getPlatformInfo(),
-          url: window.location.href,
-          referrer: document.referrer || '',
+          ...platformInfo,
           timestamp: new Date().toISOString(),
         },
       });
@@ -361,7 +214,6 @@ export function ArgosProvider({
       const id = fingerprintResponse.data.id;
       log(debug, 'Fingerprint registered:', id);
 
-      // Step 2: Register API key (public endpoint)
       const apiKeyResponse = await sdk.registerApiKey(id);
       if (!apiKeyResponse.success || !apiKeyResponse.data) {
         throw new Error('Failed to register API key');
@@ -370,16 +222,11 @@ export function ArgosProvider({
       const apiKey = apiKeyResponse.data.key;
       log(debug, 'API key registered successfully');
 
-      // Step 3: Store credentials and update SDK
-      secureStorage.setItem(STORAGE_KEYS.FINGERPRINT_ID, id);
-      secureStorage.setItem(STORAGE_KEYS.API_KEY, apiKey);
       sdk.setApiKey(apiKey);
 
-      // Step 4: Set state
       setFingerprintId(id);
       setFingerprint(fingerprintResponse.data);
 
-      // Step 5: Track initial visit
       await trackVisit(id);
     } catch (err) {
       handleError(err);
@@ -395,60 +242,56 @@ export function ArgosProvider({
     getBrowserFingerprint,
   ]);
 
-  // Initialization effect
   useEffect(() => {
     let isMounted = true;
 
     const initialize = async () => {
+      if (!sdk) {
+        log(debug, 'SDK not initialized');
+        return;
+      }
+
       try {
         log(debug, 'Starting initialization...');
 
-        // Step 1: Load stored credentials from secure storage
-        const storedFingerprintId = secureStorage.getItem(
-          STORAGE_KEYS.FINGERPRINT_ID
-        );
-        const storedApiKey = secureStorage.getItem(STORAGE_KEYS.API_KEY);
+        const storedFingerprintId = await sdk.getIdentity(fingerprintId || '');
 
-        log(debug, 'Stored credentials found:', {
-          hasFingerprintId: !!storedFingerprintId,
-          hasApiKey: !!storedApiKey,
-          fingerprintId: storedFingerprintId
-            ? `${storedFingerprintId.substring(0, 5)}...`
+        log(debug, 'Stored fingerprint found:', {
+          hasFingerprintId: !!storedFingerprintId?.data,
+          fingerprintId: storedFingerprintId?.data?.id
+            ? `${storedFingerprintId.data.id.substring(0, 5)}...`
             : null,
         });
 
-        if (!storedFingerprintId || !storedApiKey) {
-          log(debug, 'Missing stored credentials, creating new fingerprint');
+        if (!storedFingerprintId?.data) {
+          log(debug, 'Missing stored fingerprint, creating new one');
           await initializeFingerprint();
           return;
         }
 
-        // Step 2: Set API key first
-        sdk.setApiKey(storedApiKey);
-        log(debug, 'Set stored API key to SDK');
-
-        // Step 3: Validate stored fingerprint
-        log(debug, 'Validating stored fingerprint:', storedFingerprintId);
+        log(
+          debug,
+          'Validating stored fingerprint:',
+          storedFingerprintId.data.id
+        );
 
         try {
-          const response = await sdk.getIdentity(storedFingerprintId);
+          const response = await sdk.getIdentity(storedFingerprintId.data.id);
           log(debug, 'Fingerprint validation response:', {
             success: response.success,
             hasData: !!response.data,
             fingerprintId: response.data?.id,
-            matches: response.data?.id === storedFingerprintId,
+            matches: response.data?.id === storedFingerprintId.data.id,
           });
 
           if (!response.success || !response.data) {
-            log(debug, 'Invalid fingerprint response, clearing storage');
-            secureStorage.clear();
+            log(debug, 'Invalid fingerprint response, reinitializing');
             await initializeFingerprint();
             return;
           }
 
-          if (response.data.id !== storedFingerprintId) {
-            log(debug, 'Fingerprint ID mismatch, clearing storage');
-            secureStorage.clear();
+          if (response.data.id !== storedFingerprintId.data.id) {
+            log(debug, 'Fingerprint ID mismatch, reinitializing');
             await initializeFingerprint();
             return;
           }
@@ -458,9 +301,9 @@ export function ArgosProvider({
               debug,
               'Stored fingerprint is valid, using existing credentials'
             );
-            setFingerprintId(storedFingerprintId);
+            setFingerprintId(storedFingerprintId.data.id);
             setFingerprint(response.data);
-            await trackVisit(storedFingerprintId);
+            await trackVisit(storedFingerprintId.data.id);
           }
         } catch (err) {
           const errorMessage = err instanceof Error ? err.message : String(err);
@@ -469,27 +312,19 @@ export function ArgosProvider({
             error: err,
           });
 
-          // Check if it's a server error response
           if (errorMessage === 'Not Found') {
-            log(
-              debug,
-              'Server returned Not Found, clearing storage and reinitializing'
-            );
-            secureStorage.clear();
+            log(debug, 'Server returned Not Found, reinitializing');
             await initializeFingerprint();
             return;
           }
 
-          // Try to handle API key errors
           const handled = await handleApiError(err);
           if (!handled) {
-            log(debug, 'Unhandled error, clearing storage');
-            secureStorage.clear();
+            log(debug, 'Unhandled error, reinitializing');
             await initializeFingerprint();
             return;
           }
 
-          // If API key was refreshed, retry initialization
           if (handled && isMounted) {
             log(debug, 'API key refreshed, retrying initialization');
             await initialize();
@@ -497,8 +332,6 @@ export function ArgosProvider({
         }
       } catch (err) {
         log(debug, 'Error during initialization:', err);
-        // Clear stored credentials on error
-        secureStorage.clear();
         await initializeFingerprint();
       } finally {
         if (isMounted) {
@@ -509,36 +342,24 @@ export function ArgosProvider({
       }
     };
 
-    initialize();
+    if (sdk) {
+      initialize();
+    }
 
     return () => {
       isMounted = false;
     };
-  }, [sdk, debug, initializeFingerprint, trackVisit, handleApiError]);
+  }, [
+    sdk,
+    debug,
+    initializeFingerprint,
+    trackVisit,
+    handleApiError,
+    fingerprintId,
+  ]);
 
-  // Handle online/offline status
   useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true);
-      log(debug, 'Connection status: Online');
-    };
-    const handleOffline = () => {
-      setIsOnline(false);
-      log(debug, 'Connection status: Offline');
-    };
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, [debug]);
-
-  // Handle presence tracking
-  useEffect(() => {
-    if (!isInitialized || !fingerprintId) {
+    if (!isInitialized || !fingerprintId || !sdk) {
       log(debug, 'Not starting presence tracking - initialization incomplete');
       return;
     }
@@ -548,26 +369,21 @@ export function ArgosProvider({
     let isCancelled = false;
 
     const trackPresence = async () => {
-      if (isCancelled) return;
+      if (isCancelled || !sdk) return;
       try {
         log(debug, 'Tracking presence');
+        const platformInfo = await getPlatformInfo();
         await sdk.track('presence', {
           fingerprintId,
           status: isOnline ? 'online' : 'offline',
           metadata: {
-            url: window.location.href,
-            path: window.location.pathname,
-            title: document.title || window.location.pathname,
-            userAgent: navigator.userAgent,
-            language: navigator.language,
-            platform: getPlatformInfo(),
+            ...platformInfo,
           },
         });
         log(debug, 'Presence tracked successfully');
       } catch (err) {
         const handled = await handleApiError(err);
         if (handled && !isCancelled) {
-          // Retry the operation with new API key
           await trackPresence();
         }
       }
@@ -591,10 +407,9 @@ export function ArgosProvider({
     getPlatformInfo,
   ]);
 
-  // Set debug mode on storage
-  useEffect(() => {
-    secureStorage.setDebug(debug);
-  }, [debug]);
+  if (!sdk) {
+    return <>{children}</>;
+  }
 
   return (
     <ArgosContext.Provider

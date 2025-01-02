@@ -25,6 +25,7 @@ export class FingerprintAPI<
   ): Promise<ApiResponse<Fingerprint>> {
     return this.fetchApi<Fingerprint>('/fingerprint/register', {
       method: HttpMethod.POST,
+      skipAuth: true,
       body: {
         fingerprint,
         ...(options?.metadata && { metadata: options.metadata }),

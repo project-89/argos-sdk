@@ -39,6 +39,13 @@ export class ArgosClientSDK {
   private impressionAPI: ImpressionAPI<Response, RequestInit>;
 
   constructor(config: ClientSDKConfig) {
+    // Only initialize if we're in a browser environment
+    if (typeof window === 'undefined') {
+      throw new Error(
+        'ArgosClientSDK can only be initialized in a browser environment'
+      );
+    }
+
     this.config = config;
     this.presenceInterval = config.presenceInterval || 30000; // 30 seconds default
 
@@ -62,7 +69,9 @@ export class ArgosClientSDK {
   }
 
   isOnline(): boolean {
-    return typeof navigator !== 'undefined' ? navigator.onLine : true;
+    return typeof window !== 'undefined' && typeof navigator !== 'undefined'
+      ? navigator.onLine
+      : true;
   }
 
   getPresenceInterval(): number {
@@ -73,6 +82,10 @@ export class ArgosClientSDK {
     type: string,
     options: TrackOptions
   ): Promise<ApiResponse<ImpressionData>> {
+    if (typeof window === 'undefined') {
+      throw new Error('Tracking is only available in browser environment');
+    }
+
     return this.impressionAPI.createImpression({
       type,
       fingerprintId: options.fingerprintId,
@@ -104,8 +117,9 @@ export class ArgosClientSDK {
   ): Promise<ApiResponse<{ key: string }>> {
     const request: CreateAPIKeyRequest = {
       name: `client-sdk-${fingerprintId}`,
+      fingerprintId,
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
-      metadata: { fingerprintId },
+      metadata: { source: 'client-sdk' },
     };
 
     const response = await this.apiKeyAPI.createAPIKey(request);

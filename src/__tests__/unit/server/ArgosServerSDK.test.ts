@@ -14,12 +14,13 @@ describe('ArgosServerSDK', () => {
       encryptionKey: 'test-key-32-chars-secure-storage-ok',
       storagePath: './test-storage/storage.enc',
     });
-    environment = new NodeEnvironment(storage);
+    environment = new NodeEnvironment(storage, 'test-fingerprint');
 
     sdk = new ArgosServerSDK({
       baseUrl: 'http://test.com',
       apiKey: 'test-key',
       environment,
+      fingerprint: 'test-fingerprint',
       debug: true,
     });
   });

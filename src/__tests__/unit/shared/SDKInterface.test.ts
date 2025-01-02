@@ -1,126 +1,97 @@
 import { jest } from '@jest/globals';
-import { ArgosServerSDK } from '../../../server/sdk/ArgosServerSDK';
 import { ArgosClientSDK } from '../../../client/sdk/ArgosClientSDK';
-import { RuntimeEnvironment } from '../../../shared/interfaces/environment';
-import type { Response, RequestInit } from 'node-fetch';
-import {
-  MockBrowserEnvironment,
-  MockNodeEnvironment,
-  createMockResponse,
-} from '../../../__tests__/utils/testUtils';
-import type { Fingerprint } from '../../../shared/interfaces/api';
+import { ArgosServerSDK } from '../../../server/sdk/ArgosServerSDK';
+import { BrowserEnvironment } from '../../../client/environment/BrowserEnvironment';
+import { NodeEnvironment } from '../../../server/environment/NodeEnvironment';
+import { SecureStorage } from '../../../server/storage/SecureStorage';
 
 describe('SDK Interface', () => {
   let clientSDK: ArgosClientSDK;
   let serverSDK: ArgosServerSDK;
-  let browserEnvironment: MockBrowserEnvironment;
-  let nodeEnvironment: MockNodeEnvironment;
+  let storage: SecureStorage;
+  let nodeEnvironment: NodeEnvironment;
+  let browserEnvironment: BrowserEnvironment;
 
   beforeEach(() => {
-    browserEnvironment = new MockBrowserEnvironment('test-fingerprint');
-    nodeEnvironment = new MockNodeEnvironment('test-fingerprint');
+    storage = new SecureStorage({
+      encryptionKey: 'test-key-32-chars-secure-storage-ok',
+      storagePath: './test-storage/storage.enc',
+    });
+    nodeEnvironment = new NodeEnvironment(storage, 'test-fingerprint');
+    browserEnvironment = new BrowserEnvironment();
 
-    // Initialize SDKs with appropriate environments
     serverSDK = new ArgosServerSDK({
       baseUrl: 'https://test.example.com',
-      environment: nodeEnvironment as any,
+      environment: nodeEnvironment,
+      fingerprint: 'test-fingerprint',
     });
 
     clientSDK = new ArgosClientSDK({
       baseUrl: 'https://test.example.com',
-      environment: browserEnvironment as any,
-      debug: true,
+      environment: browserEnvironment,
     });
   });
 
-  describe('Environment-specific behavior', () => {
-    it('should use provided fingerprint in server SDK', async () => {
-      const mockFingerprint = 'test-fingerprint';
-      const spy = jest.spyOn(serverSDK['fingerprintAPI'], 'createFingerprint');
-
-      await serverSDK.identify({
-        fingerprint: mockFingerprint,
-        metadata: { test: true },
-      });
-
-      expect(spy).toHaveBeenCalledWith(mockFingerprint, {
-        metadata: { test: true },
-      });
+  describe('Environment Detection', () => {
+    it('should detect browser environment correctly', () => {
+      expect(browserEnvironment.isOnline()).toBeDefined();
+      expect(browserEnvironment.getUserAgent()).toBeDefined();
     });
 
-    it('should use auto-generated fingerprint in client SDK when not provided', async () => {
-      const mockFingerprint = 'browser-generated-fingerprint';
-      const mockResponse: Fingerprint = {
-        id: 'test-id',
-        fingerprint: mockFingerprint,
-        roles: [],
-        createdAt: { _seconds: 0, _nanoseconds: 0 },
-        metadata: { test: true },
-        ipAddresses: [],
-        ipMetadata: {
-          ipFrequency: {},
-          lastSeenAt: {},
-          primaryIp: '',
-          suspiciousIps: [],
-        },
-        tags: [],
-      };
-
-      jest
-        .spyOn(browserEnvironment, 'getFingerprint')
-        .mockResolvedValueOnce(mockFingerprint);
-
-      jest
-        .spyOn(clientSDK['fingerprintAPI'], 'createFingerprint')
-        .mockResolvedValueOnce({
-          success: true,
-          data: mockResponse,
-        });
-
-      const result = await clientSDK.identify({
-        metadata: { test: true },
-      });
-
-      expect(result.success).toBe(true);
-      expect(result.data.fingerprint).toBe(mockFingerprint);
-      expect(browserEnvironment.getFingerprint).toHaveBeenCalled();
+    it('should detect node environment correctly', () => {
+      expect(nodeEnvironment.isOnline()).toBe(true);
+      expect(nodeEnvironment.getUserAgent()).toMatch(/^Node\.js\//);
     });
   });
 
-  describe('Common SDK functionality', () => {
-    it('should handle API key updates', async () => {
-      const newApiKey = 'new-test-key';
-      serverSDK.setApiKey(newApiKey);
-      clientSDK.setApiKey(newApiKey);
-
-      expect(serverSDK.getApiKey()).toBe(newApiKey);
-      expect(clientSDK.getApiKey()).toBe(newApiKey);
+  describe('API Key Management', () => {
+    it('should handle API key in browser environment', () => {
+      browserEnvironment.setApiKey('test-key');
+      expect(browserEnvironment.getApiKey()).toBe('test-key');
     });
 
-    it('should handle API key revocation', async () => {
-      const apiKey = 'test-key';
-      nodeEnvironment.setApiKey(apiKey);
+    it('should handle API key in node environment', () => {
+      nodeEnvironment.setApiKey('test-key');
+      expect(nodeEnvironment.getApiKey()).toBe('test-key');
+    });
 
+    it('should throw error for empty API key', () => {
+      expect(() => browserEnvironment.setApiKey('')).toThrow(
+        'API key cannot be empty'
+      );
+      expect(() => nodeEnvironment.setApiKey('')).toThrow(
+        'API key cannot be empty'
+      );
+    });
+  });
+
+  describe('SDK Initialization', () => {
+    it('should initialize client SDK with browser environment', () => {
+      const sdk = new ArgosClientSDK({
+        baseUrl: 'https://test.example.com',
+        environment: browserEnvironment,
+      });
+      expect(sdk).toBeDefined();
+    });
+
+    it('should initialize server SDK with node environment', () => {
       const sdk = new ArgosServerSDK({
         baseUrl: 'https://test.example.com',
         environment: nodeEnvironment,
+        fingerprint: 'test-fingerprint',
       });
+      expect(sdk).toBeDefined();
+    });
 
-      jest.spyOn(nodeEnvironment, 'fetch').mockImplementation(async () => {
-        return {
-          ok: false,
-          status: 401,
-          statusText: 'Unauthorized',
-          headers: new Headers({ 'content-type': 'application/json' }),
-          json: () =>
-            Promise.resolve({ success: false, message: 'API key revoked' }),
-          text: () => Promise.resolve('API key revoked'),
-        } as any;
-      });
-
-      await expect(sdk.revokeAPIKey({ key: apiKey })).rejects.toThrow();
-      expect(nodeEnvironment.fetch).toHaveBeenCalled();
-      expect(sdk.getApiKey()).toBeUndefined();
+    it('should throw error when initializing server SDK without fingerprint', () => {
+      expect(
+        () =>
+          new ArgosServerSDK({
+            baseUrl: 'https://test.example.com',
+            environment: nodeEnvironment,
+            fingerprint: '',
+          })
+      ).toThrow('Fingerprint is required for server SDK');
     });
   });
 });

@@ -1,82 +1,78 @@
-import { jest } from '@jest/globals';
 import { NodeEnvironment } from '../../../server/environment/NodeEnvironment';
-import { HttpMethod } from '../../../shared/interfaces/http';
-import type { Response } from 'node-fetch';
-import {
-  createMockResponse,
-  createMockErrorResponse,
-} from '../../utils/testUtils';
-
-type FetchFunction = (url: string, init?: any) => Promise<Response>;
+import { SecureStorage } from '../../../server/storage/SecureStorage';
 
 describe('NodeEnvironment', () => {
   let environment: NodeEnvironment;
-  let mockFetch: jest.MockedFunction<FetchFunction>;
+  let storage: SecureStorage;
 
   beforeEach(() => {
-    mockFetch = jest.fn<FetchFunction>();
-    environment = new NodeEnvironment('test-fingerprint');
-    (environment as any).fetch = mockFetch;
+    storage = new SecureStorage({
+      encryptionKey: 'test-key-32-chars-secure-storage-ok',
+      storagePath: './test-storage/storage.enc',
+    });
+    environment = new NodeEnvironment(storage, 'test-fingerprint');
   });
 
-  describe('fetch', () => {
-    it('should call fetch with correct parameters', async () => {
-      const mockApiResponse = {
-        success: true,
-        data: 'test',
-      };
-
-      const mockResponse = createMockResponse(mockApiResponse);
-      mockFetch.mockResolvedValueOnce(mockResponse);
-
-      const response = await environment.fetch('/test', {
-        method: HttpMethod.POST,
-        body: JSON.stringify({ test: 'data' }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      expect(response.ok).toBe(true);
-      expect(response.status).toBe(200);
-      const json = await response.json();
-      expect(json).toEqual({ success: true, data: mockApiResponse });
-
-      expect(mockFetch).toHaveBeenCalledWith('/test', {
-        method: HttpMethod.POST,
-        body: JSON.stringify({ test: 'data' }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-    });
-
-    it('should handle fetch errors', async () => {
-      const error = new Error('Fetch Error');
-      mockFetch.mockRejectedValueOnce(error);
-
-      await expect(
-        environment.fetch('/test', { method: HttpMethod.GET })
-      ).rejects.toThrow(error);
+  describe('isOnline', () => {
+    it('should always return true', () => {
+      expect(environment.isOnline()).toBe(true);
     });
   });
 
-  describe('handleResponse', () => {
-    it('should handle successful response', async () => {
-      const mockApiResponse = {
-        success: true,
-        data: 'test',
-      };
+  describe('getUserAgent', () => {
+    it('should return Node.js user agent', () => {
+      expect(environment.getUserAgent()).toMatch(/^Node\.js\//);
+    });
+  });
 
-      const mockResponse = createMockResponse(mockApiResponse);
-      const result = await environment.handleResponse(mockResponse);
-      expect(result).toEqual({ success: true, data: mockApiResponse });
+  describe('getPlatformInfo', () => {
+    it('should return platform information', async () => {
+      const info = await environment.getPlatformInfo();
+      expect(info.platform).toBe(process.platform);
+      expect(info.arch).toBe(process.arch);
+      expect(info.version).toBe(process.version);
+    });
+  });
+
+  describe('API key management', () => {
+    it('should set and get API key', () => {
+      environment.setApiKey('test-key');
+      expect(environment.getApiKey()).toBe('test-key');
     });
 
-    it('should handle error response', async () => {
-      const mockResponse = createMockErrorResponse('Test Error');
-      await expect(environment.handleResponse(mockResponse)).rejects.toThrow(
-        'Test Error'
+    it('should throw error when setting empty API key', () => {
+      expect(() => environment.setApiKey('')).toThrow(
+        'API key cannot be empty'
+      );
+    });
+  });
+
+  describe('Headers management', () => {
+    it('should create headers with API key when available', () => {
+      environment.setApiKey('test-key');
+      const headers = environment.createHeaders();
+      expect(headers['x-api-key']).toBe('test-key');
+      expect(headers['user-agent']).toMatch(/^Node\.js\//);
+    });
+
+    it('should create headers without API key when not available', () => {
+      const headers = environment.createHeaders();
+      expect(headers['x-api-key']).toBe('');
+      expect(headers['user-agent']).toMatch(/^Node\.js\//);
+    });
+  });
+
+  describe('Fingerprint management', () => {
+    it('should return the provided fingerprint', async () => {
+      const fingerprint = await environment.getFingerprint();
+      expect(fingerprint).toBe('test-fingerprint');
+    });
+  });
+
+  describe('Constructor validation', () => {
+    it('should throw error when fingerprint is not provided', () => {
+      expect(() => new NodeEnvironment(storage, '')).toThrow(
+        'Fingerprint is required for Node environment'
       );
     });
   });

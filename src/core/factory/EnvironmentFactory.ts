@@ -12,6 +12,7 @@ import type {
 export interface EnvironmentFactoryConfig {
   runtime?: RuntimeEnvironment;
   encryptionKey?: string;
+  fingerprint?: string;
   onApiKeyUpdate?: (apiKey: string) => void;
 }
 
@@ -19,14 +20,26 @@ export class EnvironmentFactory {
   static createBrowserEnvironment(
     onApiKeyUpdate?: (apiKey: string) => void
   ): EnvironmentInterface<globalThis.Response> {
+    if (typeof window === 'undefined') {
+      throw new Error(
+        'Cannot create BrowserEnvironment in a non-browser context'
+      );
+    }
     return new BrowserEnvironment(onApiKeyUpdate);
   }
 
   static createNodeEnvironment(
     encryptionKey: string,
+    fingerprint: string,
     onApiKeyUpdate?: (apiKey: string) => void
   ): EnvironmentInterface<NodeResponse, NodeRequestInit> {
-    return new NodeEnvironment(encryptionKey, undefined, onApiKeyUpdate);
+    if (!encryptionKey) {
+      throw new Error('Encryption key is required for Node environment');
+    }
+    if (!fingerprint) {
+      throw new Error('Fingerprint is required for Node environment');
+    }
+    return new NodeEnvironment(encryptionKey, fingerprint, onApiKeyUpdate);
   }
 
   static create(
@@ -41,8 +54,12 @@ export class EnvironmentFactory {
         if (!config.encryptionKey) {
           throw new Error('Encryption key is required for Node environment');
         }
+        if (!config.fingerprint) {
+          throw new Error('Fingerprint is required for Node environment');
+        }
         return this.createNodeEnvironment(
           config.encryptionKey,
+          config.fingerprint,
           config.onApiKeyUpdate
         );
       default:
@@ -51,8 +68,9 @@ export class EnvironmentFactory {
   }
 
   private static detectRuntime(): RuntimeEnvironment {
-    return typeof window === 'undefined'
-      ? RuntimeEnvironment.Node
-      : RuntimeEnvironment.Browser;
+    if (typeof window === 'undefined') {
+      return RuntimeEnvironment.Node;
+    }
+    return RuntimeEnvironment.Browser;
   }
 }

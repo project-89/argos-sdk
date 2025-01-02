@@ -1,8 +1,13 @@
 // Import polyfills first
 import './polyfills';
 
-export * from './react/hooks';
-export * from './react/context/ArgosContext';
+// Core SDK
+export { ArgosClientSDK } from './sdk/ArgosClientSDK';
+export type { ClientSDKConfig } from './sdk/ArgosClientSDK';
+
+// Types
 export * from './types/request';
 export { clientFetch } from './http/fetch';
-export { ArgosClientSDK } from './sdk/ArgosClientSDK';
+
+// Note: React components should be imported from '@project89/argos-sdk/client/react'
+// to ensure they are only used in client components

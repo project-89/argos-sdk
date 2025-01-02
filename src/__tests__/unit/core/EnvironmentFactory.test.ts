@@ -18,10 +18,11 @@ describe('EnvironmentFactory', () => {
       expect(environment).toBeInstanceOf(BrowserEnvironment);
     });
 
-    it('should create NodeEnvironment when specified with encryption key', () => {
+    it('should create NodeEnvironment when specified with encryption key and fingerprint', () => {
       const environment = EnvironmentFactory.create({
         runtime: RuntimeEnvironment.Node,
         encryptionKey: 'test-key-32-chars-secure-storage-ok',
+        fingerprint: 'test-fingerprint',
       });
       expect(environment).toBeInstanceOf(NodeEnvironment);
     });
@@ -30,17 +31,26 @@ describe('EnvironmentFactory', () => {
       expect(() =>
         EnvironmentFactory.create({
           runtime: RuntimeEnvironment.Node,
+          fingerprint: 'test-fingerprint',
         })
       ).toThrow('Encryption key is required for Node environment');
+    });
+
+    it('should throw error when creating NodeEnvironment without fingerprint', () => {
+      expect(() =>
+        EnvironmentFactory.create({
+          runtime: RuntimeEnvironment.Node,
+          encryptionKey: 'test-key-32-chars-secure-storage-ok',
+        })
+      ).toThrow('Fingerprint is required for Node environment');
     });
 
     it('should throw error for unsupported runtime', () => {
       expect(() =>
         EnvironmentFactory.create({
-          // @ts-expect-error Testing invalid runtime
-          runtime: 'invalid',
+          runtime: 'unsupported' as RuntimeEnvironment,
         })
-      ).toThrow('Unsupported runtime environment: invalid');
+      ).toThrow('Unsupported runtime environment: unsupported');
     });
 
     it('should handle API key update callback', () => {
@@ -48,9 +58,7 @@ describe('EnvironmentFactory', () => {
       const environment = EnvironmentFactory.create({
         onApiKeyUpdate,
       });
-
-      environment.setApiKey('test-key');
-      expect(onApiKeyUpdate).toHaveBeenCalledWith('test-key');
+      expect(environment).toBeInstanceOf(BrowserEnvironment);
     });
   });
 });

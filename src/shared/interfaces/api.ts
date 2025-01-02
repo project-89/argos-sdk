@@ -132,7 +132,8 @@ export interface UpdatePresenceRequest {
 
 export interface CreateAPIKeyRequest {
   name: string;
-  expiresAt: string;
+  fingerprintId: string;
+  expiresAt?: string;
   metadata?: Record<string, any>;
 }
 

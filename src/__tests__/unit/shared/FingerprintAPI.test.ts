@@ -55,6 +55,7 @@ describe('FingerprintAPI', () => {
         `${BASE_URL}/fingerprint/register`,
         {
           method: HttpMethod.POST,
+          skipAuth: true,
           body: {
             fingerprint: fingerprintId,
             metadata: options.metadata,

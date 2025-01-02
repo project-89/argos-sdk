@@ -45,11 +45,9 @@ export function ArgosTracker({
   trackOnUpdate = false,
 }: ArgosTrackerProps) {
   const { createImpression } = useImpressions();
-  const context = useArgosSDK();
+  const sdk = useArgosSDK();
 
   const trackImpression = useCallback(async () => {
-    if (!context) return;
-
     try {
       await createImpression(
         type,
@@ -64,7 +62,7 @@ export function ArgosTracker({
     } catch (error) {
       // Error is already handled by createImpression
     }
-  }, [context, id, type, metadata, createImpression, onTrack, onError]);
+  }, [id, type, metadata, createImpression, onTrack, onError]);
 
   // Track on mount if enabled
   useEffect(() => {

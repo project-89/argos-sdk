@@ -8,53 +8,58 @@ import type {
 } from '../../../shared/interfaces/api';
 
 const MAX_RETRIES = 3;
-const RETRY_DELAYS = [1000, 2000, 4000]; // 1s, 2s, 4s delays
+const RETRY_DELAYS = [1000, 2000, 4000];
 
-export function useImpressions() {
+interface UseImpressionsResult {
+  createImpression: (
+    type: string,
+    metadata?: Record<string, unknown>,
+    onSuccess?: () => void,
+    onError?: (error: Error) => void
+  ) => Promise<void>;
+  getImpressions: (
+    options?: GetImpressionsOptions
+  ) => Promise<ApiResponse<ImpressionData[]>>;
+  deleteImpressions: (type?: string) => Promise<void>;
+}
+
+export function useImpressions(): UseImpressionsResult {
   const sdk = useArgosSDK();
   const { fingerprintId } = useFingerprint();
 
   const createImpression = useCallback(
     async (
       type: string,
-      data: Record<string, unknown> = {},
+      metadata: Record<string, unknown> = {},
       onSuccess?: () => void,
       onError?: (error: Error) => void
-    ): Promise<ApiResponse<ImpressionData> | undefined> => {
+    ) => {
       if (!fingerprintId) {
         const error = new Error('No fingerprint ID available');
         onError?.(error);
         return;
       }
 
-      let attempt = 0;
-      while (attempt <= MAX_RETRIES) {
+      let retries = 0;
+      while (retries < MAX_RETRIES) {
         try {
-          const response = await sdk.createImpression({
-            fingerprintId,
+          await sdk.createImpression({
             type,
-            data,
+            fingerprintId,
+            data: metadata,
           });
-
-          if (response.success) {
-            onSuccess?.();
-            return response;
+          onSuccess?.();
+          return;
+        } catch (err) {
+          const error = err instanceof Error ? err : new Error(String(err));
+          if (retries === MAX_RETRIES - 1) {
+            onError?.(error);
+            return;
           }
-
-          throw new Error(response.error || 'Failed to create impression');
-        } catch (error) {
-          if (attempt === MAX_RETRIES) {
-            onError?.(
-              error instanceof Error ? error : new Error(String(error))
-            );
-            throw error;
-          }
-
-          // Wait before retrying
           await new Promise((resolve) =>
-            setTimeout(resolve, RETRY_DELAYS[attempt])
+            setTimeout(resolve, RETRY_DELAYS[retries])
           );
-          attempt++;
+          retries++;
         }
       }
     },
@@ -62,38 +67,28 @@ export function useImpressions() {
   );
 
   const getImpressions = useCallback(
-    async (
-      options?: GetImpressionsOptions
-    ): Promise<ApiResponse<ImpressionData[]> | undefined> => {
+    async (options?: GetImpressionsOptions) => {
       if (!fingerprintId) {
         throw new Error('No fingerprint ID available');
       }
-
-      let attempt = 0;
-      while (attempt <= MAX_RETRIES) {
-        try {
-          const response = await sdk.getImpressions(fingerprintId, options);
-
-          if (response.success) {
-            return response;
-          }
-
-          throw new Error(response.error || 'Failed to get impressions');
-        } catch (error) {
-          if (attempt === MAX_RETRIES) {
-            throw error;
-          }
-
-          // Wait before retrying
-          await new Promise((resolve) =>
-            setTimeout(resolve, RETRY_DELAYS[attempt])
-          );
-          attempt++;
-        }
-      }
+      return sdk.getImpressions(fingerprintId, options);
     },
     [sdk, fingerprintId]
   );
 
-  return { createImpression, getImpressions };
+  const deleteImpressions = useCallback(
+    async (type?: string) => {
+      if (!fingerprintId) {
+        throw new Error('No fingerprint ID available');
+      }
+      await sdk.deleteImpressions(fingerprintId, type);
+    },
+    [sdk, fingerprintId]
+  );
+
+  return {
+    createImpression,
+    getImpressions,
+    deleteImpressions,
+  };
 }

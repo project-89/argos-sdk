@@ -9,17 +9,31 @@ export class BrowserEnvironment
 {
   readonly type = RuntimeEnvironment.Browser;
   private apiKey?: string;
-  private fingerprintPromise: Promise<string>;
-  private fpAgent: Promise<FingerprintJS.Agent>;
+  private fingerprintPromise?: Promise<string>;
+  private fpAgent?: Promise<FingerprintJS.Agent>;
   private onApiKeyUpdate?: (apiKey: string) => void;
 
   constructor(onApiKeyUpdate?: (apiKey: string) => void) {
-    this.fpAgent = FingerprintJS.load();
-    this.fingerprintPromise = this.initializeFingerprint();
+    if (typeof window === 'undefined') {
+      throw new Error(
+        'BrowserEnvironment can only be initialized in a browser context'
+      );
+    }
     this.onApiKeyUpdate = onApiKeyUpdate;
+    this.initializeFingerprint();
   }
 
-  private async initializeFingerprint(): Promise<string> {
+  private initializeFingerprint(): void {
+    if (!this.fpAgent) {
+      this.fpAgent = FingerprintJS.load();
+      this.fingerprintPromise = this.getInitialFingerprint();
+    }
+  }
+
+  private async getInitialFingerprint(): Promise<string> {
+    if (!this.fpAgent) {
+      throw new Error('Fingerprint agent not initialized');
+    }
     const agent = await this.fpAgent;
     const result = await agent.get();
     return result.visitorId;
@@ -68,7 +82,11 @@ export class BrowserEnvironment
       return 'test-fingerprint';
     }
 
-    return this.fingerprintPromise;
+    if (!this.fingerprintPromise) {
+      this.initializeFingerprint();
+    }
+
+    return this.fingerprintPromise!;
   }
 
   async getPlatformInfo(): Promise<Record<string, unknown>> {
@@ -102,9 +120,6 @@ export class BrowserEnvironment
   }
 
   async fetch(url: string, options?: RequestInit): Promise<Response> {
-    console.log('Making request to:', url);
-    console.log('Request options:', JSON.stringify(options, null, 2));
-
     const headers = {
       ...options?.headers,
       Origin: window.location.origin,
