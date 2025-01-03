@@ -2,7 +2,6 @@ import { jest } from '@jest/globals';
 import { ArgosServerSDK } from '../../../server/sdk/ArgosServerSDK';
 import { NodeEnvironment } from '../../../server/environment/NodeEnvironment';
 import { SecureStorage } from '../../../server/storage/SecureStorage';
-import type { ImpressionData } from '../../../shared/interfaces/api';
 
 describe('Impression Management', () => {
   let sdk: ArgosServerSDK;
@@ -40,7 +39,8 @@ describe('Impression Management', () => {
 
       const result = await sdk.track('test-event', {
         fingerprintId: testFingerprint,
-        status: 'online',
+        url: 'https://example.com',
+        title: 'Test Page',
         metadata: { test: 'data' },
       });
 
@@ -57,7 +57,8 @@ describe('Impression Management', () => {
             type: 'test-event',
             fingerprintId: testFingerprint,
             data: expect.objectContaining({
-              status: 'online',
+              url: 'https://example.com',
+              title: 'Test Page',
               test: 'data',
             }),
           }),

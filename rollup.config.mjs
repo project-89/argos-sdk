@@ -87,7 +87,8 @@ const reactConfig = {
       declaration: false,
       sourceMap: true,
       jsx: 'react-jsx',
-      include: ['src/client/react/**/*', 'src/shared/**/*'],
+      include: ['src/client/react/**/*', 'src/shared/**/*', 'src/core/**/*'],
+      exclude: ['src/server/**/*', '**/*.test.ts', '**/*.test.tsx'],
     }),
     resolve({
       browser: true,
@@ -97,7 +98,12 @@ const reactConfig = {
     }),
     commonjs({
       transformMixedEsModules: true,
-      include: [/node_modules/, /src\/shared/, /src\/client\/react/],
+      include: [
+        /node_modules/,
+        /src\/shared/,
+        /src\/client\/react/,
+        /src\/core/,
+      ],
       requireReturnsDefault: 'auto',
     }),
     json(),

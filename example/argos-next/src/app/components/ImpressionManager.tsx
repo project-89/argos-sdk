@@ -4,6 +4,7 @@
 import {
   useImpressions,
   useFingerprint,
+  useArgosSDK,
 } from '@project89/argos-sdk/client/react';
 import { useEffect, useState, useCallback } from 'react';
 
@@ -16,75 +17,90 @@ interface ImpressionData {
   updatedAt?: string;
 }
 
-const getApiKey = () => {
-  try {
-    const value = document.cookie
-      .split('; ')
-      .find((row) => row.startsWith('argos_api_key='))
-      ?.split('=')[1];
-    return value ? decodeURIComponent(value) : null;
-  } catch (e: any) {
-    console.error('Failed to get API key:', e);
+export function ImpressionManager() {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isMounted) {
     return null;
   }
-};
 
-function ClientSideImpressionManager() {
-  const { createImpression, getImpressions } = useImpressions();
+  return <ImpressionManagerContent />;
+}
+
+function formatTimestamp(data: Record<string, any>): string {
+  try {
+    // Check different possible timestamp locations
+    const timestamp = data.timestamp || data.createdAt || data.updatedAt;
+    if (!timestamp) return 'No timestamp';
+
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return 'Invalid date';
+
+    return date.toLocaleTimeString();
+  } catch (err) {
+    return 'Invalid date';
+  }
+}
+
+function ImpressionManagerContent() {
   const { fingerprint, isLoading: isFingerprintLoading } = useFingerprint();
-  const [serverImpressions, setServerImpressions] = useState<ImpressionData[]>(
-    []
-  );
+  const sdk = useArgosSDK();
+  const { createImpression } = useImpressions();
   const [clientImpressions, setClientImpressions] = useState<ImpressionData[]>(
     []
   );
-  const [isServerLoading, setIsServerLoading] = useState(false);
+  const [serverImpressions, setServerImpressions] = useState<ImpressionData[]>(
+    []
+  );
   const [isClientLoading, setIsClientLoading] = useState(false);
+  const [isServerLoading, setIsServerLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [apiKey, setApiKey] = useState<string | null>(null);
 
   const loadServerImpressions = useCallback(async () => {
-    if (!fingerprint?.id) return;
+    if (!fingerprint?.id || !sdk.getApiKey()) return;
 
     setIsServerLoading(true);
     setError(null);
     try {
-      const response = await getImpressions();
-      if (response?.success && response.data) {
-        setServerImpressions(response.data);
-      }
-    } catch (error) {
-      console.error('Failed to load server impressions:', error);
-      setError(
-        error instanceof Error
-          ? error.message
-          : 'Failed to load server impressions'
+      const response = await fetch(
+        `/api/impressions?fingerprintId=${fingerprint.id}`,
+        {
+          headers: {
+            'x-api-key': sdk.getApiKey() || '',
+          },
+        }
       );
+
+      if (!response.ok) {
+        throw new Error('Failed to load server impressions');
+      }
+
+      const result = await response.json();
+      if (result.success && result.data) {
+        setServerImpressions(result.data);
+      }
+    } catch (err) {
+      console.error('Failed to load server impressions:', err);
+      setError('Failed to load server impressions');
     } finally {
       setIsServerLoading(false);
     }
-  }, [fingerprint?.id, getImpressions]);
+  }, [fingerprint?.id, sdk]);
 
-  // Get API key once when fingerprint is ready
+  // Load server impressions initially when fingerprint and SDK are ready
   useEffect(() => {
-    if (fingerprint?.id && !apiKey) {
-      const key = getApiKey();
-      if (key) {
-        setApiKey(key);
-      }
-    }
-  }, [fingerprint?.id, apiKey]);
-
-  // Load server impressions initially when fingerprint and API key are ready
-  useEffect(() => {
-    if (fingerprint?.id && apiKey) {
+    if (fingerprint?.id && sdk.getApiKey() && !isFingerprintLoading) {
       loadServerImpressions();
     }
-  }, [fingerprint?.id, apiKey, loadServerImpressions]);
+  }, [fingerprint?.id, sdk, isFingerprintLoading, loadServerImpressions]);
 
   const handleClientImpression = async () => {
-    if (!fingerprint?.id) {
-      setError('Please wait for fingerprint to be ready');
+    if (!fingerprint?.id || !sdk.getApiKey()) {
+      setError('Please wait for initialization to complete');
       return;
     }
 
@@ -97,6 +113,7 @@ function ClientSideImpressionManager() {
         {
           timestamp,
           source: 'client',
+          fingerprintId: fingerprint.id,
         },
         () => {
           // On success, add the impression to the local state
@@ -108,6 +125,7 @@ function ClientSideImpressionManager() {
               data: {
                 timestamp,
                 source: 'client',
+                fingerprintId: fingerprint.id,
               },
             },
           ]);
@@ -123,74 +141,47 @@ function ClientSideImpressionManager() {
   };
 
   const handleServerImpression = async () => {
-    if (!fingerprint?.id) {
-      setError('Please wait for fingerprint to be ready');
+    if (!fingerprint?.id || !sdk.getApiKey()) {
+      setError('Please wait for initialization to complete');
       return;
     }
 
-    if (!apiKey) {
-      setError('Please wait for API key to be ready');
-      return;
-    }
-
+    setIsServerLoading(true);
     setError(null);
     try {
       const response = await fetch('/api/impressions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': apiKey,
+          'x-api-key': sdk.getApiKey() || '',
         },
         body: JSON.stringify({
-          fingerprintId: fingerprint.id,
           type: 'server-button-click',
+          fingerprintId: fingerprint.id,
           data: {
             timestamp: new Date().toISOString(),
             source: 'server',
+            fingerprintId: fingerprint.id,
           },
         }),
       });
 
-      const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to create server impression');
+        throw new Error('Failed to create server impression');
       }
 
-      // Load the updated impressions after creating a new one
       await loadServerImpressions();
-    } catch (error) {
-      console.error('Failed to create server impression:', error);
-      setError(
-        error instanceof Error
-          ? error.message
-          : 'Failed to create server impression'
-      );
-
-      // If we get an unauthorized error, try to get a fresh API key
-      if (error instanceof Error && error.message.includes('Unauthorized')) {
-        const newKey = getApiKey();
-        if (newKey && newKey !== apiKey) {
-          setApiKey(newKey);
-        }
-      }
+    } catch (err) {
+      console.error('Failed to create server impression:', err);
+      setError('Failed to create server impression');
+    } finally {
+      setIsServerLoading(false);
     }
   };
 
-  const renderImpressionList = (impressionList: ImpressionData[]) => (
-    <ul className="space-y-2">
-      {impressionList.map((impression) => (
-        <li key={impression.id} className="border-b pb-2">
-          <div>Type: {impression.type}</div>
-          <div>Source: {impression.data.source}</div>
-          <div>Time: {impression.data.timestamp}</div>
-        </li>
-      ))}
-    </ul>
-  );
-
   return (
-    <div className="p-4">
-      <h2 className="text-2xl font-bold mb-4">Impression Manager</h2>
+    <div className="border p-4 rounded bg-white shadow-sm">
+      <h3 className="text-xl font-semibold mb-4">Impression Tracking</h3>
 
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -198,85 +189,79 @@ function ClientSideImpressionManager() {
         </div>
       )}
 
-      {isFingerprintLoading && (
-        <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4">
-          Initializing fingerprint...
+      <div className="space-y-6">
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-lg font-medium">Client-Side Impressions</h4>
+            <button
+              onClick={handleClientImpression}
+              disabled={isClientLoading || !fingerprint?.id || !sdk.getApiKey()}
+              className={`px-4 py-2 rounded ${
+                isClientLoading || !fingerprint?.id || !sdk.getApiKey()
+                  ? 'bg-gray-300 cursor-not-allowed'
+                  : 'bg-blue-500 hover:bg-blue-600 text-white'
+              }`}
+            >
+              {isClientLoading ? 'Creating...' : 'Create Impression'}
+            </button>
+          </div>
+          <div className="bg-gray-50 p-4 rounded">
+            {clientImpressions.length === 0 ? (
+              <p className="text-gray-500">No client impressions yet</p>
+            ) : (
+              <ul className="space-y-2">
+                {clientImpressions.map((impression) => (
+                  <li
+                    key={impression.id}
+                    className="flex justify-between text-sm"
+                  >
+                    <span className="font-mono">{impression.type}</span>
+                    <span className="text-gray-500">
+                      {formatTimestamp(impression.data)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
-      )}
 
-      {!apiKey && fingerprint?.id && (
-        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
-          Waiting for API key...
-        </div>
-      )}
-
-      <div className="mb-4">
-        <div>Fingerprint ID: {fingerprint?.id || 'Not ready'}</div>
-        <div>API Key: {apiKey ? 'Available' : 'Not available'}</div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div className="border p-4 rounded">
-          <h3 className="text-xl font-semibold mb-2">
-            Client-side Impressions
-          </h3>
-          <button
-            onClick={handleClientImpression}
-            className="bg-blue-500 text-white px-4 py-2 rounded mb-4 disabled:opacity-50"
-            disabled={
-              isClientLoading || isFingerprintLoading || !fingerprint?.id
-            }
-          >
-            Create Client Impression
-          </button>
-          {isClientLoading ? (
-            <p>Loading...</p>
-          ) : (
-            renderImpressionList(clientImpressions)
-          )}
-        </div>
-
-        <div className="border p-4 rounded">
-          <h3 className="text-xl font-semibold mb-2">
-            Server-side Impressions
-          </h3>
-          <button
-            onClick={handleServerImpression}
-            className="bg-green-500 text-white px-4 py-2 rounded mb-4 disabled:opacity-50"
-            disabled={
-              isServerLoading || isFingerprintLoading || !fingerprint?.id
-            }
-          >
-            Create Server Impression
-          </button>
-          {isServerLoading ? (
-            <p>Loading...</p>
-          ) : (
-            renderImpressionList(serverImpressions)
-          )}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-lg font-medium">Server-Side Impressions</h4>
+            <button
+              onClick={handleServerImpression}
+              disabled={isServerLoading || !fingerprint?.id || !sdk.getApiKey()}
+              className={`px-4 py-2 rounded ${
+                isServerLoading || !fingerprint?.id || !sdk.getApiKey()
+                  ? 'bg-gray-300 cursor-not-allowed'
+                  : 'bg-green-500 hover:bg-green-600 text-white'
+              }`}
+            >
+              {isServerLoading ? 'Creating...' : 'Create Impression'}
+            </button>
+          </div>
+          <div className="bg-gray-50 p-4 rounded">
+            {serverImpressions.length === 0 ? (
+              <p className="text-gray-500">No server impressions yet</p>
+            ) : (
+              <ul className="space-y-2">
+                {serverImpressions.map((impression) => (
+                  <li
+                    key={impression.id}
+                    className="flex justify-between text-sm"
+                  >
+                    <span className="font-mono">{impression.type}</span>
+                    <span className="text-gray-500">
+                      {formatTimestamp(impression.data)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
-}
-
-// Wrap the component with client-side only rendering
-export function ImpressionManager() {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return (
-      <div className="p-4">
-        <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4">
-          Loading...
-        </div>
-      </div>
-    );
-  }
-
-  return <ClientSideImpressionManager />;
 }

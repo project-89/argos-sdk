@@ -30,16 +30,12 @@ export class EnvironmentFactory {
 
   static createNodeEnvironment(
     encryptionKey: string,
-    fingerprint: string,
     onApiKeyUpdate?: (apiKey: string) => void
   ): EnvironmentInterface<NodeResponse, NodeRequestInit> {
     if (!encryptionKey) {
       throw new Error('Encryption key is required for Node environment');
     }
-    if (!fingerprint) {
-      throw new Error('Fingerprint is required for Node environment');
-    }
-    return new NodeEnvironment(encryptionKey, fingerprint, onApiKeyUpdate);
+    return new NodeEnvironment(encryptionKey, onApiKeyUpdate);
   }
 
   static create(
@@ -54,12 +50,8 @@ export class EnvironmentFactory {
         if (!config.encryptionKey) {
           throw new Error('Encryption key is required for Node environment');
         }
-        if (!config.fingerprint) {
-          throw new Error('Fingerprint is required for Node environment');
-        }
         return this.createNodeEnvironment(
           config.encryptionKey,
-          config.fingerprint,
           config.onApiKeyUpdate
         );
       default:

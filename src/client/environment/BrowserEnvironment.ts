@@ -78,10 +78,6 @@ export class BrowserEnvironment
   }
 
   async getFingerprint(): Promise<string> {
-    if (process.env.NODE_ENV === 'test') {
-      return 'test-fingerprint';
-    }
-
     if (!this.fingerprintPromise) {
       this.initializeFingerprint();
     }

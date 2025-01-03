@@ -1,25 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
   transpilePackages: ['@project89/argos-sdk'],
-  webpack: (config, { webpack }) => {
-    // Add fallbacks for node modules
+  webpack: (config) => {
     config.resolve.fallback = {
       ...config.resolve.fallback,
-      encoding: false,
-      stream: false,
-      util: false,
       fs: false,
+      path: false,
+      crypto: require.resolve('crypto-browserify'),
+      stream: require.resolve('stream-browserify'),
+      util: require.resolve('util/'),
       buffer: require.resolve('buffer/'),
+      punycode: require.resolve('punycode/'),
     };
-
-    // Add global object polyfill
-    config.plugins.push(
-      new webpack.ProvidePlugin({
-        global: ['globalThis'],
-      })
-    );
-
     return config;
   },
 };

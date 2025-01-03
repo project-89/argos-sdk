@@ -7,10 +7,12 @@ import {
   CreateAPIKeyRequest,
   DeleteImpressionsResponse,
   GetImpressionsOptions,
+  PresenceData,
 } from '../../shared/interfaces/api';
 import { FingerprintAPI } from '../../shared/api/FingerprintAPI';
 import { APIKeyAPI } from '../../shared/api/APIKeyAPI';
 import { ImpressionAPI } from '../../shared/api/ImpressionAPI';
+import { VisitAPI } from '../../shared/api/VisitAPI';
 import { EnvironmentFactory } from '../../core/factory/EnvironmentFactory';
 import { EnvironmentInterface } from '../../shared/interfaces/environment';
 import { getBrowserFingerprint } from '../utils/fingerprint';
@@ -38,6 +40,7 @@ export class ArgosClientSDK {
   private fingerprintAPI: FingerprintAPI<Response, RequestInit>;
   private apiKeyAPI: APIKeyAPI<Response, RequestInit>;
   private impressionAPI: ImpressionAPI<Response, RequestInit>;
+  private visitAPI: VisitAPI<Response, RequestInit>;
 
   constructor(config: ClientSDKConfig) {
     // Only initialize if we're in a browser environment
@@ -67,6 +70,7 @@ export class ArgosClientSDK {
     this.fingerprintAPI = new FingerprintAPI(apiConfig);
     this.apiKeyAPI = new APIKeyAPI(apiConfig);
     this.impressionAPI = new ImpressionAPI(apiConfig);
+    this.visitAPI = new VisitAPI(apiConfig);
   }
 
   isOnline(): boolean {
@@ -77,6 +81,27 @@ export class ArgosClientSDK {
 
   getPresenceInterval(): number {
     return this.presenceInterval;
+  }
+
+  async updatePresence(
+    fingerprintId: string,
+    status: 'online' | 'offline' = 'online'
+  ): Promise<ApiResponse<PresenceData>> {
+    if (typeof window === 'undefined') {
+      throw new Error(
+        'Presence tracking is only available in browser environment'
+      );
+    }
+
+    return this.visitAPI.updatePresence({
+      fingerprintId,
+      status,
+      timestamp: new Date().toISOString(),
+      metadata: {
+        url: window.location.href,
+        title: document.title,
+      },
+    });
   }
 
   async track(
@@ -91,7 +116,6 @@ export class ArgosClientSDK {
       type,
       fingerprintId: options.fingerprintId,
       data: {
-        status: options.status,
         url: options.url,
         title: options.title,
         ...options.metadata,
@@ -170,5 +194,12 @@ export class ArgosClientSDK {
     type?: string
   ): Promise<ApiResponse<DeleteImpressionsResponse>> {
     return this.impressionAPI.deleteImpressions(fingerprintId, type);
+  }
+
+  async getPlatformInfo(): Promise<Record<string, unknown>> {
+    if (typeof window === 'undefined') {
+      throw new Error('Platform info is only available in browser environment');
+    }
+    return this.environment.getPlatformInfo();
   }
 }

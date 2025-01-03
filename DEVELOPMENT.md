@@ -10,151 +10,185 @@ The SDK is built on an environment-agnostic architecture that enables seamless o
 
 1. **Environment Interface**
    - Provides environment-specific functionality
-   - Handles headers and API responses
-   - Manages fingerprint generation
+   - Handles HTTP requests and responses
+   - Manages API key storage
    - Implements environment detection
-   - Default implementations for browser and server
+   - Key implementations:
+     - `BrowserEnvironment`: Browser-specific implementation
+     - `NodeEnvironment`: Node.js-specific implementation
+     - `TestEnvironment`: Testing environment
 
 2. **Storage Interface**
    - Abstracts storage operations
-   - Environment-specific implementations
-   - Browser: localStorage with cookie fallback
-   - Server: In-memory or custom storage
-   - Handles data persistence and cleanup
+   - Environment-specific implementations:
+     - Browser: 
+       - `LocalStorage` (primary)
+       - `CookieStorage` (fallback)
+       - `MemoryStorage` (last resort)
+     - Server:
+       - `SecureStorage` (encrypted)
+       - Custom implementation support
 
 3. **Base API**
    - Environment-agnostic API client
    - Manages authentication and headers
    - Handles API responses and errors
-   - Supports automatic retries
-   - Implements API key refresh
+   - Implements:
+     - Rate limiting
+     - Request queueing
+     - Automatic retries
+     - Error handling
+
+4. **API Implementations**
+   - `FingerprintAPI`: Identity management
+   - `ImpressionAPI`: Tracking and analytics
+   - `APIKeyAPI`: Key management and validation
 
 ### SDK Variants
 
-1. **Base SDK (ArgosSDK)**
-   - Environment-agnostic implementation
-   - Automatic environment detection
-   - Unified API across environments
-   - Configurable storage and environment
+1. **Client SDK (ArgosClientSDK)**
+   - Browser-optimized implementation
+   - Features:
+     - Automatic fingerprint generation
+     - Browser state detection
+     - Presence tracking
+     - React integration
+   - Rate limits:
+     - 300 requests/hour (IP-based)
+     - ~5 requests/minute distribution
 
 2. **Server SDK (ArgosServerSDK)**
-   - Extends base SDK with server features
-   - API key management
-   - Server-side fingerprint handling
-   - Enhanced security features
+   - Node.js-optimized implementation
+   - Features:
+     - Enhanced API key management
+     - Secure storage
+     - Higher rate limits
+   - Rate limits:
+     - 1000 requests/hour (fingerprint-based)
+     - ~16 requests/minute distribution
 
 3. **React Integration**
-   - Browser-specific React components
-   - Automatic impression tracking
-   - React hooks for SDK functionality
-   - Component-level configuration
+   - Components:
+     - `ArgosProvider`: SDK context provider
+     - `useArgosSDK`: SDK access hook
+     - `useImpressions`: Impression management hook
+     - `useMetadata`: Metadata management hook
 
-## Setup
+## Development Workflow
 
-1. Clone the repository:
+1. **Setup Environment**
 ```bash
-git clone https://github.com/oneirocom/argos-sdk.git
-cd argos-sdk
-```
-
-2. Install dependencies:
-```bash
+# Install dependencies
 npm install
-```
 
-3. Create test environment file:
-```bash
+# Create test environment
 cp .env.example .env.test
-```
 
-## Testing
-
-The SDK uses a comprehensive testing strategy:
-
-### Unit Tests
-
-```bash
-# Run all unit tests
-npm test
-
-# Run specific test file
-npm test -- src/__tests__/api/BaseAPI.test.ts
-
-# Watch mode
-npm test -- --watch
-```
-
-### Integration Tests
-
-Integration tests require a running API server:
-
-1. Set up environment:
-   ```bash
-   # .env.test
-   TEST_MODE=integration
-   TEST_API_URL=http://127.0.0.1:5001/argos-434718/us-central1/api
-   TEST_API_KEY=your-test-key
-   ```
-
-2. Run tests:
-   ```bash
-   npm run test:integration
-   ```
-
-### Test Structure
-
-- `src/__tests__/api/` - API client tests
-- `src/__tests__/server/` - Server SDK tests
-- `src/__tests__/integration/` - End-to-end tests
-- `src/__tests__/utils/` - Test utilities and mocks
-
-## Building
-
-```bash
-# Full build
+# Build SDK
 npm run build
 
-# Watch mode
-npm run build:watch
-
-# Type checking
-npm run type-check
+# Start development server
+npm run dev
 ```
 
-## Code Style
+2. **Testing**
 
 ```bash
-# Lint check
+# Unit tests
+npm run test:unit
+
+# Integration tests (requires API server)
+npm run test:integration
+
+# Coverage report
+npm run test:coverage
+```
+
+3. **Code Quality**
+
+```bash
+# Lint code
 npm run lint
 
-# Auto-fix issues
-npm run lint:fix
+# Type check
+npm run type-check
 
 # Format code
 npm run format
 ```
 
-## Type System
+4. **Documentation**
 
-Key type definitions:
+```bash
+# Generate API documentation
+npm run docs
 
-- `src/types/api.ts` - API interfaces
-- `src/types/runtime.ts` - Environment types
-- `src/core/interfaces/` - Core interfaces
+# Serve documentation locally
+npm run docs:serve
+```
 
-Type guidelines:
-1. Use strict types, avoid `any`
-2. Document complex types
-3. Use generics for reusable types
-4. Keep interfaces focused
+## Best Practices
 
-## Development Workflow
+1. **Error Handling**
+   - Use typed error responses
+   - Implement proper error recovery
+   - Provide meaningful error messages
 
-1. Create feature branch
-2. Implement changes
-3. Add/update tests
-4. Update documentation
-5. Create pull request
+2. **Testing**
+   - Write unit tests for all new features
+   - Use `TestEnvironment` for controlled testing
+   - Mock external dependencies
+
+3. **Type Safety**
+   - Maintain strict TypeScript configuration
+   - Use proper type guards
+   - Document complex types
+
+4. **Performance**
+   - Implement proper request batching
+   - Use appropriate storage strategies
+   - Handle rate limiting gracefully
+
+5. **Security**
+   - Never expose API keys in client code
+   - Use secure storage for sensitive data
+   - Implement proper key rotation
+
+## Release Process
+
+1. **Version Bump**
+   ```bash
+   npm version [major|minor|patch]
+   ```
+
+2. **Build**
+   ```bash
+   npm run build
+   ```
+
+3. **Testing**
+   ```bash
+   npm run test:all
+   ```
+
+4. **Documentation**
+   - Update README.md
+   - Update API documentation
+   - Update CHANGELOG.md
+
+5. **Publishing**
+   ```bash
+   npm publish
+   ```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Implement changes
+4. Add tests
+5. Update documentation
+6. Submit pull request
 
 ## Environment-Specific Development
 

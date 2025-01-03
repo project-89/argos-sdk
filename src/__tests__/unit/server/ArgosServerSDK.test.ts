@@ -36,8 +36,8 @@ describe('ArgosServerSDK', () => {
     it('should track impressions with fingerprint in options', async () => {
       const result = await sdk.track('pageview', {
         fingerprintId: 'test-fingerprint',
-        status: 'online',
         url: 'https://example.com',
+        metadata: { custom: 'data' },
       });
 
       expect(result).toEqual(mockResponse);
@@ -53,8 +53,8 @@ describe('ArgosServerSDK', () => {
             type: 'pageview',
             fingerprintId: 'test-fingerprint',
             data: expect.objectContaining({
-              status: 'online',
               url: 'https://example.com',
+              custom: 'data',
             }),
           }),
         })

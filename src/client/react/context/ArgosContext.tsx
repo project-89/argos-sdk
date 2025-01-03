@@ -1,15 +1,9 @@
 'use client';
 
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useCallback,
-} from 'react';
+import React, { createContext, useEffect, useState, useCallback } from 'react';
 import { ArgosClientSDK } from '../../sdk/ArgosClientSDK';
 import type { ClientSDKConfig } from '../../sdk/ArgosClientSDK';
-import { Fingerprint, ApiResponse } from '../../../shared/interfaces/api';
+import { Fingerprint } from '../../../shared/interfaces/api';
 import { log } from '../../../shared/utils/logger';
 
 export interface ArgosContextType {
@@ -56,18 +50,16 @@ export function ArgosProvider({
 
   const getPlatformInfo = useCallback(async () => {
     if (!sdk) throw new Error('SDK not initialized');
-    if (!('environment' in sdk)) throw new Error('Environment not initialized');
-    const environment = sdk['environment'];
-    if (!environment) throw new Error('Environment not available');
-    return environment.getPlatformInfo();
+    return sdk.getPlatformInfo();
   }, [sdk]);
 
   const getBrowserFingerprint = useCallback(async () => {
     if (!sdk) throw new Error('SDK not initialized');
-    if (!('environment' in sdk)) throw new Error('Environment not initialized');
-    const environment = sdk['environment'];
-    if (!environment) throw new Error('Environment not available');
-    return environment.getFingerprint();
+    const response = await sdk.identify({});
+    if (!response.success || !response.data) {
+      throw new Error('Failed to generate fingerprint');
+    }
+    return response.data.id;
   }, [sdk]);
 
   const refreshApiKey = useCallback(async () => {

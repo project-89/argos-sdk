@@ -211,8 +211,9 @@ describe('SDK Integration Tests', () => {
     it('should create and verify impressions', async () => {
       const impression = await serverSDK.track('test-impression', {
         fingerprintId: fingerprintId!,
-        status: 'online',
         url: 'https://example.com',
+        title: 'Test Page',
+        metadata: { source: 'integration-test' },
       });
 
       expect(impression.success).toBe(true);
@@ -221,6 +222,13 @@ describe('SDK Integration Tests', () => {
       const impressions = await serverSDK.getImpressions(fingerprintId!);
       expect(impressions.success).toBe(true);
       expect(impressions.data.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Presence Tracking', () => {
+    it('should update and verify presence status', async () => {
+      const presence = await clientSDK.updatePresence(fingerprintId!, 'online');
+      expect(presence.success).toBe(true);
     });
   });
 
@@ -250,7 +258,8 @@ describe('SDK Integration Tests', () => {
       // Server tracks an impression
       const trackResult = await serverSDK.track('test-event', {
         fingerprintId: clientFingerprintId,
-        status: 'online',
+        url: 'https://example.com',
+        title: 'Test Page',
         metadata: { test: 'data' },
       });
       expect(trackResult.success).toBe(true);

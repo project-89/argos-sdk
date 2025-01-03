@@ -1,6 +1,6 @@
 # Argos SDK
 
-The Argos SDK is a versatile tracking and analytics library designed to be environment-agnostic, providing seamless functionality in both browser and server environments. It offers a unified API for tracking visits, presence, impressions, and custom events with built-in rate limiting and error handling.
+The Argos SDK is a versatile tracking and analytics library designed to be environment-agnostic, providing seamless functionality in both browser and server environments. It offers a unified API for tracking impressions and presence, with built-in rate limiting and error handling.
 
 ## Features
 
@@ -24,121 +24,147 @@ npm install @project89/argos-sdk
 
 ## Quick Start
 
-### Environment-Agnostic Usage
+### Client-Side Usage
 
 ```typescript
-import { ArgosSDK } from '@project89/argos-sdk';
+import { ArgosClientSDK } from '@project89/argos-sdk/client';
 
-// Initialize the SDK - it automatically detects the environment
-const sdk = new ArgosSDK({
+// Initialize the client SDK
+const sdk = new ArgosClientSDK({
   baseUrl: 'https://api.example.com',
   debug: true, // Enable for detailed logging
-  maxRequestsPerMinute: 60 // Optional rate limiting
+  maxRequestsPerMinute: 60, // Optional rate limiting
+  keyManagement: {
+    autoRefresh: true, // Enable automatic key refresh
+    refreshEndpoint: '/api/refresh-key'
+  }
 });
 
 // Create or retrieve a fingerprint
 const fingerprint = await sdk.identify({
-  fingerprint: 'unique-identifier', // Optional - will be auto-generated if not provided
   metadata: { source: 'web-app' }
 });
 
 // Track an impression
-await sdk.createImpression({
+await sdk.track('page-view', {
   fingerprintId: fingerprint.data.id,
-  type: 'page-view',
-  data: {
-    url: typeof window !== 'undefined' ? window.location.href : 'server-side',
-    timestamp: Date.now()
-  }
+  url: window.location.href,
+  title: document.title,
+  metadata: { source: 'web-app' }
 });
+
+// Update presence (browser-only)
+await sdk.updatePresence(fingerprint.data.id, 'online');
 ```
 
-### Browser-Specific Features
+### React Integration
 
 ```typescript
-import { ArgosSDK } from '@project89/argos-sdk';
-import { ImpressionManager } from '@project89/argos-sdk/react';
+import { ArgosProvider, useImpressions } from '@project89/argos-sdk/client/react';
 
-// Browser-optimized initialization
-const sdk = new ArgosSDK({
-  baseUrl: 'https://api.example.com',
-  environment: 'browser', // Explicitly set environment if needed
-  maxRequestsPerMinute: 60 // Recommended for browser environments
-});
-
-// React component with automatic impression tracking
+// Wrap your app with the provider
 function App() {
   return (
-    <ImpressionManager
-      sdk={sdk}
-      onError={(error) => console.error('Impression tracking error:', error)}
+    <ArgosProvider
+      config={{
+        baseUrl: 'https://api.example.com',
+        keyManagement: {
+          autoRefresh: true,
+          refreshEndpoint: '/api/refresh-key'
+        }
+      }}
+      onError={(error) => console.error('SDK error:', error)}
     >
-      {/* Your app content */}
-    </ImpressionManager>
+      <TrackingComponent />
+    </ArgosProvider>
   );
+}
+
+// Use the useImpressions hook for tracking
+function TrackingComponent() {
+  const { createImpression } = useImpressions();
+  
+  const handleClick = async () => {
+    await createImpression('button-click', {
+      timestamp: new Date().toISOString(),
+      source: 'user-interaction'
+    });
+  };
+
+  return <button onClick={handleClick}>Track Click</button>;
 }
 ```
 
-### Server-Specific Features
+### Server-Side Usage
 
 ```typescript
 import { ArgosServerSDK } from '@project89/argos-sdk/server';
 
-// Server-optimized initialization
+// Initialize the server SDK
 const serverSdk = new ArgosServerSDK({
   baseUrl: 'https://api.example.com',
   apiKey: 'your-api-key',
-  environment: 'server', // Explicitly set environment if needed
-  maxRequestsPerMinute: 120 // Higher limit for server environments
+  maxRequestsPerMinute: 120, // Higher limit for server environments
+  encryptionKey: process.env.ENCRYPTION_KEY // For secure storage
 });
 
-// Server-side fingerprint management
-const fingerprint = await serverSdk.identify({
-  fingerprint: 'server-generated-id',
-  metadata: { source: 'api-server' }
-});
-
-// API key management
-const apiKey = await serverSdk.registerApiKey(fingerprint.data.id, {
-  metadata: { purpose: 'client-auth' }
+// Track an impression
+await serverSdk.track('api-call', {
+  fingerprintId: 'server-fingerprint',
+  url: '/api/data',
+  title: 'API Call',
+  metadata: {
+    endpoint: '/api/data',
+    method: 'GET'
+  }
 });
 ```
 
-### Next.js Integration
+## Tracking Features
+
+### Impression Tracking
+
+The SDK provides methods for tracking impressions in both client and server environments:
 
 ```typescript
-// pages/api/track.ts
-import { ArgosServerSDK } from '@project89/argos-sdk/server';
-
-export default async function handler(req, res) {
-  // Initialize SDK with environment variables
-  const serverSdk = new ArgosServerSDK({
-    baseUrl: process.env.ARGOS_API_URL,
-    apiKey: process.env.ARGOS_API_KEY,
-    maxRequestsPerMinute: 120 // Adjust based on your needs
-  });
-
-  try {
-    // Handle both server-side tracking and API key management
-    switch (req.body.action) {
-      case 'track':
-        const result = await serverSdk.createImpression(req.body.data);
-        res.status(200).json(result);
-        break;
-      case 'register':
-        const apiKey = await serverSdk.registerApiKey(req.body.fingerprintId, {
-          metadata: req.body.metadata // Optional metadata
-        });
-        res.status(200).json(apiKey);
-        break;
-      default:
-        res.status(400).json({ error: 'Invalid action' });
-    }
-  } catch (error) {
-    console.error('Argos SDK Error:', error);
-    res.status(500).json({ error: error.message });
-  }
+interface TrackOptions {
+  fingerprintId: string;
+  url?: string;
+  title?: string;
+  metadata?: Record<string, unknown>;
 }
+
+await sdk.track('event-type', options);
+```
+
+### Presence Tracking (Browser-Only)
+
+The SDK provides presence tracking functionality exclusively in browser environments:
+
+```typescript
+// Update presence status
+await clientSdk.updatePresence(fingerprintId, 'online');
+
+// Status can be 'online' or 'offline'
+await clientSdk.updatePresence(fingerprintId, 'offline');
+```
+
+### React Integration
+
+The React integration provides hooks and components for impression tracking:
+
+```typescript
+// Using the useImpressions hook
+const { createImpression, getImpressions } = useImpressions();
+
+// Automatic tracking with ArgosTracker
+<ArgosTracker
+  id="unique-id"
+  type="component-view"
+  metadata={{ source: 'component' }}
+  trackOnMount={true}
+  trackOnUpdate={false}
+/>
 ```
 
 ## Configuration
@@ -180,196 +206,3 @@ The SDK includes sophisticated request handling features for production reliabil
 - Smart retry after rate limit window expires
 - Different default limits for browser and server environments
 - Respects server's rate limit responses (429)
-
-Example with environment variables:
-```env
-# .env
-ARGOS_MAX_REQUESTS_PER_HOUR=1000
-ARGOS_MAX_REQUESTS_PER_MINUTE=100
-```
-
-Example with SDK configuration:
-
-```typescript
-// Server environment (higher limits)
-const serverSdk = new ArgosServerSDK({
-  baseUrl: 'https://api.example.com',
-  apiKey: 'your-api-key',
-  maxRequestsPerHour: 1000,    // Overrides ARGOS_MAX_REQUESTS_PER_HOUR
-  maxRequestsPerMinute: 100,   // Overrides ARGOS_MAX_REQUESTS_PER_MINUTE
-  debug: process.env.NODE_ENV !== 'production'
-});
-
-// Browser environment (lower limits)
-const browserSdk = new ArgosSDK({
-  baseUrl: 'https://api.example.com',
-  maxRequestsPerHour: 300,     // IP-based limit
-  maxRequestsPerMinute: 30,    // Distributed across the hour
-  debug: process.env.NODE_ENV !== 'production'
-});
-```
-
-Configuration precedence:
-1. SDK configuration options (`maxRequestsPerHour`, `maxRequestsPerMinute`)
-2. Environment variables (`ARGOS_MAX_REQUESTS_PER_HOUR`, `ARGOS_MAX_REQUESTS_PER_MINUTE`)
-3. Default values (1000/hour, 100/minute)
-
-Example with custom rate limiting:
-
-```typescript
-// Server environment (higher limits)
-const serverSdk = new ArgosServerSDK({
-  baseUrl: 'https://api.example.com',
-  apiKey: 'your-api-key',
-  maxRequestsPerHour: 1000,    // Fingerprint-based limit
-  maxRequestsPerMinute: 100,   // Distributed across the hour
-  debug: process.env.NODE_ENV !== 'production'
-});
-
-// Browser environment (lower limits)
-const browserSdk = new ArgosSDK({
-  baseUrl: 'https://api.example.com',
-  maxRequestsPerHour: 300,     // IP-based limit
-  maxRequestsPerMinute: 30,    // Distributed across the hour
-  debug: process.env.NODE_ENV !== 'production'
-});
-```
-
-### Retry Behavior
-
-- Automatic retry for network errors and server errors (5xx)
-- Exponential backoff strategy for retries
-- Respects server's `retry-after` header for rate limit (429) responses
-- Configurable maximum retry attempts
-- Smart error handling with type-safe error responses
-
-Example with rate limiting:
-
-```typescript
-const sdk = new ArgosSDK({
-  baseUrl: 'https://api.example.com',
-  maxRequestsPerMinute: 60, // Adjust based on your environment
-  debug: process.env.NODE_ENV !== 'production' // Recommended debug setting
-});
-```
-
-## Environment Interface
-
-The SDK uses an environment interface to handle environment-specific functionality:
-
-```typescript
-interface EnvironmentInterface {
-  type: RuntimeEnvironment;
-  createHeaders(headers?: Record<string, string>): Record<string, string>;
-  handleResponse<T>(response: Response): Promise<ApiResponse<T>>;
-  getFingerprint(): Promise<string>;
-  setApiKey(key: string): void;
-  getApiKey(): string | undefined;
-  isOnline(): boolean;
-  getPlatformInfo(): Promise<Record<string, unknown>>;
-  getUserAgent(): string;
-}
-```
-
-## Storage Interface
-
-Storage is environment-agnostic and can be customized:
-
-```typescript
-interface StorageInterface {
-  get(key: string): Promise<string | null>;
-  set(key: string, value: string): Promise<void>;
-  remove(key: string): Promise<void>;
-  clear(): Promise<void>;
-}
-```
-
-## Error Handling
-
-The SDK provides consistent error handling across environments:
-
-```typescript
-interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-}
-```
-
-## Development
-
-See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed information about:
-- Contributing to the SDK
-- Setting up the development environment
-- Running tests
-- Building for production
-
-## License
-
-MIT License - see [LICENSE](LICENSE) for details.
-
-## Support
-
-For issues and feature requests, please use our [GitHub Issues](https://github.com/project89/argos-sdk/issues) page.
-
-## API Key Management
-
-The SDK provides comprehensive API key management with automatic refresh and rotation capabilities:
-
-### Key Lifecycle
-
-```typescript
-// Create a new API key
-const apiKey = await sdk.createAPIKey({
-  name: 'my-key',
-  fingerprintId: 'your-fingerprint-id',
-  metadata: { purpose: 'client-auth' }
-});
-
-// Validate an API key
-const validation = await sdk.validateAPIKey(apiKey.data.key);
-if (validation.data.needsRefresh) {
-  // Key needs refresh
-}
-
-// Manually refresh a key
-const refreshed = await sdk.refreshAPIKey(apiKey.data.key);
-
-// Rotate a key (creates new key and invalidates old)
-const rotated = await sdk.rotateAPIKey(apiKey.data.key);
-
-// Revoke a key
-await sdk.revokeAPIKey({ key: apiKey.data.key });
-```
-
-### Automatic Key Management
-
-The SDK includes automatic key refresh capabilities:
-
-```typescript
-const sdk = new ArgosSDK({
-  baseUrl: 'https://api.example.com',
-  refreshThreshold: 24 * 60 * 60 * 1000, // 24 hours
-  autoRefresh: true // Enable auto-refresh
-});
-
-// Key will automatically refresh when nearing expiration
-await sdk.validateAPIKey(key);
-```
-
-### Key Security Best Practices
-
-1. **Storage**
-   - Never store API keys in client-side storage (localStorage/sessionStorage)
-   - Use secure server-side storage for API keys
-   - Implement proper key rotation policies
-
-2. **Refresh Strategy**
-   - Set appropriate refresh thresholds based on your needs
-   - Enable auto-refresh for seamless key management
-   - Handle refresh failures gracefully
-
-3. **Key Rotation**
-   - Rotate keys regularly for enhanced security
-   - Implement proper transition periods during rotation
-   - Clean up old keys after rotation

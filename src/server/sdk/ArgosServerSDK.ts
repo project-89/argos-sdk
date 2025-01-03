@@ -63,7 +63,6 @@ export class ArgosServerSDK {
     type: string,
     options: {
       fingerprintId: string;
-      status?: 'online' | 'offline';
       url?: string;
       title?: string;
       metadata?: Record<string, unknown>;
@@ -73,7 +72,6 @@ export class ArgosServerSDK {
       type,
       fingerprintId: options.fingerprintId,
       data: {
-        status: options.status,
         url: options.url,
         title: options.title,
         ...options.metadata,
