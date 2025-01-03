@@ -3,13 +3,20 @@
  * @jest-environment jsdom
  */
 
-import { ArgosClientSDK } from '../../client/sdk/ArgosClientSDK';
 import { ArgosServerSDK } from '../../server/sdk/ArgosServerSDK';
-
+import { ArgosClientSDK } from '../../client/sdk/ArgosClientSDK';
+import { NodeEnvironment } from '../../server/environment/NodeEnvironment';
+import { BrowserEnvironment } from '../../client/environment/BrowserEnvironment';
+import { SecureStorage } from '../../server/storage/SecureStorage';
 import fetch from 'node-fetch';
 
 // Set up fetch for jsdom environment
 global.fetch = fetch as unknown as typeof global.fetch;
+
+// Set origin to match allowed CORS origins
+Object.defineProperty(window, 'location', {
+  value: new URL('http://localhost:3000'),
+});
 
 // Set up missing browser APIs
 class MessageChannel {
@@ -52,19 +59,29 @@ describe('SDK Integration Tests', () => {
   const API_URL = 'http://localhost:5001/argos-434718/us-central1/api';
   let serverSDK: ArgosServerSDK;
   let clientSDK: ArgosClientSDK;
+  let nodeEnvironment: NodeEnvironment;
+  let browserEnvironment: BrowserEnvironment;
+  let storage: SecureStorage;
   let currentApiKey: string | null = null;
   let fingerprintId: string | null = null;
 
   beforeAll(async () => {
-    // Create SDKs
+    storage = new SecureStorage({
+      encryptionKey: 'test-key-32-chars-secure-storage-ok',
+    });
+
+    nodeEnvironment = new NodeEnvironment(storage);
+    browserEnvironment = new BrowserEnvironment();
+
     serverSDK = new ArgosServerSDK({
       baseUrl: API_URL,
-      fingerprint: 'test-server-fingerprint',
+      environment: nodeEnvironment,
       encryptionKey: 'test-key-32-chars-secure-storage-ok',
     });
 
     clientSDK = new ArgosClientSDK({
       baseUrl: API_URL,
+      environment: browserEnvironment,
     });
 
     // Register fingerprint first
@@ -86,15 +103,7 @@ describe('SDK Integration Tests', () => {
     fingerprintId = fingerprintResponse.data.id;
 
     // Create initial API key
-    const keyResponse = await serverSDK.createAPIKey({
-      name: `test-key-${Date.now()}`,
-      fingerprintId,
-      metadata: {
-        test: true,
-        timestamp: Date.now(),
-        origin: 'integration-test',
-      },
-    });
+    const keyResponse = await serverSDK.registerApiKey(fingerprintId);
 
     if (!keyResponse.success || !keyResponse.data?.key) {
       throw new Error(
@@ -120,10 +129,12 @@ describe('SDK Integration Tests', () => {
   describe('Environment Detection', () => {
     it('should detect browser environment correctly', () => {
       expect(clientSDK.getApiKey()).toBeDefined();
+      expect(browserEnvironment.type).toBe('browser');
     });
 
     it('should detect node environment correctly', () => {
       expect(serverSDK.getApiKey()).toBeDefined();
+      expect(nodeEnvironment.type).toBe('node');
     });
   });
 
@@ -158,13 +169,12 @@ describe('SDK Integration Tests', () => {
       expect(response.data.key).not.toBe(oldKey);
 
       // Update all instances with new key
-      const newKey = response.data.key;
-      serverSDK.setApiKey(newKey);
-      clientSDK.setApiKey(newKey);
-      currentApiKey = newKey;
+      currentApiKey = response.data.key;
+      serverSDK.setApiKey(currentApiKey);
+      clientSDK.setApiKey(currentApiKey);
 
       // Verify new key works
-      const validation = await serverSDK.validateAPIKey(newKey);
+      const validation = await serverSDK.validateAPIKey(currentApiKey);
       expect(validation.success).toBe(true);
     });
 
@@ -176,13 +186,12 @@ describe('SDK Integration Tests', () => {
       expect(response.data.key).not.toBe(oldKey);
 
       // Update all instances with new key
-      const newKey = response.data.key;
-      serverSDK.setApiKey(newKey);
-      clientSDK.setApiKey(newKey);
-      currentApiKey = newKey;
+      currentApiKey = response.data.key;
+      serverSDK.setApiKey(currentApiKey);
+      clientSDK.setApiKey(currentApiKey);
 
       // Verify new key works
-      const validation = await serverSDK.validateAPIKey(newKey);
+      const validation = await serverSDK.validateAPIKey(currentApiKey);
       expect(validation.success).toBe(true);
     });
 
@@ -191,16 +200,7 @@ describe('SDK Integration Tests', () => {
       expect(response.success).toBe(true);
 
       // Create new key for remaining tests
-      const keyResponse = await serverSDK.createAPIKey({
-        name: `test-key-${Date.now()}`,
-        fingerprintId: fingerprintId!,
-        metadata: {
-          test: true,
-          timestamp: Date.now(),
-          origin: 'integration-test',
-        },
-      });
-
+      const keyResponse = await serverSDK.registerApiKey(fingerprintId!);
       currentApiKey = keyResponse.data.key;
       serverSDK.setApiKey(currentApiKey);
       clientSDK.setApiKey(currentApiKey);
@@ -209,13 +209,10 @@ describe('SDK Integration Tests', () => {
 
   describe('Impression Management', () => {
     it('should create and verify impressions', async () => {
-      const impression = await serverSDK.createImpression({
+      const impression = await serverSDK.track('test-impression', {
         fingerprintId: fingerprintId!,
-        type: 'test-impression',
-        data: {
-          test: true,
-          timestamp: Date.now(),
-        },
+        status: 'online',
+        url: 'https://example.com',
       });
 
       expect(impression.success).toBe(true);
@@ -224,6 +221,51 @@ describe('SDK Integration Tests', () => {
       const impressions = await serverSDK.getImpressions(fingerprintId!);
       expect(impressions.success).toBe(true);
       expect(impressions.data.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('End-to-end flow', () => {
+    it('should handle complete user journey', async () => {
+      const testFingerprint = 'test-client-fingerprint';
+
+      // Client identifies itself
+      const identifyResult = await clientSDK.identify({
+        fingerprint: testFingerprint,
+        metadata: { source: 'integration-test' },
+      });
+      expect(identifyResult.success).toBe(true);
+      expect(identifyResult.data.id).toBeDefined();
+      const clientFingerprintId = identifyResult.data.id;
+
+      // Create API key for the client fingerprint
+      const keyResponse = await serverSDK.registerApiKey(clientFingerprintId);
+      expect(keyResponse.success).toBe(true);
+      expect(keyResponse.data.key).toBeDefined();
+      const clientApiKey = keyResponse.data.key;
+
+      // Update both SDKs with the new API key
+      serverSDK.setApiKey(clientApiKey);
+      clientSDK.setApiKey(clientApiKey);
+
+      // Server tracks an impression
+      const trackResult = await serverSDK.track('test-event', {
+        fingerprintId: clientFingerprintId,
+        status: 'online',
+        metadata: { test: 'data' },
+      });
+      expect(trackResult.success).toBe(true);
+
+      // Server gets impressions
+      const impressions = await serverSDK.getImpressions(clientFingerprintId);
+      expect(impressions.success).toBe(true);
+      expect(impressions.data.length).toBeGreaterThan(0);
+      expect(impressions.data[0].type).toBe('test-event');
+
+      // Clean up by revoking the client API key
+      const revokeResponse = await serverSDK.revokeAPIKey({
+        key: clientApiKey,
+      });
+      expect(revokeResponse.success).toBe(true);
     });
   });
 });

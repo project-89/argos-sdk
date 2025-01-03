@@ -1,138 +1,88 @@
 import { jest } from '@jest/globals';
 import { ArgosServerSDK } from '../../../server/sdk/ArgosServerSDK';
-import { SecureStorage } from '../../../server/storage/SecureStorage';
 import { NodeEnvironment } from '../../../server/environment/NodeEnvironment';
-import type { Fingerprint } from '../../../shared/interfaces/api';
+import { SecureStorage } from '../../../server/storage/SecureStorage';
+import { Response } from 'node-fetch';
 
 describe('ArgosServerSDK', () => {
-  let sdk: ArgosServerSDK;
-  let storage: SecureStorage;
   let environment: NodeEnvironment;
+  let sdk: ArgosServerSDK;
+  let mockResponse: any;
+
+  const createMockResponse = (data: any) => {
+    const headers = {
+      'content-type': 'application/json',
+    };
+    return new Response(JSON.stringify(data), {
+      status: 200,
+      headers,
+    });
+  };
 
   beforeEach(() => {
-    storage = new SecureStorage({
-      encryptionKey: 'test-key-32-chars-secure-storage-ok',
-      storagePath: './test-storage/storage.enc',
-    });
-    environment = new NodeEnvironment(storage, 'test-fingerprint');
-
+    environment = new NodeEnvironment('test-encryption-key');
+    jest
+      .spyOn(environment, 'fetch')
+      .mockImplementation(async () => createMockResponse({ success: true }));
     sdk = new ArgosServerSDK({
-      baseUrl: 'http://test.com',
-      apiKey: 'test-key',
       environment,
-      fingerprint: 'test-fingerprint',
-      debug: true,
+      baseUrl: 'http://localhost:3000',
+      apiKey: 'test-api-key',
     });
+    mockResponse = { success: true };
   });
 
-  describe('identify', () => {
-    it('should create a fingerprint', async () => {
-      const mockFingerprint: Fingerprint = {
-        id: 'test-id',
-        fingerprint: 'test-fingerprint',
-        roles: [],
-        createdAt: { _seconds: 0, _nanoseconds: 0 },
-        metadata: {},
-        ipAddresses: [],
-        ipMetadata: {
-          ipFrequency: {},
-          lastSeenAt: {},
-          primaryIp: '',
-          suspiciousIps: [],
-        },
-        tags: [],
-      };
-
-      jest
-        .spyOn(sdk['fingerprintAPI'], 'createFingerprint')
-        .mockResolvedValueOnce({
-          success: true,
-          data: mockFingerprint,
-        });
-
-      const result = await sdk.identify({
-        fingerprint: 'test-fingerprint',
-        metadata: { test: 'data' },
+  describe('Impression Management', () => {
+    it('should track impressions with fingerprint in options', async () => {
+      const result = await sdk.track('pageview', {
+        fingerprintId: 'test-fingerprint',
+        status: 'online',
+        url: 'https://example.com',
       });
 
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockFingerprint);
-      expect(sdk['fingerprintAPI'].createFingerprint).toHaveBeenCalledWith(
-        'test-fingerprint',
-        { metadata: { test: 'data' } }
+      expect(result).toEqual(mockResponse);
+      expect(environment.fetch).toHaveBeenCalledWith(
+        'http://localhost:3000/impressions',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'content-type': 'application/json',
+            'x-api-key': 'test-api-key',
+          }),
+          body: expect.objectContaining({
+            type: 'pageview',
+            fingerprintId: 'test-fingerprint',
+            data: expect.objectContaining({
+              status: 'online',
+              url: 'https://example.com',
+            }),
+          }),
+        })
       );
     });
   });
 
-  describe('getIdentity', () => {
-    it('should get a fingerprint', async () => {
-      const mockFingerprint: Fingerprint = {
-        id: 'test-id',
-        fingerprint: 'test-fingerprint',
-        roles: [],
-        createdAt: { _seconds: 0, _nanoseconds: 0 },
-        metadata: {},
-        ipAddresses: [],
-        ipMetadata: {
-          ipFrequency: {},
-          lastSeenAt: {},
-          primaryIp: '',
-          suspiciousIps: [],
-        },
-        tags: [],
-      };
+  describe('API Key Management', () => {
+    it('should register API key with fingerprint in options', async () => {
+      const result = await sdk.registerApiKey('test-fingerprint');
 
-      jest
-        .spyOn(sdk['fingerprintAPI'], 'getFingerprint')
-        .mockResolvedValueOnce({
-          success: true,
-          data: mockFingerprint,
-        });
-
-      const result = await sdk.getIdentity('test-id');
-
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockFingerprint);
-      expect(sdk['fingerprintAPI'].getFingerprint).toHaveBeenCalledWith(
-        'test-id'
-      );
-    });
-  });
-
-  describe('updateFingerprint', () => {
-    it('should update fingerprint metadata', async () => {
-      const mockFingerprint: Fingerprint = {
-        id: 'test-id',
-        fingerprint: 'test-fingerprint',
-        roles: [],
-        createdAt: { _seconds: 0, _nanoseconds: 0 },
-        metadata: { test: 'updated' },
-        ipAddresses: [],
-        ipMetadata: {
-          ipFrequency: {},
-          lastSeenAt: {},
-          primaryIp: '',
-          suspiciousIps: [],
-        },
-        tags: [],
-      };
-
-      jest
-        .spyOn(sdk['fingerprintAPI'], 'updateFingerprint')
-        .mockResolvedValueOnce({
-          success: true,
-          data: mockFingerprint,
-        });
-
-      const result = await sdk.updateFingerprint('test-fingerprint', {
-        test: 'updated',
-      });
-
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockFingerprint);
-      expect(sdk['fingerprintAPI'].updateFingerprint).toHaveBeenCalledWith(
-        'test-fingerprint',
-        { test: 'updated' }
+      expect(result).toEqual(mockResponse);
+      expect(environment.fetch).toHaveBeenCalledWith(
+        'http://localhost:3000/api-key/register',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'content-type': 'application/json',
+            'user-agent': expect.any(String),
+          }),
+          body: expect.objectContaining({
+            fingerprintId: 'test-fingerprint',
+            metadata: expect.objectContaining({
+              source: 'server-sdk',
+            }),
+          }),
+          skipAuth: true,
+        })
       );
     });
   });

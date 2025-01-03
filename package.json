@@ -17,6 +17,12 @@
       "import": "./dist/server/index.mjs",
       "require": "./dist/server/index.js",
       "default": "./dist/server/index.js"
+    },
+    "./client/react": {
+      "types": "./dist/types/client/react/index.d.ts",
+      "import": "./dist/client/react/index.mjs",
+      "require": "./dist/client/react/index.js",
+      "default": "./dist/client/react/index.js"
     }
   },
   "files": [

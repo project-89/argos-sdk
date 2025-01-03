@@ -13,13 +13,16 @@ export interface StorageInterface {
 
 export interface EnvironmentInterface<T, R = RequestInit> {
   readonly type: RuntimeEnvironment;
-  createHeaders(headers?: Record<string, string>): Record<string, string>;
+  createHeaders(
+    headers?: Record<string, string>,
+    fingerprint?: string
+  ): Record<string, string>;
   handleResponse<U>(response: T): Promise<U>;
-  getFingerprint(): Promise<string>;
+  getFingerprint?(): Promise<string>;
   getPlatformInfo(): Promise<Record<string, unknown>>;
   getUserAgent(): string;
   setApiKey(apiKey: string): void;
   getApiKey(): string | undefined;
   isOnline(): boolean;
-  fetch(url: string, options?: R): Promise<T>;
+  fetch(url: string, options?: R & { fingerprint?: string }): Promise<T>;
 }

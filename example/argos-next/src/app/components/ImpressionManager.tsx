@@ -1,7 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useImpressions, useFingerprint } from '@project89/argos-sdk';
+import {
+  useImpressions,
+  useFingerprint,
+} from '@project89/argos-sdk/client/react';
 import { useEffect, useState, useCallback } from 'react';
 
 // Define the ImpressionData type to match the SDK's type
@@ -26,7 +29,7 @@ const getApiKey = () => {
   }
 };
 
-export function ImpressionManager() {
+function ClientSideImpressionManager() {
   const { createImpression, getImpressions } = useImpressions();
   const { fingerprint, isLoading: isFingerprintLoading } = useFingerprint();
   const [serverImpressions, setServerImpressions] = useState<ImpressionData[]>(
@@ -39,16 +42,6 @@ export function ImpressionManager() {
   const [isClientLoading, setIsClientLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState<string | null>(null);
-
-  // Get API key once when fingerprint is ready
-  useEffect(() => {
-    if (fingerprint?.id && !apiKey) {
-      const key = getApiKey();
-      if (key) {
-        setApiKey(key);
-      }
-    }
-  }, [fingerprint?.id, apiKey]);
 
   const loadServerImpressions = useCallback(async () => {
     if (!fingerprint?.id) return;
@@ -72,6 +65,16 @@ export function ImpressionManager() {
     }
   }, [fingerprint?.id, getImpressions]);
 
+  // Get API key once when fingerprint is ready
+  useEffect(() => {
+    if (fingerprint?.id && !apiKey) {
+      const key = getApiKey();
+      if (key) {
+        setApiKey(key);
+      }
+    }
+  }, [fingerprint?.id, apiKey]);
+
   // Load server impressions initially when fingerprint and API key are ready
   useEffect(() => {
     if (fingerprint?.id && apiKey) {
@@ -88,17 +91,32 @@ export function ImpressionManager() {
     setIsClientLoading(true);
     setError(null);
     try {
-      const response = await createImpression('client-button-click', {
-        timestamp: new Date().toISOString(),
-        source: 'client',
-      });
-
-      if (response?.success && response.data) {
-        setClientImpressions((prev) => [...prev, response.data]);
-      }
-    } catch (error) {
-      console.error('Failed to create client impression:', error);
-      setError('Failed to create client impression');
+      const timestamp = new Date().toISOString();
+      await createImpression(
+        'client-button-click',
+        {
+          timestamp,
+          source: 'client',
+        },
+        () => {
+          // On success, add the impression to the local state
+          setClientImpressions((prev) => [
+            ...prev,
+            {
+              id: `client-${Date.now()}`, // Generate a temporary ID
+              type: 'client-button-click',
+              data: {
+                timestamp,
+                source: 'client',
+              },
+            },
+          ]);
+        },
+        (error) => {
+          console.error('Failed to create client impression:', error);
+          setError('Failed to create client impression');
+        }
+      );
     } finally {
       setIsClientLoading(false);
     }
@@ -240,4 +258,25 @@ export function ImpressionManager() {
       </div>
     </div>
   );
+}
+
+// Wrap the component with client-side only rendering
+export function ImpressionManager() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="p-4">
+        <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4">
+          Loading...
+        </div>
+      </div>
+    );
+  }
+
+  return <ClientSideImpressionManager />;
 }

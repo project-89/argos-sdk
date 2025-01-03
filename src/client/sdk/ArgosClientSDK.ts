@@ -13,6 +13,7 @@ import { APIKeyAPI } from '../../shared/api/APIKeyAPI';
 import { ImpressionAPI } from '../../shared/api/ImpressionAPI';
 import { EnvironmentFactory } from '../../core/factory/EnvironmentFactory';
 import { EnvironmentInterface } from '../../shared/interfaces/environment';
+import { getBrowserFingerprint } from '../utils/fingerprint';
 
 export interface ClientSDKConfig
   extends Omit<BaseAPIConfig<Response, RequestInit>, 'environment'> {
@@ -137,7 +138,7 @@ export class ArgosClientSDK {
   }): Promise<ApiResponse<Fingerprint>> {
     let fingerprint = data.fingerprint;
     if (!fingerprint) {
-      fingerprint = await this.environment.getFingerprint();
+      fingerprint = await getBrowserFingerprint();
     }
     return this.fingerprintAPI.createFingerprint(fingerprint, {
       metadata: data.metadata,

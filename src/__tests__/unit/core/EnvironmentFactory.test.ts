@@ -18,11 +18,10 @@ describe('EnvironmentFactory', () => {
       expect(environment).toBeInstanceOf(BrowserEnvironment);
     });
 
-    it('should create NodeEnvironment when specified with encryption key and fingerprint', () => {
+    it('should create NodeEnvironment when specified with encryption key', () => {
       const environment = EnvironmentFactory.create({
         runtime: RuntimeEnvironment.Node,
         encryptionKey: 'test-key-32-chars-secure-storage-ok',
-        fingerprint: 'test-fingerprint',
       });
       expect(environment).toBeInstanceOf(NodeEnvironment);
     });
@@ -31,18 +30,8 @@ describe('EnvironmentFactory', () => {
       expect(() =>
         EnvironmentFactory.create({
           runtime: RuntimeEnvironment.Node,
-          fingerprint: 'test-fingerprint',
         })
       ).toThrow('Encryption key is required for Node environment');
-    });
-
-    it('should throw error when creating NodeEnvironment without fingerprint', () => {
-      expect(() =>
-        EnvironmentFactory.create({
-          runtime: RuntimeEnvironment.Node,
-          encryptionKey: 'test-key-32-chars-secure-storage-ok',
-        })
-      ).toThrow('Fingerprint is required for Node environment');
     });
 
     it('should throw error for unsupported runtime', () => {

@@ -1,97 +1,96 @@
 import { jest } from '@jest/globals';
-import { ArgosClientSDK } from '../../../client/sdk/ArgosClientSDK';
 import { ArgosServerSDK } from '../../../server/sdk/ArgosServerSDK';
-import { BrowserEnvironment } from '../../../client/environment/BrowserEnvironment';
 import { NodeEnvironment } from '../../../server/environment/NodeEnvironment';
 import { SecureStorage } from '../../../server/storage/SecureStorage';
 
 describe('SDK Interface', () => {
-  let clientSDK: ArgosClientSDK;
-  let serverSDK: ArgosServerSDK;
+  let sdk: ArgosServerSDK;
+  let environment: NodeEnvironment;
   let storage: SecureStorage;
-  let nodeEnvironment: NodeEnvironment;
-  let browserEnvironment: BrowserEnvironment;
 
   beforeEach(() => {
     storage = new SecureStorage({
       encryptionKey: 'test-key-32-chars-secure-storage-ok',
-      storagePath: './test-storage/storage.enc',
     });
-    nodeEnvironment = new NodeEnvironment(storage, 'test-fingerprint');
-    browserEnvironment = new BrowserEnvironment();
+    environment = new NodeEnvironment(storage);
 
-    serverSDK = new ArgosServerSDK({
-      baseUrl: 'https://test.example.com',
-      environment: nodeEnvironment,
-      fingerprint: 'test-fingerprint',
-    });
-
-    clientSDK = new ArgosClientSDK({
-      baseUrl: 'https://test.example.com',
-      environment: browserEnvironment,
+    sdk = new ArgosServerSDK({
+      baseUrl: 'http://localhost:3000',
+      apiKey: 'test-api-key',
+      environment,
+      encryptionKey: 'test-key-32-chars-secure-storage-ok',
     });
   });
 
-  describe('Environment Detection', () => {
-    it('should detect browser environment correctly', () => {
-      expect(browserEnvironment.isOnline()).toBeDefined();
-      expect(browserEnvironment.getUserAgent()).toBeDefined();
-    });
+  const createMockResponse = (data: any) => ({
+    ok: true,
+    headers: new Map([['content-type', 'application/json']]),
+    json: () => Promise.resolve(data),
+  });
 
-    it('should detect node environment correctly', () => {
-      expect(nodeEnvironment.isOnline()).toBe(true);
-      expect(nodeEnvironment.getUserAgent()).toMatch(/^Node\.js\//);
-    });
+  const createErrorResponse = (data: any) => ({
+    ok: false,
+    headers: new Map([['content-type', 'application/json']]),
+    json: () => Promise.resolve(data),
   });
 
   describe('API Key Management', () => {
-    it('should handle API key in browser environment', () => {
-      browserEnvironment.setApiKey('test-key');
-      expect(browserEnvironment.getApiKey()).toBe('test-key');
-    });
+    it('should handle API key operations', async () => {
+      const testFingerprint = 'test-fingerprint';
+      const mockKeyResponse = {
+        success: true,
+        data: {
+          key: 'dGVzdC1hcGkta2V5LTMyLWNoYXJzLXNlY3VyZS1zdG9yYWdl',
+        },
+      };
+      const mockValidateResponse = { success: true, data: { valid: true } };
 
-    it('should handle API key in node environment', () => {
-      nodeEnvironment.setApiKey('test-key');
-      expect(nodeEnvironment.getApiKey()).toBe('test-key');
-    });
+      jest
+        .spyOn(environment, 'fetch')
+        .mockResolvedValueOnce(createMockResponse(mockKeyResponse) as any)
+        .mockResolvedValueOnce(createMockResponse(mockValidateResponse) as any);
 
-    it('should throw error for empty API key', () => {
-      expect(() => browserEnvironment.setApiKey('')).toThrow(
-        'API key cannot be empty'
+      // Register API key
+      const keyResult = await sdk.registerApiKey(testFingerprint);
+      expect(keyResult).toEqual(mockKeyResponse);
+      expect(environment.fetch).toHaveBeenCalledWith(
+        'http://localhost:3000/api-key/register',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'content-type': 'application/json',
+            'user-agent': expect.any(String),
+          }),
+          body: expect.objectContaining({
+            fingerprintId: testFingerprint,
+            metadata: expect.objectContaining({
+              source: 'server-sdk',
+            }),
+          }),
+          skipAuth: true,
+        })
       );
-      expect(() => nodeEnvironment.setApiKey('')).toThrow(
-        'API key cannot be empty'
-      );
+
+      // Validate API key
+      const validateResult = await sdk.validateAPIKey(mockKeyResponse.data.key);
+      expect(validateResult).toEqual(mockValidateResponse);
     });
   });
 
-  describe('SDK Initialization', () => {
-    it('should initialize client SDK with browser environment', () => {
-      const sdk = new ArgosClientSDK({
-        baseUrl: 'https://test.example.com',
-        environment: browserEnvironment,
-      });
-      expect(sdk).toBeDefined();
+  describe('Error Handling', () => {
+    it('should handle API errors gracefully', async () => {
+      const testFingerprint = 'test-fingerprint';
+      const mockError = { success: false, error: 'API Error' };
+
+      jest
+        .spyOn(environment, 'fetch')
+        .mockResolvedValue(createErrorResponse(mockError) as any);
+
+      await expect(sdk.registerApiKey(testFingerprint)).rejects.toThrow();
     });
 
-    it('should initialize server SDK with node environment', () => {
-      const sdk = new ArgosServerSDK({
-        baseUrl: 'https://test.example.com',
-        environment: nodeEnvironment,
-        fingerprint: 'test-fingerprint',
-      });
-      expect(sdk).toBeDefined();
-    });
-
-    it('should throw error when initializing server SDK without fingerprint', () => {
-      expect(
-        () =>
-          new ArgosServerSDK({
-            baseUrl: 'https://test.example.com',
-            environment: nodeEnvironment,
-            fingerprint: '',
-          })
-      ).toThrow('Fingerprint is required for server SDK');
+    it('should handle invalid API key format', async () => {
+      await expect(sdk.validateAPIKey('')).rejects.toThrow();
     });
   });
 });

@@ -51,12 +51,62 @@ const browserConfig = {
     json(),
     replace({
       preventAssignment: true,
-      values: {
-        'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
-      },
+      'process.env.NODE_ENV': JSON.stringify('production'),
     }),
   ],
-  external: ['react', 'react-dom', 'react/jsx-runtime'],
+  external: ['react', 'react-dom'],
+};
+
+// React components configuration
+const reactConfig = {
+  input: '.build-temp/client/react/index.js',
+  output: [
+    {
+      file: 'dist/client/react/index.js',
+      format: 'cjs',
+      sourcemap: true,
+      exports: 'named',
+      intro: 'var global = typeof window !== "undefined" ? window : global;',
+      inlineDynamicImports: true,
+      interop: 'auto',
+    },
+    {
+      file: 'dist/client/react/index.mjs',
+      format: 'esm',
+      sourcemap: true,
+      exports: 'named',
+      intro: 'var global = typeof window !== "undefined" ? window : global;',
+      inlineDynamicImports: true,
+      interop: 'auto',
+    },
+  ],
+  plugins: [
+    peerDepsExternal(),
+    typescript({
+      tsconfig: './tsconfig.client.json',
+      declaration: false,
+      sourceMap: true,
+      jsx: 'react-jsx',
+      include: ['src/client/react/**/*', 'src/shared/**/*'],
+    }),
+    resolve({
+      browser: true,
+      preferBuiltins: false,
+      mainFields: ['browser', 'module', 'main'],
+      extensions: ['.js', '.jsx', '.ts', '.tsx'],
+    }),
+    commonjs({
+      transformMixedEsModules: true,
+      include: [/node_modules/, /src\/shared/, /src\/client\/react/],
+      requireReturnsDefault: 'auto',
+    }),
+    json(),
+    replace({
+      preventAssignment: true,
+      'process.env.NODE_ENV': JSON.stringify('production'),
+    }),
+  ],
+  external: ['react', 'react-dom'],
 };
 
 // Server-specific configuration
@@ -86,32 +136,22 @@ const serverConfig = {
       tsconfig: './tsconfig.server.json',
       declaration: false,
       sourceMap: true,
-      include: ['src/server/**/*', 'src/shared/**/*', 'src/core/**/*'],
     }),
     resolve({
-      browser: false,
       preferBuiltins: true,
-      extensions: ['.js', '.jsx', '.ts', '.tsx'],
+      mainFields: ['module', 'main'],
     }),
     commonjs({
-      include: [/node_modules/, /src\/core/, /src\/shared/],
+      transformMixedEsModules: true,
+      include: [/node_modules/, /src\/core/, /src\/shared/, /src\/server/],
       requireReturnsDefault: 'auto',
     }),
     json(),
-  ],
-  external: [
-    'react',
-    'react-dom',
-    'react/jsx-runtime',
-    'fs',
-    'path',
-    'crypto',
-    'stream',
-    'util',
-    'events',
-    'os',
-    'buffer',
+    replace({
+      preventAssignment: true,
+      'process.env.NODE_ENV': JSON.stringify('production'),
+    }),
   ],
 };
 
-export default [browserConfig, serverConfig];
+export default [browserConfig, serverConfig, reactConfig];

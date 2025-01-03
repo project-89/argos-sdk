@@ -11,32 +11,32 @@ export class NodeEnvironment
   readonly type = RuntimeEnvironment.Node;
   private apiKey?: string;
   private storage: SecureStorage;
-  private fingerprint: string;
   private onApiKeyUpdate?: (apiKey: string) => void;
 
   constructor(
     encryptionKeyOrStorage: string | SecureStorage,
-    fingerprint: string,
     onApiKeyUpdate?: (apiKey: string) => void
   ) {
-    if (!fingerprint) {
-      throw new Error('Fingerprint is required for Node environment');
-    }
-
     this.storage =
       typeof encryptionKeyOrStorage === 'string'
         ? new SecureStorage({ encryptionKey: encryptionKeyOrStorage })
         : encryptionKeyOrStorage;
-    this.fingerprint = fingerprint;
     this.onApiKeyUpdate = onApiKeyUpdate;
   }
 
-  createHeaders(headers: Record<string, string> = {}): Record<string, string> {
+  createHeaders(
+    headers: Record<string, string> = {},
+    fingerprint?: string
+  ): Record<string, string> {
     const baseHeaders: Record<string, string> = {
       'content-type': 'application/json',
       'user-agent': this.getUserAgent(),
       'x-api-key': this.getApiKey() || '',
     };
+
+    if (fingerprint) {
+      baseHeaders['x-fingerprint'] = fingerprint;
+    }
 
     return {
       ...baseHeaders,
@@ -45,8 +45,8 @@ export class NodeEnvironment
   }
 
   async handleResponse<T>(response: Response): Promise<T> {
-    const contentType = response.headers.get('content-type');
-    const isJson = contentType && contentType.includes('application/json');
+    const contentType = response.headers.get('content-type') || '';
+    const isJson = contentType.includes('application/json');
 
     if (!response.ok) {
       if (response.status === 401) {
@@ -69,10 +69,6 @@ export class NodeEnvironment
     } catch {
       return text as unknown as T;
     }
-  }
-
-  async getFingerprint(): Promise<string> {
-    return this.fingerprint;
   }
 
   async getPlatformInfo(): Promise<Record<string, unknown>> {
@@ -123,20 +119,23 @@ export class NodeEnvironment
     return true;
   }
 
-  async fetch(url: string, options?: RequestInit): Promise<Response> {
+  async fetch(
+    url: string,
+    options: RequestInit & { fingerprint?: string }
+  ): Promise<Response> {
     const { default: nodeFetch } = await import('node-fetch');
     const headers = this.createHeaders(
-      (options?.headers as Record<string, string>) || {}
+      (options.headers as Record<string, string>) || {},
+      options.fingerprint
     );
-    const requestOptions: RequestInit = {
+
+    const requestOptions = {
       ...options,
       headers,
     };
 
     if (requestOptions.body && typeof requestOptions.body === 'object') {
       requestOptions.body = JSON.stringify(requestOptions.body);
-      (requestOptions.headers as Record<string, string>)['content-type'] =
-        'application/json';
     }
 
     return nodeFetch(url, requestOptions);

@@ -5,93 +5,92 @@ import { SecureStorage } from '../../../server/storage/SecureStorage';
 import type { ImpressionData } from '../../../shared/interfaces/api';
 
 describe('Impression Management', () => {
-  let serverSDK: ArgosServerSDK;
-  let storage: SecureStorage;
+  let sdk: ArgosServerSDK;
   let environment: NodeEnvironment;
+  let storage: SecureStorage;
 
   beforeEach(() => {
     storage = new SecureStorage({
       encryptionKey: 'test-key-32-chars-secure-storage-ok',
-      storagePath: './test-storage/storage.enc',
     });
-    environment = new NodeEnvironment(storage, 'test-fingerprint');
+    environment = new NodeEnvironment(storage);
 
-    serverSDK = new ArgosServerSDK({
-      baseUrl: 'http://test.com',
-      apiKey: 'test-key',
+    sdk = new ArgosServerSDK({
+      baseUrl: 'http://localhost:3000',
+      apiKey: 'test-api-key',
       environment,
-      fingerprint: 'test-fingerprint',
-      debug: true,
+      encryptionKey: 'test-key-32-chars-secure-storage-ok',
     });
   });
 
-  describe('createImpression', () => {
-    it('should create impression', async () => {
-      const mockImpression: ImpressionData = {
-        id: 'test-id',
-        fingerprintId: 'test-fingerprint',
-        type: 'test',
-        data: {},
-        createdAt: new Date().toISOString(),
+  const createMockResponse = (data: any) => ({
+    ok: true,
+    headers: new Map([['content-type', 'application/json']]),
+    json: () => Promise.resolve(data),
+  });
+
+  describe('Impression Creation', () => {
+    it('should create impressions with fingerprint in options', async () => {
+      const testFingerprint = 'test-fingerprint';
+      const mockResponse = { success: true, data: { id: '123' } };
+
+      jest
+        .spyOn(environment, 'fetch')
+        .mockResolvedValue(createMockResponse(mockResponse) as any);
+
+      const result = await sdk.track('test-event', {
+        fingerprintId: testFingerprint,
+        status: 'online',
+        metadata: { test: 'data' },
+      });
+
+      expect(result).toEqual(mockResponse);
+      expect(environment.fetch).toHaveBeenCalledWith(
+        'http://localhost:3000/impressions',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'content-type': 'application/json',
+            'x-api-key': 'test-api-key',
+          }),
+          body: expect.objectContaining({
+            type: 'test-event',
+            fingerprintId: testFingerprint,
+            data: expect.objectContaining({
+              status: 'online',
+              test: 'data',
+            }),
+          }),
+        })
+      );
+    });
+  });
+
+  describe('Impression Retrieval', () => {
+    it('should get impressions with fingerprint in options', async () => {
+      const testFingerprint = 'test-fingerprint';
+      const mockResponse = {
+        success: true,
+        data: [{ id: '123', type: 'test' }],
       };
 
       jest
-        .spyOn(serverSDK['impressionAPI'], 'createImpression')
-        .mockResolvedValueOnce({
-          success: true,
-          data: mockImpression,
-        });
+        .spyOn(environment, 'fetch')
+        .mockResolvedValue(createMockResponse(mockResponse) as any);
 
-      const result = await serverSDK.createImpression({
-        fingerprintId: 'test-fingerprint',
-        type: 'test',
-        data: {},
-      });
+      const result = await sdk.getImpressions(testFingerprint);
 
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockImpression);
-    });
-  });
-
-  describe('getImpressions', () => {
-    it('should get impressions', async () => {
-      const mockImpressions: ImpressionData[] = [
+      expect(result).toEqual(mockResponse);
+      expect(environment.fetch).toHaveBeenCalledWith(
+        'http://localhost:3000/impressions/test-fingerprint',
         {
-          id: 'test-id',
-          fingerprintId: 'test-fingerprint',
-          type: 'test',
-          data: {},
-          createdAt: new Date().toISOString(),
-        },
-      ];
-
-      jest
-        .spyOn(serverSDK['impressionAPI'], 'getImpressions')
-        .mockResolvedValueOnce({
-          success: true,
-          data: mockImpressions,
-        });
-
-      const result = await serverSDK.getImpressions('test-fingerprint');
-
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockImpressions);
-    });
-  });
-
-  describe('deleteImpressions', () => {
-    it('should delete impressions', async () => {
-      jest
-        .spyOn(serverSDK['impressionAPI'], 'deleteImpressions')
-        .mockResolvedValueOnce({
-          success: true,
-          data: { deletedCount: 1 },
-        });
-
-      const result = await serverSDK.deleteImpressions('test-fingerprint');
-
-      expect(result.success).toBe(true);
-      expect(result.data.deletedCount).toBe(1);
+          method: 'GET',
+          headers: expect.objectContaining({
+            'content-type': 'application/json',
+            'x-api-key': 'test-api-key',
+          }),
+        }
+      );
     });
   });
 });

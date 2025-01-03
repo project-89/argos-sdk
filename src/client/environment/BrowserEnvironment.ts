@@ -121,23 +121,20 @@ export class BrowserEnvironment
 
   async fetch(url: string, options?: RequestInit): Promise<Response> {
     const headers = {
-      ...options?.headers,
+      ...this.createHeaders(options?.headers as Record<string, string>),
       Origin: window.location.origin,
     };
 
-    if (options?.body && typeof options.body === 'object') {
-      options = {
-        ...options,
-        headers,
-        body: JSON.stringify(options.body),
-      };
-    } else {
-      options = {
-        ...options,
-        headers,
-      };
+    const requestOptions = {
+      ...options,
+      headers,
+    };
+
+    if (requestOptions.body && typeof requestOptions.body === 'object') {
+      requestOptions.body = JSON.stringify(requestOptions.body);
     }
-    return fetch(url, options);
+
+    return fetch(url, requestOptions);
   }
 
   getUserAgent(): string {

@@ -2,6 +2,7 @@
  * @jest-environment jsdom
  */
 
+import { jest } from '@jest/globals';
 import {
   ArgosClientSDK,
   ClientSDKConfig,
@@ -10,12 +11,10 @@ import { MockBrowserEnvironment } from '../../utils/testUtils';
 
 // Mock FingerprintJS
 jest.mock('@fingerprintjs/fingerprintjs', () => ({
-  load: jest.fn().mockResolvedValue({
-    get: jest.fn().mockResolvedValue({
-      visitorId: 'test-visitor-id',
-      components: {},
+  load: () =>
+    Promise.resolve({
+      get: () => Promise.resolve({ visitorId: 'test-visitor-id' }),
     }),
-  }),
 }));
 
 // Add MessageChannel to global
@@ -40,23 +39,43 @@ describe('ArgosClientSDK', () => {
 
   describe('identify', () => {
     it('should create a fingerprint', async () => {
-      const result = await sdk.identify({ metadata: { test: 'data' } });
-      expect(result.success).toBe(true);
+      const mockResponse = { success: true, data: { id: '123' } };
+      jest.spyOn(mockEnvironment, 'fetch').mockResolvedValue({
+        ok: true,
+        headers: new Map([['content-type', 'application/json']]),
+        json: () => Promise.resolve(mockResponse),
+      } as any);
+
+      const result = await sdk.identify({});
+      expect(result).toEqual(mockResponse);
     });
   });
 
   describe('getIdentity', () => {
     it('should get a fingerprint', async () => {
-      const result = await sdk.getIdentity('test-fingerprint');
-      expect(result.success).toBe(true);
+      const mockResponse = { success: true, data: { id: '123' } };
+      jest.spyOn(mockEnvironment, 'fetch').mockResolvedValue({
+        ok: true,
+        headers: new Map([['content-type', 'application/json']]),
+        json: () => Promise.resolve(mockResponse),
+      } as any);
+
+      const result = await sdk.getIdentity('123');
+      expect(result).toEqual(mockResponse);
     });
   });
 
   describe('updateFingerprint', () => {
     it('should update fingerprint metadata', async () => {
-      const metadata = { key: 'value' };
-      const result = await sdk.updateFingerprint('test-fingerprint', metadata);
-      expect(result.success).toBe(true);
+      const mockResponse = { success: true, data: { id: '123' } };
+      jest.spyOn(mockEnvironment, 'fetch').mockResolvedValue({
+        ok: true,
+        headers: new Map([['content-type', 'application/json']]),
+        json: () => Promise.resolve(mockResponse),
+      } as any);
+
+      const result = await sdk.updateFingerprint('123', { test: 'data' });
+      expect(result).toEqual(mockResponse);
     });
   });
 });

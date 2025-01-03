@@ -27,7 +27,6 @@ export interface ServerSDKConfig
   debug?: boolean;
   environment?: EnvironmentInterface<NodeResponse, NodeRequestInit>;
   encryptionKey?: string;
-  fingerprint: string;
 }
 
 export class ArgosServerSDK {
@@ -38,19 +37,12 @@ export class ArgosServerSDK {
   private impressionAPI: ImpressionAPI<NodeResponse, NodeRequestInit>;
 
   constructor(config: ServerSDKConfig) {
-    if (!config.fingerprint) {
-      throw new Error('Fingerprint is required for server SDK');
-    }
-
     this.config = config;
 
     // Initialize environment
     this.environment =
       config.environment ||
-      EnvironmentFactory.createNodeEnvironment(
-        config.encryptionKey || '',
-        config.fingerprint
-      );
+      EnvironmentFactory.createNodeEnvironment(config.encryptionKey || '');
 
     if (config.apiKey) {
       this.environment.setApiKey(config.apiKey);
