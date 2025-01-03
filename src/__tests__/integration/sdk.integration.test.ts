@@ -108,6 +108,9 @@ describe('SDK Integration Tests', () => {
 
       fingerprintId = fingerprintResponse.data.id;
 
+      // Wait a bit to ensure fingerprint is fully registered
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       // Register a new API key using the fingerprint (public endpoint)
       const apiKeyResponse = await serverSDK.createAPIKey({
         name: `test-key-${Date.now()}`,
@@ -127,6 +130,9 @@ describe('SDK Integration Tests', () => {
 
       apiKey = apiKeyResponse.data.key;
 
+      // Wait a bit to ensure API key is fully registered
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       // Now set the API key for both SDKs for subsequent authenticated requests
       serverSDK.setApiKey(apiKey);
       clientSDK.setApiKey(apiKey);
@@ -138,6 +144,9 @@ describe('SDK Integration Tests', () => {
           `API key validation failed: ${JSON.stringify(validation)}`
         );
       }
+
+      // Wait one more time to ensure everything is properly set up
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     } catch (error) {
       console.error('Setup failed:', error);
       throw error;
