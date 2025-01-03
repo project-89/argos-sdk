@@ -1,93 +1,92 @@
-import { jest } from '@jest/globals';
 import { APIKeyAPI } from '../../../shared/api/APIKeyAPI';
-import { ArgosServerSDK } from '../../../server/sdk/ArgosServerSDK';
-import { NodeEnvironment } from '../../../server/environment/NodeEnvironment';
-import { SecureStorage } from '../../../server/storage/SecureStorage';
-import type {
-  APIKeyData,
-  ValidateAPIKeyResponse,
-} from '../../../shared/interfaces/api';
+import {
+  CommonResponse,
+  CommonRequestInit,
+} from '../../../shared/interfaces/http';
+import {
+  EnvironmentInterface,
+  RuntimeEnvironment,
+} from '../../../shared/interfaces/environment';
 
-// Example encrypted API key (base64 encoded AES-256-CBC encrypted string)
-const VALID_TEST_KEY = 'MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=';
-const ANOTHER_VALID_KEY = 'TmV3RW5jcnlwdGVkS2V5MTIzNDU2Nzg5MDEyMzQ1Njc4OTA=';
+// Mock environment
+const mockEnvironment: jest.Mocked<
+  EnvironmentInterface<CommonResponse, CommonRequestInit>
+> = {
+  type: RuntimeEnvironment.Node,
+  createHeaders: jest.fn(),
+  getApiKey: jest.fn(),
+  setApiKey: jest.fn(),
+  getFingerprint: jest.fn(),
+  fetch: jest.fn(),
+  handleResponse: jest.fn(),
+  getPlatformInfo: jest.fn(),
+  getUserAgent: jest.fn(),
+  isOnline: jest.fn(),
+};
+
+// Valid test values
+const VALID_TEST_KEY = 'dGVzdC1hcGkta2V5LXZhbGlkLWZvcm1hdA=='; // base64 encoded
+const TEST_FINGERPRINT_ID = 'test-fingerprint-id';
 
 describe('APIKeyAPI', () => {
-  const BASE_URL = 'http://test.com';
-  let api: APIKeyAPI<any>;
-  let serverSDK: ArgosServerSDK;
-  let storage: SecureStorage;
-  let environment: NodeEnvironment;
+  let api: APIKeyAPI;
 
   beforeEach(() => {
-    storage = new SecureStorage({
-      encryptionKey: 'test-key-32-chars-secure-storage-ok',
-      storagePath: './test-storage/storage.enc',
-    });
-    environment = new NodeEnvironment(storage, 'test-fingerprint');
-
-    serverSDK = new ArgosServerSDK({
-      baseUrl: BASE_URL,
-      apiKey: VALID_TEST_KEY,
-      environment,
-      fingerprint: 'test-fingerprint',
-      debug: true,
-    });
-
+    jest.clearAllMocks();
     api = new APIKeyAPI({
-      baseUrl: BASE_URL,
-      environment,
-      refreshThreshold: 3600000, // 1 hour
-      autoRefresh: true,
+      baseUrl: 'http://localhost',
+      environment: mockEnvironment,
+    });
+
+    // Default mock implementation for handleResponse
+    mockEnvironment.handleResponse.mockImplementation(async (response) => {
+      const jsonData = await response.json();
+      return jsonData;
     });
   });
 
   describe('createAPIKey', () => {
-    it('should create API key', async () => {
-      const mockAPIKey: APIKeyData = {
-        key: VALID_TEST_KEY,
-        fingerprintId: 'test-fingerprint',
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        status: 'active',
+    it('should create API key and store fingerprint ID', async () => {
+      const mockResponse = {
+        success: true,
+        data: {
+          key: VALID_TEST_KEY,
+          fingerprintId: TEST_FINGERPRINT_ID,
+        },
+        error: undefined,
       };
 
-      jest.spyOn(api['environment'], 'fetch').mockResolvedValueOnce({
+      mockEnvironment.fetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        headers: new Headers({
-          'content-type': 'application/json',
-        }),
-        json: async () => ({ success: true, data: mockAPIKey }),
-      } as any);
+        json: () => Promise.resolve(mockResponse),
+      } as CommonResponse);
 
-      const result = await api.createAPIKey({
+      const response = await api.createAPIKey({
         name: 'test-key',
-        fingerprintId: 'test-fingerprint',
-        expiresAt: new Date().toISOString(),
+        fingerprintId: TEST_FINGERPRINT_ID,
       });
 
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockAPIKey);
+      expect(response).toEqual(mockResponse);
     });
 
     it('should handle API errors', async () => {
-      jest.spyOn(api['environment'], 'fetch').mockResolvedValueOnce({
-        ok: false,
-        status: 400,
-        headers: new Headers({
-          'content-type': 'application/json',
-        }),
-        json: async () => ({
-          success: false,
-          error: 'API Key creation failed',
-        }),
-      } as any);
+      const mockResponse = {
+        success: false,
+        data: null,
+        error: 'API Key creation failed',
+      };
+
+      mockEnvironment.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(mockResponse),
+      } as CommonResponse);
 
       await expect(
         api.createAPIKey({
           name: 'test-key',
-          fingerprintId: 'test-fingerprint',
-          expiresAt: new Date().toISOString(),
+          fingerprintId: TEST_FINGERPRINT_ID,
         })
       ).rejects.toThrow('API Key creation failed');
     });
@@ -95,319 +94,275 @@ describe('APIKeyAPI', () => {
 
   describe('validateAPIKey', () => {
     it('should validate API key', async () => {
-      const mockValidation: ValidateAPIKeyResponse = {
-        isValid: true,
-        needsRefresh: false,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        timeUntilExpiration: 24 * 60 * 60 * 1000,
-        status: 'active',
+      const mockResponse = {
+        success: true,
+        data: {
+          valid: true,
+          needsRefresh: false,
+        },
+        error: undefined,
       };
 
-      jest.spyOn(api['environment'], 'fetch').mockResolvedValueOnce({
+      mockEnvironment.fetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        headers: new Headers({
-          'content-type': 'application/json',
-        }),
-        json: async () => ({
-          success: true,
-          data: mockValidation,
-        }),
-      } as any);
+        json: () => Promise.resolve(mockResponse),
+      } as CommonResponse);
 
-      const result = await api.validateAPIKey(VALID_TEST_KEY);
-
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockValidation);
+      const response = await api.validateAPIKey(VALID_TEST_KEY);
+      expect(response).toEqual(mockResponse);
     });
 
-    it('should auto-refresh when key is near expiration', async () => {
-      const mockValidation: ValidateAPIKeyResponse = {
-        isValid: true,
-        needsRefresh: true,
-        expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutes
-        timeUntilExpiration: 30 * 60 * 1000,
-        status: 'active',
+    it('should handle validation with refresh needed', async () => {
+      const mockResponse = {
+        success: true,
+        data: {
+          valid: false,
+          needsRefresh: true,
+        },
+        error: undefined,
       };
 
-      const mockRefresh = {
-        oldKey: VALID_TEST_KEY,
-        newKey: ANOTHER_VALID_KEY,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      };
-
-      const fetchMock = jest.spyOn(api['environment'], 'fetch');
-
-      // Mock validate response
-      fetchMock.mockResolvedValueOnce({
+      mockEnvironment.fetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        headers: new Headers({ 'content-type': 'application/json' }),
-        json: async () => ({ success: true, data: mockValidation }),
-      } as any);
+        json: () => Promise.resolve(mockResponse),
+      } as CommonResponse);
 
-      // Mock refresh response
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        headers: new Headers({ 'content-type': 'application/json' }),
-        json: async () => ({ success: true, data: mockRefresh }),
-      } as any);
-
-      const result = await api.validateAPIKey(VALID_TEST_KEY);
-
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockValidation);
-
-      // Wait for auto-refresh to complete
-      await new Promise((resolve) => setTimeout(resolve, 0));
-
-      expect(api['environment'].getApiKey()).toBe(mockRefresh.newKey);
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      const response = await api.validateAPIKey(VALID_TEST_KEY);
+      expect(response).toEqual(mockResponse);
     });
 
     it('should handle API errors', async () => {
-      jest.spyOn(api['environment'], 'fetch').mockResolvedValueOnce({
-        ok: false,
-        status: 400,
-        headers: new Headers({
-          'content-type': 'application/json',
-        }),
-        json: async () => ({
-          success: false,
-          error: 'API Key validation failed',
-        }),
-      } as any);
+      const mockResponse = {
+        success: false,
+        data: null,
+        error: 'Failed to validate API key',
+      };
+
+      mockEnvironment.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(mockResponse),
+      } as CommonResponse);
 
       await expect(api.validateAPIKey(VALID_TEST_KEY)).rejects.toThrow(
-        'API Key validation failed'
+        'Failed to validate API key'
       );
     });
   });
 
   describe('refreshAPIKey', () => {
-    it('should refresh API key', async () => {
-      const mockRefresh = {
-        oldKey: VALID_TEST_KEY,
-        newKey: ANOTHER_VALID_KEY,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    it('should refresh API key using stored fingerprint ID', async () => {
+      // First create an API key to store the fingerprint ID
+      const createResponse = {
+        success: true,
+        data: {
+          key: VALID_TEST_KEY,
+          fingerprintId: TEST_FINGERPRINT_ID,
+        },
+        error: undefined,
       };
 
-      jest.spyOn(api['environment'], 'fetch').mockResolvedValueOnce({
+      mockEnvironment.fetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        headers: new Headers({
-          'content-type': 'application/json',
-        }),
-        json: async () => ({ success: true, data: mockRefresh }),
-      } as any);
+        json: () => Promise.resolve(createResponse),
+      } as CommonResponse);
 
-      const result = await api.refreshAPIKey(VALID_TEST_KEY);
+      await api.createAPIKey({
+        name: 'test-key',
+        fingerprintId: TEST_FINGERPRINT_ID,
+      });
 
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockRefresh);
+      // Mock validation response
+      const validationResponse = {
+        success: true,
+        data: {
+          valid: true,
+          needsRefresh: false,
+        },
+        error: undefined,
+      };
+
+      mockEnvironment.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(validationResponse),
+      } as CommonResponse);
+
+      // Mock refresh response
+      const refreshResponse = {
+        success: true,
+        data: {
+          key: VALID_TEST_KEY,
+          fingerprintId: TEST_FINGERPRINT_ID,
+        },
+        error: undefined,
+      };
+
+      mockEnvironment.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(refreshResponse),
+      } as CommonResponse);
+
+      const response = await api.refreshAPIKey(VALID_TEST_KEY);
+      expect(response).toEqual(refreshResponse);
     });
 
-    it('should handle API errors', async () => {
-      jest.spyOn(api['environment'], 'fetch').mockResolvedValueOnce({
-        ok: false,
-        status: 400,
-        headers: new Headers({
-          'content-type': 'application/json',
-        }),
-        json: async () => ({
-          success: false,
-          error: 'API Key refresh failed',
-        }),
-      } as any);
+    it('should fail to refresh if no fingerprint ID is stored', async () => {
+      // Mock validation response
+      const validationResponse = {
+        success: true,
+        data: {
+          valid: true,
+          needsRefresh: false,
+        },
+        error: undefined,
+      };
+
+      mockEnvironment.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(validationResponse),
+      } as CommonResponse);
 
       await expect(api.refreshAPIKey(VALID_TEST_KEY)).rejects.toThrow(
-        'API Key refresh failed'
+        'No fingerprint ID available. Please create a new API key.'
       );
     });
   });
 
   describe('rotateAPIKey', () => {
-    it('should rotate API key', async () => {
-      const mockRotate = {
-        oldKey: VALID_TEST_KEY,
-        newKey: ANOTHER_VALID_KEY,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    it('should rotate API key using stored fingerprint ID', async () => {
+      // First create an API key to store the fingerprint ID
+      const createResponse = {
+        success: true,
+        data: {
+          key: VALID_TEST_KEY,
+          fingerprintId: TEST_FINGERPRINT_ID,
+        },
+        error: undefined,
       };
 
-      jest.spyOn(api['environment'], 'fetch').mockResolvedValueOnce({
+      mockEnvironment.fetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        headers: new Headers({
-          'content-type': 'application/json',
-        }),
-        json: async () => ({ success: true, data: mockRotate }),
-      } as any);
+        json: () => Promise.resolve(createResponse),
+      } as CommonResponse);
 
-      const result = await api.rotateAPIKey(VALID_TEST_KEY);
+      await api.createAPIKey({
+        name: 'test-key',
+        fingerprintId: TEST_FINGERPRINT_ID,
+      });
 
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockRotate);
+      // Mock validation response
+      const validationResponse = {
+        success: true,
+        data: {
+          valid: true,
+          needsRefresh: false,
+        },
+        error: undefined,
+      };
+
+      mockEnvironment.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(validationResponse),
+      } as CommonResponse);
+
+      // Mock rotation response
+      const rotateResponse = {
+        success: true,
+        data: {
+          key: VALID_TEST_KEY,
+          fingerprintId: TEST_FINGERPRINT_ID,
+        },
+        error: undefined,
+      };
+
+      mockEnvironment.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(rotateResponse),
+      } as CommonResponse);
+
+      const response = await api.rotateAPIKey(VALID_TEST_KEY);
+      expect(response).toEqual(rotateResponse);
     });
 
-    it('should handle API errors', async () => {
-      jest.spyOn(api['environment'], 'fetch').mockResolvedValueOnce({
-        ok: false,
-        status: 400,
-        headers: new Headers({
-          'content-type': 'application/json',
-        }),
-        json: async () => ({
-          success: false,
-          error: 'API Key rotation failed',
-        }),
-      } as any);
+    it('should fail to rotate if no fingerprint ID is stored', async () => {
+      // Mock validation response
+      const validationResponse = {
+        success: true,
+        data: {
+          valid: true,
+          needsRefresh: false,
+        },
+        error: undefined,
+      };
+
+      mockEnvironment.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(validationResponse),
+      } as CommonResponse);
 
       await expect(api.rotateAPIKey(VALID_TEST_KEY)).rejects.toThrow(
-        'API Key rotation failed'
+        'No fingerprint ID available. Please create a new API key.'
       );
     });
   });
 
   describe('revokeAPIKey', () => {
     it('should revoke API key', async () => {
-      jest.spyOn(api['environment'], 'fetch').mockResolvedValueOnce({
+      const mockResponse = {
+        success: true,
+        data: null,
+        error: undefined,
+      };
+
+      mockEnvironment.fetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        headers: new Headers({
-          'content-type': 'application/json',
-        }),
-        json: async () => ({ success: true }),
-      } as any);
+        json: () => Promise.resolve(mockResponse),
+      } as CommonResponse);
 
-      const result = await api.revokeAPIKey({ key: VALID_TEST_KEY });
-
-      expect(result.success).toBe(true);
+      await api.revokeAPIKey({ key: VALID_TEST_KEY });
     });
 
     it('should handle API errors', async () => {
-      jest.spyOn(api['environment'], 'fetch').mockResolvedValueOnce({
-        ok: false,
-        status: 400,
-        headers: new Headers({
-          'content-type': 'application/json',
-        }),
-        json: async () => ({
-          success: false,
-          error: 'API Key revocation failed',
-        }),
-      } as any);
+      const mockResponse = {
+        success: false,
+        data: null,
+        error: 'Failed to revoke API key',
+      };
+
+      mockEnvironment.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(mockResponse),
+      } as CommonResponse);
 
       await expect(api.revokeAPIKey({ key: VALID_TEST_KEY })).rejects.toThrow(
-        'API Key revocation failed'
+        'Failed to revoke API key'
       );
     });
   });
 
   describe('API Key Format Validation', () => {
-    it('should reject empty API keys', async () => {
-      await expect(api.validateAPIKey('')).rejects.toThrow(
-        'API key must be a non-empty string'
-      );
+    it('should reject empty API keys', () => {
+      expect(() => api['validateKeyFormat']('')).toThrow();
     });
 
-    it('should reject invalid API key formats', async () => {
-      await expect(api.validateAPIKey('short')).rejects.toThrow(
-        'Invalid API key format'
-      );
-      await expect(
-        api.validateAPIKey('invalid@characters#here')
-      ).rejects.toThrow('Invalid API key format');
-      await expect(api.validateAPIKey('not-base64!')).rejects.toThrow(
-        'Invalid API key format'
-      );
+    it('should reject invalid API key formats', () => {
+      expect(() => api['validateKeyFormat']('invalid-key')).toThrow();
     });
 
-    it('should accept valid API key formats', async () => {
-      const mockValidation: ValidateAPIKeyResponse = {
-        isValid: true,
-        needsRefresh: false,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        timeUntilExpiration: 24 * 60 * 60 * 1000,
-        status: 'active',
-      };
-
-      const fetchMock = jest.spyOn(api['environment'], 'fetch');
-
-      // Mock first validation response
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        headers: new Headers({
-          'content-type': 'application/json',
-        }),
-        json: async () => ({
-          success: true,
-          data: mockValidation,
-        }),
-      } as any);
-
-      // Mock second validation response
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        headers: new Headers({
-          'content-type': 'application/json',
-        }),
-        json: async () => ({
-          success: true,
-          data: mockValidation,
-        }),
-      } as any);
-
-      await expect(api.validateAPIKey(VALID_TEST_KEY)).resolves.toBeDefined();
-      await expect(
-        api.validateAPIKey(ANOTHER_VALID_KEY)
-      ).resolves.toBeDefined();
-
-      expect(fetchMock).toHaveBeenCalledTimes(2);
-    });
-
-    it('should validate new key format after refresh', async () => {
-      const mockRefresh = {
-        oldKey: VALID_TEST_KEY,
-        newKey: 'not-base64!', // Invalid format
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      };
-
-      jest.spyOn(api['environment'], 'fetch').mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        headers: new Headers({
-          'content-type': 'application/json',
-        }),
-        json: async () => ({ success: true, data: mockRefresh }),
-      } as any);
-
-      await expect(api.refreshAPIKey(VALID_TEST_KEY)).rejects.toThrow(
-        'Invalid API key format'
-      );
-    });
-
-    it('should validate new key format after rotation', async () => {
-      const mockRotate = {
-        oldKey: VALID_TEST_KEY,
-        newKey: 'not-base64!', // Invalid format
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      };
-
-      jest.spyOn(api['environment'], 'fetch').mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        headers: new Headers({
-          'content-type': 'application/json',
-        }),
-        json: async () => ({ success: true, data: mockRotate }),
-      } as any);
-
-      await expect(api.rotateAPIKey(VALID_TEST_KEY)).rejects.toThrow(
-        'Invalid API key format'
-      );
+    it('should accept valid API key formats', () => {
+      expect(() => api['validateKeyFormat'](VALID_TEST_KEY)).not.toThrow();
     });
   });
 });

@@ -32,11 +32,15 @@ export class NodeEnvironment
   }
 
   createHeaders(headers: Record<string, string> = {}): Record<string, string> {
-    return {
-      ...headers,
+    const baseHeaders: Record<string, string> = {
       'content-type': 'application/json',
       'user-agent': this.getUserAgent(),
-      'x-api-key': this.apiKey || '',
+      'x-api-key': this.getApiKey() || '',
+    };
+
+    return {
+      ...baseHeaders,
+      ...headers,
     };
   }
 

@@ -74,9 +74,6 @@ export interface APIKeyData {
   key: string;
   fingerprintId: string;
   expiresAt: string;
-  metadata?: Record<string, any>;
-  status?: 'active' | 'expired' | 'revoked';
-  lastUsedAt?: string;
 }
 
 export interface PriceData {
@@ -154,11 +151,9 @@ export interface ValidateAPIKeyRequest {
 }
 
 export interface ValidateAPIKeyResponse {
-  isValid: boolean;
-  needsRefresh: boolean;
-  expiresAt: string;
-  timeUntilExpiration: number; // milliseconds until expiration
-  status: 'active' | 'expired' | 'revoked';
+  valid: boolean;
+  fingerprintId?: string;
+  needsRefresh?: boolean;
 }
 
 export interface GetVisitHistoryOptions {
@@ -228,13 +223,13 @@ export interface UpdateTagsRequest {
 }
 
 export interface RefreshAPIKeyResponse {
-  oldKey: string;
-  newKey: string;
+  key: string;
+  fingerprintId: string;
   expiresAt: string;
 }
 
 export interface RotateAPIKeyResponse {
-  oldKey: string;
-  newKey: string;
+  key: string;
+  fingerprintId: string;
   expiresAt: string;
 }

@@ -14,17 +14,23 @@ import {
   Response as NodeResponse,
   RequestInit as NodeRequestInit,
   Headers,
+  ResponseType,
 } from 'node-fetch';
 
-export function createMockResponse<T>(data: T, status = 200): NodeResponse {
-  const responseData = { success: status >= 200 && status < 300, data };
+export function createMockResponse<T>(data: T): NodeResponse {
+  const apiResponse: ApiResponse<T> = {
+    success: true,
+    data,
+    error: undefined,
+  };
+
   return {
-    ok: status >= 200 && status < 300,
-    status,
-    statusText: status === 200 ? 'OK' : 'Error',
+    ok: true,
+    status: 200,
+    statusText: 'OK',
     headers: new Headers({ 'content-type': 'application/json' }),
-    json: () => Promise.resolve(responseData),
-    text: () => Promise.resolve(JSON.stringify(responseData)),
+    json: async () => apiResponse,
+    text: () => Promise.resolve(JSON.stringify(apiResponse)),
     blob: () => Promise.resolve(new Blob()),
     arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
     formData: () => Promise.resolve(new FormData()),
@@ -44,14 +50,19 @@ export function createMockResponse<T>(data: T, status = 200): NodeResponse {
 }
 
 export function createMockErrorResponse(error: string): NodeResponse {
-  const responseData = { success: false, error };
+  const apiResponse: ApiResponse<null> = {
+    success: false,
+    data: null,
+    error,
+  };
+
   return {
     ok: false,
     status: 400,
     statusText: 'Bad Request',
     headers: new Headers({ 'content-type': 'application/json' }),
-    json: () => Promise.resolve(responseData),
-    text: () => Promise.resolve(JSON.stringify(responseData)),
+    json: async () => apiResponse,
+    text: () => Promise.resolve(JSON.stringify(apiResponse)),
     blob: () => Promise.resolve(new Blob()),
     arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
     formData: () => Promise.resolve(new FormData()),

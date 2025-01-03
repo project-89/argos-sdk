@@ -13,6 +13,18 @@ import { HttpMethod } from '../interfaces/http';
 import type { CommonResponse, CommonRequestInit } from '../interfaces/http';
 import type { EnvironmentInterface } from '../interfaces/environment';
 
+const RETRY_DELAY = 1000; // 1 second
+const MAX_RETRIES = 3;
+
+// Error types that are considered transient and can be retried
+const TRANSIENT_ERRORS = [
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'ECONNREFUSED',
+  'NETWORK_ERROR',
+  'RATE_LIMIT',
+];
+
 export class APIKeyAPI<
   T extends CommonResponse = CommonResponse,
   R extends CommonRequestInit = CommonRequestInit
@@ -20,6 +32,7 @@ export class APIKeyAPI<
   private debug: boolean;
   private refreshThreshold: number;
   private autoRefresh: boolean;
+  private currentFingerprintId?: string;
 
   constructor({
     baseUrl,
@@ -69,19 +82,63 @@ export class APIKeyAPI<
     return true;
   }
 
+  private isTransientError(error: any): boolean {
+    if (!error) return false;
+
+    // Check error code
+    if (error.code && TRANSIENT_ERRORS.includes(error.code)) {
+      return true;
+    }
+
+    // Check error message
+    const message = error.message || String(error);
+    return (
+      TRANSIENT_ERRORS.some((code) => message.includes(code)) ||
+      message.includes('timeout') ||
+      message.includes('rate limit')
+    );
+  }
+
+  private async withRetry<T>(
+    operation: () => Promise<T>,
+    retries = MAX_RETRIES,
+    delay = RETRY_DELAY
+  ): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      if (retries > 0 && this.isTransientError(error)) {
+        this.logDebug(
+          `Retrying operation after error: ${error}. Retries left: ${retries}`
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return this.withRetry(operation, retries - 1, delay * 2);
+      }
+      throw error;
+    }
+  }
+
   async createAPIKey(
     request: CreateAPIKeyRequest
   ): Promise<ApiResponse<APIKeyData>> {
     this.logDebug('Creating API key', { request });
     try {
-      const response = await this.fetchApi<APIKeyData>('/api-key/register', {
-        method: HttpMethod.POST,
-        skipAuth: true,
-        body: request,
-      });
+      const response = await this.withRetry(() =>
+        this.fetchApi<APIKeyData>('/api-key/register', {
+          method: HttpMethod.POST,
+          skipAuth: true,
+          body: request,
+        })
+      );
 
-      if (response.success && response.data) {
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to create API key');
+      }
+
+      if (response.data) {
         this.validateKeyFormat(response.data.key);
+        // Store the fingerprint ID when we create a new key
+        this.currentFingerprintId = response.data.fingerprintId;
       }
 
       return response;
@@ -95,23 +152,24 @@ export class APIKeyAPI<
     key: string
   ): Promise<ApiResponse<ValidateAPIKeyResponse>> {
     this.validateKeyFormat(key);
-    this.logDebug('Validating API key');
+    this.logDebug('Validating API key', { key });
 
     try {
-      const response = await this.fetchApi<ValidateAPIKeyResponse>(
-        '/api-key/validate',
-        {
+      const response = await this.withRetry(() =>
+        this.fetchApi<ValidateAPIKeyResponse>('/api-key/validate', {
           method: HttpMethod.POST,
+          skipAuth: true,
           body: { key },
-        }
+        })
       );
 
-      if (
-        response.success &&
-        response.data &&
-        response.data.needsRefresh &&
-        this.autoRefresh
-      ) {
+      if (!response.success) {
+        throw new Error('Failed to validate API key');
+      }
+
+      this.logDebug('Validation response:', JSON.stringify(response, null, 2));
+
+      if (response.data.needsRefresh && this.autoRefresh) {
         this.logDebug('API key needs refresh, initiating auto-refresh');
         this.refreshAPIKey(key).catch((error) => {
           this.logError('Auto-refresh failed', error);
@@ -132,22 +190,52 @@ export class APIKeyAPI<
     this.logDebug('Refreshing API key');
 
     try {
-      const response = await this.fetchApi<RefreshAPIKeyResponse>(
-        '/api-key/refresh',
-        {
+      // First validate the current key
+      const validation = await this.validateAPIKey(key);
+      if (!validation.success) {
+        throw new Error('Failed to validate current key');
+      }
+
+      // Use the stored fingerprint ID
+      if (!this.currentFingerprintId) {
+        throw new Error(
+          'No fingerprint ID available. Please create a new API key.'
+        );
+      }
+
+      // Create a new key using the stored fingerprint ID
+      const response = await this.withRetry(() =>
+        this.fetchApi<APIKeyData>('/api-key/register', {
           method: HttpMethod.POST,
-          body: { key },
-        }
+          skipAuth: true,
+          body: {
+            name: `refreshed-key-${Date.now()}`,
+            fingerprintId: this.currentFingerprintId,
+            metadata: {
+              refreshedFrom: key,
+              refreshedAt: new Date().toISOString(),
+            },
+          },
+        })
       );
 
       if (response.success && response.data) {
-        const { newKey } = response.data;
+        const { key: newKey } = response.data;
         this.validateKeyFormat(newKey);
         this.environment.setApiKey(newKey);
+        // Update stored fingerprint ID
+        this.currentFingerprintId = response.data.fingerprintId;
         this.logDebug('API key refreshed successfully');
       }
 
-      return response;
+      return {
+        success: response.success,
+        data: {
+          key: response.data.key,
+          fingerprintId: response.data.fingerprintId,
+          expiresAt: response.data.expiresAt,
+        },
+      };
     } catch (error) {
       this.logError('Failed to refresh API key', error);
       throw error;
@@ -159,22 +247,52 @@ export class APIKeyAPI<
     this.logDebug('Rotating API key');
 
     try {
-      const response = await this.fetchApi<RotateAPIKeyResponse>(
-        '/api-key/rotate',
-        {
+      // First validate the current key
+      const validation = await this.validateAPIKey(key);
+      if (!validation.success) {
+        throw new Error('Failed to validate current key');
+      }
+
+      // Use the stored fingerprint ID
+      if (!this.currentFingerprintId) {
+        throw new Error(
+          'No fingerprint ID available. Please create a new API key.'
+        );
+      }
+
+      // Create a new key using the stored fingerprint ID
+      const response = await this.withRetry(() =>
+        this.fetchApi<APIKeyData>('/api-key/register', {
           method: HttpMethod.POST,
-          body: { key },
-        }
+          skipAuth: true,
+          body: {
+            name: `rotated-key-${Date.now()}`,
+            fingerprintId: this.currentFingerprintId,
+            metadata: {
+              rotatedFrom: key,
+              rotatedAt: new Date().toISOString(),
+            },
+          },
+        })
       );
 
       if (response.success && response.data) {
-        const { newKey } = response.data;
+        const { key: newKey } = response.data;
         this.validateKeyFormat(newKey);
         this.environment.setApiKey(newKey);
+        // Update stored fingerprint ID
+        this.currentFingerprintId = response.data.fingerprintId;
         this.logDebug('API key rotated successfully');
       }
 
-      return response;
+      return {
+        success: response.success,
+        data: {
+          key: response.data.key,
+          fingerprintId: response.data.fingerprintId,
+          expiresAt: response.data.expiresAt,
+        },
+      };
     } catch (error) {
       this.logError('Failed to rotate API key', error);
       throw error;
@@ -186,10 +304,16 @@ export class APIKeyAPI<
     this.logDebug('Revoking API key');
 
     try {
-      const response = await this.fetchApi<void>('/api-key/revoke', {
-        method: HttpMethod.POST,
-        body: request,
-      });
+      const response = await this.withRetry(() =>
+        this.fetchApi<void>('/api-key/revoke', {
+          method: HttpMethod.POST,
+          body: request,
+        })
+      );
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to revoke API key');
+      }
 
       if (response.success) {
         this.logDebug('API key revoked successfully');

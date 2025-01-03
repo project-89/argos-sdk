@@ -13,6 +13,8 @@ import {
   ValidateAPIKeyResponse,
   APIKeyData,
   GetImpressionsOptions,
+  RotateAPIKeyResponse,
+  RefreshAPIKeyResponse,
 } from '../../shared/interfaces/api';
 import { FingerprintAPI } from '../../shared/api/FingerprintAPI';
 import { APIKeyAPI } from '../../shared/api/APIKeyAPI';
@@ -169,5 +171,15 @@ export class ArgosServerSDK {
     type?: string
   ): Promise<ApiResponse<DeleteImpressionsResponse>> {
     return this.impressionAPI.deleteImpressions(fingerprintId, type);
+  }
+
+  async rotateAPIKey(key: string): Promise<ApiResponse<RotateAPIKeyResponse>> {
+    return this.apiKeyAPI.rotateAPIKey(key);
+  }
+
+  async refreshAPIKey(
+    key: string
+  ): Promise<ApiResponse<RefreshAPIKeyResponse>> {
+    return this.apiKeyAPI.refreshAPIKey(key);
   }
 }

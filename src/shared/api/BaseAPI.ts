@@ -37,6 +37,16 @@ export class BaseAPI<T extends CommonResponse, R extends CommonRequestInit> {
   protected maxRequestsPerMinute: number;
   protected maxRequestsPerHour: number;
 
+  // List of endpoints that don't require authentication
+  protected publicEndpoints = new Set([
+    '/fingerprint/register', // Register fingerprint
+    '/api-key/register', // Register API key
+    '/api-key/validate', // Validate API key
+    '/health', // Health check
+    '/price/current', // Get current prices
+    '/role/available', // Get available roles
+  ]);
+
   constructor(config: BaseAPIConfig<T, R>) {
     this.baseUrl = config.baseUrl;
     this.environment = config.environment;
@@ -47,12 +57,17 @@ export class BaseAPI<T extends CommonResponse, R extends CommonRequestInit> {
     }
   }
 
+  protected isPublicEndpoint(path: string): boolean {
+    return this.publicEndpoints.has(path);
+  }
+
   protected async fetchApi<U>(
     path: string,
     options?: BaseAPIRequestOptions
   ): Promise<ApiResponse<U>> {
     const url = `${this.baseUrl}${path}`;
-    const headers = this.environment.createHeaders(options?.headers || {});
+    const isPublic = this.isPublicEndpoint(path);
+    const headers = this.createHeaders(options, isPublic);
     const requestOptions = {
       ...options,
       headers,
@@ -62,24 +77,27 @@ export class BaseAPI<T extends CommonResponse, R extends CommonRequestInit> {
   }
 
   protected createHeaders(
-    options?: BaseAPIRequestOptions
+    options?: BaseAPIRequestOptions,
+    isPublic = false
   ): Record<string, string> {
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = {
+      'content-type': 'application/json',
+      'user-agent': this.environment.getUserAgent(),
+    };
 
-    if (!options?.skipAuth) {
+    // Add API key for authenticated endpoints
+    if (!isPublic) {
       const apiKey = this.environment.getApiKey();
       if (apiKey) {
         headers['x-api-key'] = apiKey;
       }
     }
 
-    if (options?.body) {
-      headers['content-type'] = 'application/json';
+    // Add any custom headers
+    if (options?.headers) {
+      Object.assign(headers, options.headers);
     }
 
-    return {
-      ...headers,
-      ...this.environment.createHeaders(headers),
-    };
+    return headers;
   }
 }
