@@ -71,9 +71,18 @@ export class BaseAPI<T extends CommonResponse, R extends CommonRequestInit> {
     const requestOptions = {
       ...options,
       headers,
+      signal: options?.signal,
     } as R;
-    const response = await this.environment.fetch(url, requestOptions);
-    return this.environment.handleResponse(response);
+
+    try {
+      const response = await this.environment.fetch(url, requestOptions);
+      return this.environment.handleResponse(response);
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Request was cancelled');
+      }
+      throw error;
+    }
   }
 
   protected createHeaders(

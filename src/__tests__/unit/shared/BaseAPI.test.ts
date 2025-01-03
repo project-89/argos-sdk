@@ -6,8 +6,8 @@ import type { BaseAPIRequestOptions } from '../../../shared/api/BaseAPI';
 import type { ApiResponse } from '../../../shared/interfaces/api';
 
 const BASE_URL = 'https://test.example.com';
-const mockFetch = jest.fn();
-global.fetch = mockFetch as unknown as typeof global.fetch;
+const mockFetch = jest.fn() as jest.MockedFunction<typeof fetch>;
+global.fetch = mockFetch;
 
 class TestAPI extends BaseAPI<Response, RequestInit> {
   constructor() {
@@ -75,5 +75,46 @@ describe('BaseAPI', () => {
         body: JSON.stringify({ test: 'data' }),
       })
     ).rejects.toThrow();
+  });
+
+  it('should handle request cancellation', async () => {
+    const controller = new AbortController();
+
+    mockFetch.mockImplementationOnce(
+      async (url: RequestInfo | URL, init?: RequestInit) => {
+        // Check if the request has been aborted
+        if (init?.signal?.aborted) {
+          const error = new Error('AbortError');
+          error.name = 'AbortError';
+          throw error;
+        }
+
+        // Simulate some async work
+        await new Promise((resolve) => setTimeout(resolve, 10));
+
+        // Check again in case it was aborted during the async work
+        if (init?.signal?.aborted) {
+          const error = new Error('AbortError');
+          error.name = 'AbortError';
+          throw error;
+        }
+
+        return {
+          ok: true,
+          json: () =>
+            Promise.resolve({ success: true, data: { test: 'data' } }),
+        } as Response;
+      }
+    );
+
+    const fetchPromise = api.testFetch('/test', {
+      method: HttpMethod.GET,
+      signal: controller.signal,
+    });
+
+    // Cancel the request
+    controller.abort();
+
+    await expect(fetchPromise).rejects.toThrow('Request was cancelled');
   });
 });
