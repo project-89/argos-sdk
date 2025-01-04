@@ -3,6 +3,7 @@ import {
   RuntimeEnvironment,
 } from '../../shared/interfaces/environment';
 import * as FingerprintJS from '@fingerprintjs/fingerprintjs';
+import { CookieStorage } from '../storage/CookieStorage';
 
 export class BrowserEnvironment
   implements EnvironmentInterface<globalThis.Response>
@@ -12,6 +13,7 @@ export class BrowserEnvironment
   private fingerprintPromise?: Promise<string>;
   private fpAgent?: Promise<FingerprintJS.Agent>;
   private onApiKeyUpdate?: (apiKey: string) => void;
+  private storage: CookieStorage;
 
   constructor(onApiKeyUpdate?: (apiKey: string) => void) {
     if (typeof window === 'undefined') {
@@ -20,6 +22,20 @@ export class BrowserEnvironment
       );
     }
     this.onApiKeyUpdate = onApiKeyUpdate;
+    this.storage = new CookieStorage({
+      secure: true,
+      sameSite: 'strict',
+      path: '/',
+    });
+    this.initializeEnvironment();
+  }
+
+  private async initializeEnvironment(): Promise<void> {
+    // Restore API key from storage if available
+    const storedApiKey = await this.storage.get('api_key');
+    if (storedApiKey) {
+      this.setApiKey(storedApiKey);
+    }
     this.initializeFingerprint();
   }
 
@@ -54,9 +70,31 @@ export class BrowserEnvironment
     const contentType = response.headers.get('content-type');
     const isJson = contentType && contentType.includes('application/json');
 
+    // Extract rate limit information only if present
+    const limit = response.headers.get('x-ratelimit-limit');
+    const remaining = response.headers.get('x-ratelimit-remaining');
+    const reset = response.headers.get('x-ratelimit-reset');
+
+    const rateLimitInfo =
+      limit && remaining && reset ? { limit, remaining, reset } : undefined;
+
     if (!response.ok) {
       if (response.status === 401) {
         this.apiKey = undefined;
+        await this.storage.remove('api_key');
+      }
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('Retry-After') || '60';
+        const errorData = isJson
+          ? await response.json()
+          : await response.text();
+        const error = {
+          error: 'Rate limit exceeded',
+          retryAfter,
+          ...(rateLimitInfo ? { rateLimitInfo } : {}),
+          details: isJson ? errorData : JSON.parse(errorData),
+        };
+        throw new Error(JSON.stringify(error));
       }
       const errorData = isJson ? await response.json() : await response.text();
       throw new Error(
@@ -66,14 +104,24 @@ export class BrowserEnvironment
 
     if (isJson) {
       const data = await response.json();
-      return data;
+      return {
+        ...(data.data || data),
+        ...(rateLimitInfo ? { rateLimitInfo } : {}),
+      } as T;
     }
 
     const text = await response.text();
     try {
-      return JSON.parse(text);
+      const parsed = JSON.parse(text);
+      return {
+        ...(parsed.data || parsed),
+        ...(rateLimitInfo ? { rateLimitInfo } : {}),
+      } as T;
     } catch {
-      return text as unknown as T;
+      return {
+        data: text,
+        ...(rateLimitInfo ? { rateLimitInfo } : {}),
+      } as T;
     }
   }
 
@@ -97,11 +145,12 @@ export class BrowserEnvironment
     };
   }
 
-  setApiKey(apiKey: string): void {
+  async setApiKey(apiKey: string): Promise<void> {
     if (!apiKey) {
       throw new Error('API key cannot be empty');
     }
     this.apiKey = apiKey;
+    await this.storage.set('api_key', apiKey);
     if (this.onApiKeyUpdate) {
       this.onApiKeyUpdate(apiKey);
     }

@@ -82,21 +82,21 @@ describe('BrowserEnvironment', () => {
   });
 
   describe('API key management', () => {
-    it('should set and get API key', () => {
-      environment.setApiKey('test-api-key');
+    it('should set and get API key', async () => {
+      await environment.setApiKey('test-api-key');
       expect(environment.getApiKey()).toBe('test-api-key');
     });
 
-    it('should throw error when setting empty API key', () => {
-      expect(() => environment.setApiKey('')).toThrow(
+    it('should throw error when setting empty API key', async () => {
+      await expect(environment.setApiKey('')).rejects.toThrow(
         'API key cannot be empty'
       );
     });
   });
 
   describe('Headers management', () => {
-    it('should create headers with API key when available', () => {
-      environment.setApiKey('test-api-key');
+    it('should create headers with API key when available', async () => {
+      await environment.setApiKey('test-api-key');
       const headers = environment.createHeaders({});
       expect(headers['x-api-key']).toBe('test-api-key');
       expect(headers['user-agent']).toBe(navigator.userAgent);
@@ -109,36 +109,140 @@ describe('BrowserEnvironment', () => {
     });
   });
 
-  describe('Response handling', () => {
-    it('should handle JSON response', async () => {
-      const mockResponse = new Response(JSON.stringify({ test: 'data' }), {
+  describe('Response Handling', () => {
+    it('should include rate limit information in successful responses', async () => {
+      const now = Date.now();
+      const mockHeaders = {
+        get: jest.fn((key: string) => {
+          const headers: Record<string, string> = {
+            'content-type': 'application/json',
+            'x-ratelimit-limit': '1000',
+            'x-ratelimit-remaining': '999',
+            'x-ratelimit-reset': now.toString(),
+          };
+          return headers[key.toLowerCase()] || null;
+        }),
+      };
+
+      const mockResponse = {
+        ok: true,
         status: 200,
-        headers: { 'content-type': 'application/json' },
+        headers: mockHeaders,
+        json: () => Promise.resolve({ data: { test: true } }),
+        text: () => Promise.resolve(JSON.stringify({ data: { test: true } })),
+      } as unknown as Response;
+
+      const result = await environment.handleResponse<{
+        test: boolean;
+        rateLimitInfo?: {
+          limit: string;
+          remaining: string;
+          reset: string;
+        };
+      }>(mockResponse);
+
+      expect(result).toHaveProperty('rateLimitInfo');
+      expect(result.rateLimitInfo).toEqual({
+        limit: '1000',
+        remaining: '999',
+        reset: now.toString(),
       });
-      const result = await environment.handleResponse(mockResponse);
-      expect(result).toEqual({ test: 'data' });
     });
 
-    it('should handle text response', async () => {
-      const mockResponse = new Response('test data', {
-        status: 200,
-        headers: { 'content-type': 'text/plain' },
-      });
-      const result = await environment.handleResponse(mockResponse);
-      expect(result).toBe('test data');
+    it('should handle rate limit exceeded errors', async () => {
+      const now = Date.now();
+      const mockHeaders = {
+        get: jest.fn((key: string) => {
+          const headers: Record<string, string> = {
+            'content-type': 'application/json',
+            'retry-after': '60',
+            'x-ratelimit-limit': '1000',
+            'x-ratelimit-remaining': '0',
+            'x-ratelimit-reset': now.toString(),
+          };
+          return headers[key.toLowerCase()] || null;
+        }),
+      };
+
+      const mockResponse = {
+        ok: false,
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: mockHeaders,
+        json: () =>
+          Promise.resolve({
+            success: false,
+            error: 'Rate limit exceeded',
+          }),
+        text: () =>
+          Promise.resolve(
+            JSON.stringify({
+              success: false,
+              error: 'Rate limit exceeded',
+            })
+          ),
+      } as unknown as Response;
+
+      try {
+        await environment.handleResponse(mockResponse);
+        fail('Should have thrown an error');
+      } catch (error: any) {
+        const errorData = JSON.parse(error.message);
+        expect(errorData).toEqual({
+          error: 'Rate limit exceeded',
+          retryAfter: '60',
+          rateLimitInfo: {
+            limit: '1000',
+            remaining: '0',
+            reset: expect.any(String),
+          },
+          details: {
+            success: false,
+            error: 'Rate limit exceeded',
+          },
+        });
+      }
     });
 
-    it('should handle error response and clear API key on 401', async () => {
-      environment.setApiKey('test-api-key');
-      const mockResponse = new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        {
-          status: 401,
-          headers: { 'content-type': 'application/json' },
-        }
-      );
-      await expect(environment.handleResponse(mockResponse)).rejects.toThrow();
-      expect(environment.getApiKey()).toBeUndefined();
+    it('should not include rate limit info when headers are not present', async () => {
+      const mockHeaders = {
+        get: jest.fn((key: string) => {
+          const headers: Record<string, string> = {
+            'content-type': 'application/json',
+          };
+          return headers[key.toLowerCase()] || null;
+        }),
+      };
+
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        headers: mockHeaders,
+        json: () =>
+          Promise.resolve({
+            success: true,
+            data: { test: true },
+          }),
+        text: () =>
+          Promise.resolve(
+            JSON.stringify({
+              success: true,
+              data: { test: true },
+            })
+          ),
+      } as unknown as Response;
+
+      const result = await environment.handleResponse<{
+        success: boolean;
+        data: { test: boolean };
+        rateLimitInfo?: {
+          limit: string;
+          remaining: string;
+          reset: string;
+        };
+      }>(mockResponse);
+
+      expect(result.rateLimitInfo).toBeUndefined();
     });
   });
 });

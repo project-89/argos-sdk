@@ -1,6 +1,7 @@
 import { ApiResponse } from '../interfaces/api';
 import { EnvironmentInterface } from '../interfaces/environment';
 import { CommonResponse, CommonRequestInit } from '../interfaces/http';
+import { RateLimitService } from '../../core/services/RateLimitService';
 
 export interface BaseAPIConfig<
   T extends CommonResponse,
@@ -34,8 +35,7 @@ export interface BaseAPIRequestOptions {
 export class BaseAPI<T extends CommonResponse, R extends CommonRequestInit> {
   protected baseUrl: string;
   protected environment: EnvironmentInterface<T, R>;
-  protected maxRequestsPerMinute: number;
-  protected maxRequestsPerHour: number;
+  protected rateLimitService: RateLimitService;
 
   // List of endpoints that don't require authentication
   protected publicEndpoints = new Set([
@@ -50,8 +50,11 @@ export class BaseAPI<T extends CommonResponse, R extends CommonRequestInit> {
   constructor(config: BaseAPIConfig<T, R>) {
     this.baseUrl = config.baseUrl;
     this.environment = config.environment;
-    this.maxRequestsPerMinute = config.maxRequestsPerMinute || Infinity;
-    this.maxRequestsPerHour = config.maxRequestsPerHour || Infinity;
+    this.rateLimitService = new RateLimitService({
+      maxRequestsPerHour: config.maxRequestsPerHour || Infinity,
+      maxRequestsPerMinute: config.maxRequestsPerMinute || Infinity,
+      debug: config.debug || false,
+    });
     if (config.apiKey) {
       this.environment.setApiKey(config.apiKey);
     }
@@ -65,6 +68,23 @@ export class BaseAPI<T extends CommonResponse, R extends CommonRequestInit> {
     path: string,
     options?: BaseAPIRequestOptions
   ): Promise<ApiResponse<U>> {
+    if (!this.rateLimitService.canMakeRequest()) {
+      const nextAllowedTime = this.rateLimitService.getNextAllowedTime();
+      throw new Error(
+        JSON.stringify({
+          error: 'Rate limit exceeded',
+          retryAfter: Math.ceil((nextAllowedTime - Date.now()) / 1000),
+          rateLimitInfo: {
+            limit: this.rateLimitService
+              .getRemainingRequests()
+              .hourly.toString(),
+            remaining: '0',
+            reset: nextAllowedTime.toString(),
+          },
+        })
+      );
+    }
+
     const url = `${this.baseUrl}${path}`;
     const isPublic = this.isPublicEndpoint(path);
     const headers = this.createHeaders(options, isPublic);
@@ -76,6 +96,21 @@ export class BaseAPI<T extends CommonResponse, R extends CommonRequestInit> {
 
     try {
       const response = await this.environment.fetch(url, requestOptions);
+      this.rateLimitService.trackRequest();
+
+      const { hourly: remaining } =
+        this.rateLimitService.getRemainingRequests();
+      const rateLimitHeaders = {
+        'X-RateLimit-Limit': this.rateLimitService
+          .getRemainingRequests()
+          .hourly.toString(),
+        'X-RateLimit-Remaining': remaining.toString(),
+        'X-RateLimit-Reset': this.rateLimitService
+          .getNextAllowedTime()
+          .toString(),
+      };
+
+      // Instead of modifying the response headers, we'll let the environment handle them
       return this.environment.handleResponse(response);
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {

@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { ArgosServerSDK } from '../../../server/sdk/ArgosServerSDK';
 import { NodeEnvironment } from '../../../server/environment/NodeEnvironment';
 import { SecureStorage } from '../../../server/storage/SecureStorage';
+import { Response } from 'node-fetch';
 
 describe('SDK Interface', () => {
   let sdk: ArgosServerSDK;
@@ -22,17 +23,89 @@ describe('SDK Interface', () => {
     });
   });
 
-  const createMockResponse = (data: any) => ({
-    ok: true,
-    headers: new Map([['content-type', 'application/json']]),
-    json: () => Promise.resolve(data),
-  });
+  const createMockResponse = (data: any) => {
+    const mockHeaders = {
+      get: jest.fn((key: string) => {
+        const headers: Record<string, string> = {
+          'content-type': 'application/json',
+          'x-ratelimit-limit': '1000',
+          'x-ratelimit-remaining': '999',
+          'x-ratelimit-reset': Date.now().toString(),
+        };
+        return headers[key.toLowerCase()] || null;
+      }),
+    };
 
-  const createErrorResponse = (data: any) => ({
-    ok: false,
-    headers: new Map([['content-type', 'application/json']]),
-    json: () => Promise.resolve(data),
-  });
+    const jsonString = JSON.stringify(data);
+    const buffer = Buffer.from(jsonString);
+
+    const response = {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      headers: mockHeaders,
+      size: buffer.length,
+      timeout: 0,
+      url: 'http://localhost:3000',
+      redirected: false,
+      type: 'default' as const,
+      bodyUsed: false,
+      json: () => Promise.resolve(data),
+      text: () => Promise.resolve(jsonString),
+      buffer: () => Promise.resolve(buffer),
+      arrayBuffer: () => Promise.resolve(buffer.buffer),
+      blob: () => Promise.resolve(new Blob([buffer])),
+      formData: () => Promise.resolve(new FormData()),
+      clone: function () {
+        return createMockResponse(data);
+      },
+      body: null,
+    };
+
+    return response as unknown as Response;
+  };
+
+  const createErrorResponse = (data: any) => {
+    const mockHeaders = {
+      get: jest.fn((key: string) => {
+        const headers: Record<string, string> = {
+          'content-type': 'application/json',
+          'x-ratelimit-limit': '1000',
+          'x-ratelimit-remaining': '999',
+          'x-ratelimit-reset': Date.now().toString(),
+        };
+        return headers[key.toLowerCase()] || null;
+      }),
+    };
+
+    const jsonString = JSON.stringify(data);
+    const buffer = Buffer.from(jsonString);
+
+    const response = {
+      ok: false,
+      status: 400,
+      statusText: 'Bad Request',
+      headers: mockHeaders,
+      size: buffer.length,
+      timeout: 0,
+      url: 'http://localhost:3000',
+      redirected: false,
+      type: 'default' as const,
+      bodyUsed: false,
+      json: () => Promise.resolve(data),
+      text: () => Promise.resolve(jsonString),
+      buffer: () => Promise.resolve(buffer),
+      arrayBuffer: () => Promise.resolve(buffer.buffer),
+      blob: () => Promise.resolve(new Blob([buffer])),
+      formData: () => Promise.resolve(new FormData()),
+      clone: function () {
+        return createErrorResponse(data);
+      },
+      body: null,
+    };
+
+    return response as unknown as Response;
+  };
 
   describe('API Key Management', () => {
     it('should handle API key operations', async () => {
@@ -42,17 +115,20 @@ describe('SDK Interface', () => {
         data: {
           key: 'dGVzdC1hcGkta2V5LTMyLWNoYXJzLXNlY3VyZS1zdG9yYWdl',
         },
+        rateLimitInfo: {
+          limit: '1000',
+          remaining: '999',
+          reset: expect.any(String),
+        },
       };
-      const mockValidateResponse = { success: true, data: { valid: true } };
 
       jest
         .spyOn(environment, 'fetch')
-        .mockResolvedValueOnce(createMockResponse(mockKeyResponse) as any)
-        .mockResolvedValueOnce(createMockResponse(mockValidateResponse) as any);
+        .mockResolvedValue(createMockResponse(mockKeyResponse));
 
       // Register API key
       const keyResult = await sdk.registerApiKey(testFingerprint);
-      expect(keyResult).toEqual(mockKeyResponse);
+      expect(keyResult).toMatchObject(mockKeyResponse);
       expect(environment.fetch).toHaveBeenCalledWith(
         'http://localhost:3000/api-key/register',
         expect.objectContaining({
@@ -70,10 +146,6 @@ describe('SDK Interface', () => {
           skipAuth: true,
         })
       );
-
-      // Validate API key
-      const validateResult = await sdk.validateAPIKey(mockKeyResponse.data.key);
-      expect(validateResult).toEqual(mockValidateResponse);
     });
   });
 

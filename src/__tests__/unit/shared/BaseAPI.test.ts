@@ -14,6 +14,8 @@ class TestAPI extends BaseAPI<Response, RequestInit> {
     super({
       baseUrl: BASE_URL,
       environment: new TestEnvironment(),
+      maxRequestsPerMinute: 1000,
+      maxRequestsPerHour: 1000,
     });
   }
 
@@ -35,6 +37,13 @@ describe('BaseAPI', () => {
     mockFetch.mockImplementation(() =>
       Promise.resolve({
         ok: true,
+        status: 200,
+        headers: new Headers({
+          'content-type': 'application/json',
+          'x-ratelimit-limit': '1000',
+          'x-ratelimit-remaining': '999',
+          'x-ratelimit-reset': Date.now().toString(),
+        }),
         json: () => Promise.resolve({ success: true, data: { test: 'data' } }),
       } as Response)
     );
@@ -65,6 +74,12 @@ describe('BaseAPI', () => {
       Promise.resolve({
         ok: false,
         status: 400,
+        headers: new Headers({
+          'content-type': 'application/json',
+          'x-ratelimit-limit': '1000',
+          'x-ratelimit-remaining': '999',
+          'x-ratelimit-reset': Date.now().toString(),
+        }),
         json: () => Promise.resolve({ success: false, error: 'Test error' }),
       } as Response)
     );
@@ -101,6 +116,12 @@ describe('BaseAPI', () => {
 
         return {
           ok: true,
+          headers: new Headers({
+            'content-type': 'application/json',
+            'x-ratelimit-limit': '1000',
+            'x-ratelimit-remaining': '999',
+            'x-ratelimit-reset': Date.now().toString(),
+          }),
           json: () =>
             Promise.resolve({ success: true, data: { test: 'data' } }),
         } as Response;
@@ -116,5 +137,96 @@ describe('BaseAPI', () => {
     controller.abort();
 
     await expect(fetchPromise).rejects.toThrow('Request was cancelled');
+  });
+
+  describe('Rate Limiting', () => {
+    it('should include rate limit information when headers are present', async () => {
+      const now = Date.now();
+      mockFetch.mockImplementation(() =>
+        Promise.resolve({
+          ok: true,
+          headers: new Headers({
+            'content-type': 'application/json',
+            'x-ratelimit-limit': '1000',
+            'x-ratelimit-remaining': '999',
+            'x-ratelimit-reset': now.toString(),
+          }),
+          json: () =>
+            Promise.resolve({
+              success: true,
+              data: { test: 'data' },
+            }),
+        } as Response)
+      );
+
+      const response = await api.testFetch('/test');
+
+      expect(response).toHaveProperty('rateLimitInfo');
+      expect(response.rateLimitInfo).toEqual({
+        limit: '1000',
+        remaining: '999',
+        reset: now.toString(),
+      });
+    });
+
+    it('should track request counts when rate limits are present', async () => {
+      let remainingRequests = 1000;
+
+      mockFetch.mockImplementation(() => {
+        const headers = new Headers({
+          'content-type': 'application/json',
+          'x-ratelimit-limit': '1000',
+          'x-ratelimit-remaining': (--remainingRequests).toString(),
+          'x-ratelimit-reset': Date.now().toString(),
+        });
+
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              data: { test: 'data' },
+            }),
+        } as Response);
+      });
+
+      await api.testFetch('/test');
+      await api.testFetch('/test');
+      const thirdResponse = await api.testFetch('/test');
+
+      expect(thirdResponse.rateLimitInfo?.remaining).toBe('997');
+    });
+
+    it('should handle rate limit reset windows', async () => {
+      jest.useFakeTimers();
+      const now = Date.now();
+
+      mockFetch.mockImplementationOnce(() => {
+        const headers = new Headers({
+          'content-type': 'application/json',
+          'x-ratelimit-limit': '1000',
+          'x-ratelimit-remaining': '999',
+          'x-ratelimit-reset': now.toString(),
+        });
+
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              data: { test: 'data' },
+            }),
+        } as Response);
+      });
+
+      const response = await api.testFetch('/test');
+      expect(response.rateLimitInfo?.remaining).toBe('999');
+
+      jest.useRealTimers();
+    });
   });
 });

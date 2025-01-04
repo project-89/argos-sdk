@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { TagAPI } from '../../../shared/api/TagAPI';
 import { HttpMethod } from '../../../shared/interfaces/http';
 import { TestEnvironment } from './mocks/TestEnvironment';
+import { createMockResponse } from '../../utils/testUtils';
 
 const BASE_URL = 'https://test.example.com';
 const mockFetch = jest.fn();
@@ -20,11 +21,18 @@ describe('TagAPI', () => {
     });
 
     mockFetch.mockImplementation(() =>
-      Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve({ success: true, data: { tags: ['tag1', 'tag2'] } }),
-      } as Response)
+      Promise.resolve(
+        createMockResponse(
+          { tags: ['tag1', 'tag2'] },
+          {
+            rateLimit: {
+              limit: '1000',
+              remaining: '999',
+              reset: Date.now().toString(),
+            },
+          }
+        )
+      )
     );
   });
 
@@ -83,6 +91,12 @@ describe('TagAPI', () => {
       Promise.resolve({
         ok: false,
         status: 400,
+        headers: new Headers({
+          'content-type': 'application/json',
+          'X-RateLimit-Limit': '1000',
+          'X-RateLimit-Remaining': '999',
+          'X-RateLimit-Reset': Date.now().toString(),
+        }),
         json: () => Promise.resolve({ success: false, error: 'Test error' }),
       } as Response)
     );

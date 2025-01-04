@@ -21,7 +21,9 @@ export class SecureStorage implements StorageInterface {
 
   constructor(options: SecureStorageOptions = {}) {
     if (!options.encryptionKey) {
-      throw new Error('Encryption key is required');
+      throw new Error(
+        'Encryption key is required for SecureStorage. Please provide a strong encryption key in the options.'
+      );
     }
 
     // Create a 32-byte key using SHA-256
@@ -36,7 +38,13 @@ export class SecureStorage implements StorageInterface {
     // Create storage directory if it doesn't exist
     const storageDir = dirname(this.storagePath);
     if (!existsSync(storageDir)) {
-      mkdirSync(storageDir, { recursive: true });
+      try {
+        mkdirSync(storageDir, { recursive: true });
+      } catch (error) {
+        throw new Error(
+          `Failed to create storage directory at "${storageDir}". Please ensure the process has write permissions to this location.`
+        );
+      }
     }
 
     this.loadFromDisk();
@@ -55,7 +63,9 @@ export class SecureStorage implements StorageInterface {
     try {
       const [ivHex, authTagHex, encryptedText] = text.split(':');
       if (!ivHex || !authTagHex || !encryptedText) {
-        throw new Error('Invalid encrypted data format');
+        throw new Error(
+          'Invalid encrypted data format. The storage file might be corrupted or tampered with.'
+        );
       }
 
       const iv = Buffer.from(ivHex, 'hex');
@@ -70,7 +80,13 @@ export class SecureStorage implements StorageInterface {
         // Only log the error type and message, not the stack trace
         console.error('Decryption error:', error.name, error.message);
       }
-      return '';
+      throw new Error(
+        'Failed to decrypt stored data. This might be due to:\n' +
+          '1. Incorrect encryption key\n' +
+          '2. Corrupted storage file\n' +
+          '3. Storage file tampering\n' +
+          'Consider clearing the storage if this persists.'
+      );
     }
   }
 
@@ -87,7 +103,14 @@ export class SecureStorage implements StorageInterface {
         if (error instanceof Error) {
           console.error('Storage load error:', error.name, error.message);
         }
-        this.data = new Map();
+        throw new Error(
+          `Failed to load secure storage from "${this.storagePath}". ` +
+            'This might be due to:\n' +
+            '1. File permission issues\n' +
+            '2. Disk read errors\n' +
+            '3. Corrupted storage file\n' +
+            'The storage will be reset to prevent data inconsistency.'
+        );
       }
     }
   }
@@ -102,6 +125,14 @@ export class SecureStorage implements StorageInterface {
       if (error instanceof Error) {
         console.error('Storage save error:', error.name, error.message);
       }
+      throw new Error(
+        `Failed to save secure storage to "${this.storagePath}". ` +
+          'This might be due to:\n' +
+          '1. File permission issues\n' +
+          '2. Disk write errors\n' +
+          '3. Insufficient disk space\n' +
+          'Please ensure the process has proper permissions and sufficient disk space.'
+      );
     }
   }
 

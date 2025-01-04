@@ -21,7 +21,25 @@ export class TestEnvironment implements EnvironmentInterface<Response> {
       throw new Error(JSON.stringify(errorData));
     }
     const data = await response.json();
-    return data.data;
+    const rateLimitInfo = {
+      limit:
+        response.headers.get('x-ratelimit-limit') ||
+        response.headers.get('X-RateLimit-Limit'),
+      remaining:
+        response.headers.get('x-ratelimit-remaining') ||
+        response.headers.get('X-RateLimit-Remaining'),
+      reset:
+        response.headers.get('x-ratelimit-reset') ||
+        response.headers.get('X-RateLimit-Reset'),
+    };
+
+    const hasRateLimitHeaders = Object.values(rateLimitInfo).some(
+      (value) => value !== null
+    );
+    return {
+      ...data.data,
+      ...(hasRateLimitHeaders ? { rateLimitInfo } : {}),
+    } as T;
   }
 
   async getFingerprint(): Promise<string> {

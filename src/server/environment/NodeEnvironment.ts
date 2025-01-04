@@ -22,6 +22,15 @@ export class NodeEnvironment
         ? new SecureStorage({ encryptionKey: encryptionKeyOrStorage })
         : encryptionKeyOrStorage;
     this.onApiKeyUpdate = onApiKeyUpdate;
+    this.initializeEnvironment();
+  }
+
+  private async initializeEnvironment(): Promise<void> {
+    // Restore API key from storage if available
+    const storedApiKey = await this.storage.get('api_key');
+    if (storedApiKey) {
+      this.setApiKey(storedApiKey);
+    }
   }
 
   createHeaders(
@@ -45,12 +54,41 @@ export class NodeEnvironment
   }
 
   async handleResponse<T>(response: Response): Promise<T> {
-    const contentType = response.headers.get('content-type') || '';
-    const isJson = contentType.includes('application/json');
+    const contentType = response.headers?.get('content-type');
+    const isJson = contentType && contentType.includes('application/json');
+
+    // Extract rate limit information only if present
+    const limit = response.headers?.get('X-RateLimit-Limit');
+    const rateLimitInfo = limit
+      ? {
+          limit,
+          remaining: response.headers?.get('X-RateLimit-Remaining') || '0',
+          reset:
+            response.headers?.get('X-RateLimit-Reset') || Date.now().toString(),
+        }
+      : undefined;
 
     if (!response.ok) {
       if (response.status === 401) {
         this.apiKey = undefined;
+        await this.storage.remove('api_key');
+      }
+      if (response.status === 429) {
+        const retryAfter = response.headers?.get('Retry-After') || '60';
+        const errorData = isJson
+          ? await response.json()
+          : await response.text();
+        const error = {
+          error: 'Rate limit exceeded',
+          retryAfter,
+          rateLimitInfo: {
+            limit: response.headers?.get('X-RateLimit-Limit') || '1000',
+            remaining: '0',
+            reset: retryAfter,
+          },
+          details: errorData,
+        };
+        throw new Error(JSON.stringify(error));
       }
       const errorData = isJson ? await response.json() : await response.text();
       throw new Error(
@@ -60,14 +98,24 @@ export class NodeEnvironment
 
     if (isJson) {
       const data = await response.json();
-      return data;
+      return {
+        ...data,
+        ...(rateLimitInfo ? { rateLimitInfo } : {}),
+      } as T;
     }
 
     const text = await response.text();
     try {
-      return JSON.parse(text);
+      const parsed = JSON.parse(text);
+      return {
+        ...parsed,
+        ...(rateLimitInfo ? { rateLimitInfo } : {}),
+      } as T;
     } catch {
-      return text as unknown as T;
+      return {
+        data: text,
+        ...(rateLimitInfo ? { rateLimitInfo } : {}),
+      } as T;
     }
   }
 
@@ -85,11 +133,12 @@ export class NodeEnvironment
     };
   }
 
-  setApiKey(apiKey: string): void {
+  async setApiKey(apiKey: string): Promise<void> {
     if (!apiKey) {
       throw new Error('API key cannot be empty');
     }
     this.apiKey = apiKey;
+    await this.storage.set('api_key', apiKey);
     if (this.onApiKeyUpdate) {
       this.onApiKeyUpdate(apiKey);
     }

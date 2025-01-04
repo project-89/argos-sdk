@@ -14,7 +14,10 @@ import { APIKeyAPI } from '../../shared/api/APIKeyAPI';
 import { ImpressionAPI } from '../../shared/api/ImpressionAPI';
 import { VisitAPI } from '../../shared/api/VisitAPI';
 import { EnvironmentFactory } from '../../core/factory/EnvironmentFactory';
-import { EnvironmentInterface } from '../../shared/interfaces/environment';
+import {
+  EnvironmentInterface,
+  RuntimeEnvironment,
+} from '../../shared/interfaces/environment';
 import { getBrowserFingerprint } from '../utils/fingerprint';
 
 export interface ClientSDKConfig
@@ -43,13 +46,6 @@ export class ArgosClientSDK {
   private visitAPI: VisitAPI<Response, RequestInit>;
 
   constructor(config: ClientSDKConfig) {
-    // Only initialize if we're in a browser environment
-    if (typeof window === 'undefined') {
-      throw new Error(
-        'ArgosClientSDK can only be initialized in a browser environment'
-      );
-    }
-
     this.config = config;
     this.presenceInterval = config.presenceInterval || 30000; // 30 seconds default
 
@@ -57,6 +53,12 @@ export class ArgosClientSDK {
     this.environment =
       config.environment ||
       EnvironmentFactory.createBrowserEnvironment(config.onApiKeyUpdate);
+
+    // Validate environment type
+    if (!this.environment.type) {
+      throw new Error('Environment type is not set');
+    }
+
     if (config.apiKey) {
       this.environment.setApiKey(config.apiKey);
     }
@@ -73,10 +75,19 @@ export class ArgosClientSDK {
     this.visitAPI = new VisitAPI(apiConfig);
   }
 
+  private validateBrowserEnvironment(methodName: string): void {
+    if (
+      !this.environment ||
+      this.environment.type !== RuntimeEnvironment.Browser
+    ) {
+      throw new Error(
+        `${methodName} is only available in browser environments`
+      );
+    }
+  }
+
   isOnline(): boolean {
-    return typeof window !== 'undefined' && typeof navigator !== 'undefined'
-      ? navigator.onLine
-      : true;
+    return this.environment.isOnline();
   }
 
   getPresenceInterval(): number {
@@ -87,11 +98,7 @@ export class ArgosClientSDK {
     fingerprintId: string,
     status: 'online' | 'offline' = 'online'
   ): Promise<ApiResponse<PresenceData>> {
-    if (typeof window === 'undefined') {
-      throw new Error(
-        'Presence tracking is only available in browser environment'
-      );
-    }
+    this.validateBrowserEnvironment('updatePresence');
 
     return this.visitAPI.updatePresence({
       fingerprintId,
@@ -108,9 +115,7 @@ export class ArgosClientSDK {
     type: string,
     options: TrackOptions
   ): Promise<ApiResponse<ImpressionData>> {
-    if (typeof window === 'undefined') {
-      throw new Error('Tracking is only available in browser environment');
-    }
+    this.validateBrowserEnvironment('track');
 
     return this.impressionAPI.createImpression({
       type,

@@ -15,6 +15,7 @@ export interface ApiResponse<T> {
   error?: string;
   requestId?: string;
   timestamp?: number;
+  rateLimitInfo?: RateLimitInfo;
 }
 
 export interface ApiError {
@@ -151,7 +152,7 @@ export interface ValidateAPIKeyRequest {
 }
 
 export interface ValidateAPIKeyResponse {
-  valid: boolean;
+  isValid: boolean;
   fingerprintId?: string;
   needsRefresh?: boolean;
 }
@@ -232,4 +233,10 @@ export interface RotateAPIKeyResponse {
   key: string;
   fingerprintId: string;
   expiresAt: string;
+}
+
+export interface RateLimitInfo {
+  limit: string | null;
+  remaining: string | null;
+  reset: string | null;
 }

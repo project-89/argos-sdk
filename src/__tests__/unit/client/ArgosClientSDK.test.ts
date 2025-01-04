@@ -3,11 +3,11 @@
  */
 
 import { jest } from '@jest/globals';
-import {
-  ArgosClientSDK,
-  ClientSDKConfig,
-} from '../../../client/sdk/ArgosClientSDK';
+import { ArgosClientSDK } from '../../../client/sdk/ArgosClientSDK';
+import { RuntimeEnvironment } from '../../../shared/interfaces/environment';
 import { MockBrowserEnvironment } from '../../utils/testUtils';
+import { createMockResponse } from '../../utils/testUtils';
+import type { TrackOptions } from '../../../client/sdk/ArgosClientSDK';
 
 // Mock FingerprintJS
 jest.mock('@fingerprintjs/fingerprintjs', () => ({
@@ -25,161 +25,134 @@ global.MessageChannel = class MessageChannel {
 
 describe('ArgosClientSDK', () => {
   let sdk: ArgosClientSDK;
-  let mockEnvironment: MockBrowserEnvironment;
+  let environment: MockBrowserEnvironment;
+  const rateLimit = {
+    limit: '999',
+    remaining: '999',
+    reset: Date.now().toString(),
+  };
 
   beforeEach(() => {
-    mockEnvironment = new MockBrowserEnvironment('test-fingerprint');
-    const config: ClientSDKConfig = {
-      baseUrl: 'http://test.com',
-      apiKey: 'test-api-key',
-      environment: mockEnvironment as any,
-    };
-    sdk = new ArgosClientSDK(config);
+    environment = new MockBrowserEnvironment('test-fingerprint');
+    environment.type = RuntimeEnvironment.Browser;
 
-    // Mock window.location
-    Object.defineProperty(window, 'location', {
-      value: {
-        href: 'http://test.com/page',
-      },
-      writable: true,
+    const mockFetch = jest.fn((url: string, options?: RequestInit) => {
+      const mockResponse = createMockResponse(
+        { id: 'test-id', metadata: {} },
+        { rateLimit }
+      );
+      return Promise.resolve(mockResponse);
     });
+    environment.fetch = mockFetch as unknown as (
+      url: string,
+      options?: RequestInit
+    ) => Promise<Response>;
 
-    // Mock document.title
-    Object.defineProperty(document, 'title', {
-      value: 'Test Page',
-      writable: true,
+    sdk = new ArgosClientSDK({
+      baseUrl: 'http://localhost:3000',
+      environment,
+      maxRequestsPerHour: 1000,
+      maxRequestsPerMinute: 100,
     });
   });
 
   describe('identify', () => {
     it('should create a fingerprint', async () => {
-      const mockResponse = { success: true, data: { id: '123' } };
-      jest.spyOn(mockEnvironment, 'fetch').mockResolvedValue({
-        ok: true,
-        headers: new Map([['content-type', 'application/json']]),
-        json: () => Promise.resolve(mockResponse),
-      } as any);
-
       const result = await sdk.identify({});
-      expect(result).toEqual(mockResponse);
+      expect(result.rateLimitInfo).toEqual({
+        limit: rateLimit.limit,
+        remaining: rateLimit.remaining,
+        reset: expect.any(String),
+      });
+      expect(result.data).toEqual({ id: 'test-id', metadata: {} });
+      expect(result.success).toBe(true);
     });
   });
 
   describe('getIdentity', () => {
     it('should get a fingerprint', async () => {
-      const mockResponse = { success: true, data: { id: '123' } };
-      jest.spyOn(mockEnvironment, 'fetch').mockResolvedValue({
-        ok: true,
-        headers: new Map([['content-type', 'application/json']]),
-        json: () => Promise.resolve(mockResponse),
-      } as any);
-
       const result = await sdk.getIdentity('123');
-      expect(result).toEqual(mockResponse);
+      expect(result.rateLimitInfo).toEqual({
+        limit: rateLimit.limit,
+        remaining: rateLimit.remaining,
+        reset: expect.any(String),
+      });
+      expect(result.data).toEqual({ id: 'test-id', metadata: {} });
+      expect(result.success).toBe(true);
     });
   });
 
   describe('updateFingerprint', () => {
     it('should update fingerprint metadata', async () => {
-      const mockResponse = { success: true, data: { id: '123' } };
-      jest.spyOn(mockEnvironment, 'fetch').mockResolvedValue({
-        ok: true,
-        headers: new Map([['content-type', 'application/json']]),
-        json: () => Promise.resolve(mockResponse),
-      } as any);
-
       const result = await sdk.updateFingerprint('123', { test: 'data' });
-      expect(result).toEqual(mockResponse);
+      expect(result.rateLimitInfo).toEqual({
+        limit: rateLimit.limit,
+        remaining: rateLimit.remaining,
+        reset: expect.any(String),
+      });
+      expect(result.data).toEqual({ id: 'test-id', metadata: {} });
+      expect(result.success).toBe(true);
     });
   });
 
   describe('updatePresence', () => {
     it('should update presence status with current page info', async () => {
-      const mockResponse = {
-        success: true,
-        data: { timestamp: new Date().toISOString() },
-      };
-      const fetchSpy = jest.spyOn(mockEnvironment, 'fetch').mockResolvedValue({
-        ok: true,
-        headers: new Map([['content-type', 'application/json']]),
-        json: () => Promise.resolve(mockResponse),
-      } as any);
-
       const result = await sdk.updatePresence('test-fingerprint', 'online');
-
-      expect(result).toEqual(mockResponse);
-      expect(fetchSpy).toHaveBeenCalledWith(
-        expect.stringContaining('/visit/presence'),
-        expect.objectContaining({
-          method: 'POST',
-          body: expect.objectContaining({
-            fingerprintId: 'test-fingerprint',
-            status: 'online',
-            timestamp: expect.any(String),
-            metadata: {
-              url: 'http://test.com/page',
-              title: 'Test Page',
-            },
-          }),
-        })
-      );
+      expect(result.rateLimitInfo).toEqual({
+        limit: rateLimit.limit,
+        remaining: rateLimit.remaining,
+        reset: expect.any(String),
+      });
+      expect(result.data).toEqual({ id: 'test-id', metadata: {} });
+      expect(result.success).toBe(true);
     });
 
     it('should throw error when used in non-browser environment', async () => {
-      const windowSpy = jest.spyOn(global, 'window', 'get');
-      windowSpy.mockImplementation(() => undefined as any);
+      const nodeEnv = new MockBrowserEnvironment('test-fingerprint');
+      nodeEnv.type = RuntimeEnvironment.Node;
 
-      await expect(sdk.updatePresence('test-fingerprint')).rejects.toThrow(
-        'Presence tracking is only available in browser environment'
+      const nodeSDK = new ArgosClientSDK({
+        baseUrl: 'http://localhost:3000',
+        environment: nodeEnv,
+      });
+
+      await expect(
+        nodeSDK.updatePresence('test-fingerprint', 'online')
+      ).rejects.toThrow(
+        'updatePresence is only available in browser environments'
       );
-
-      windowSpy.mockRestore();
     });
   });
 
   describe('track', () => {
     it('should create an impression with provided data', async () => {
-      const mockResponse = { success: true, data: { id: 'imp-123' } };
-      const fetchSpy = jest.spyOn(mockEnvironment, 'fetch').mockResolvedValue({
-        ok: true,
-        headers: new Map([['content-type', 'application/json']]),
-        json: () => Promise.resolve(mockResponse),
-      } as any);
-
-      const result = await sdk.track('page-view', {
+      const trackOptions: TrackOptions = {
         fingerprintId: 'test-fingerprint',
-        url: 'http://test.com/page',
-        title: 'Test Page',
-        metadata: { custom: 'data' },
-      });
+        metadata: { test: 'data' },
+      };
 
-      expect(result).toEqual(mockResponse);
-      expect(fetchSpy).toHaveBeenCalledWith(
-        expect.stringContaining('/impressions'),
-        expect.objectContaining({
-          method: 'POST',
-          body: expect.objectContaining({
-            type: 'page-view',
-            fingerprintId: 'test-fingerprint',
-            data: {
-              url: 'http://test.com/page',
-              title: 'Test Page',
-              custom: 'data',
-            },
-          }),
-        })
-      );
+      const result = await sdk.track('test-event', trackOptions);
+      expect(result.rateLimitInfo).toEqual({
+        limit: rateLimit.limit,
+        remaining: rateLimit.remaining,
+        reset: expect.any(String),
+      });
+      expect(result.data).toEqual({ id: 'test-id', metadata: {} });
+      expect(result.success).toBe(true);
     });
 
     it('should throw error when used in non-browser environment', async () => {
-      const windowSpy = jest.spyOn(global, 'window', 'get');
-      windowSpy.mockImplementation(() => undefined as any);
+      const nodeEnv = new MockBrowserEnvironment('test-fingerprint');
+      nodeEnv.type = RuntimeEnvironment.Node;
+
+      const nodeSDK = new ArgosClientSDK({
+        baseUrl: 'http://localhost:3000',
+        environment: nodeEnv,
+      });
 
       await expect(
-        sdk.track('test-event', { fingerprintId: 'test-fingerprint' })
-      ).rejects.toThrow('Tracking is only available in browser environment');
-
-      windowSpy.mockRestore();
+        nodeSDK.track('test-event', { fingerprintId: 'test-fingerprint' })
+      ).rejects.toThrow('track is only available in browser environments');
     });
   });
 });

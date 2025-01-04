@@ -3,6 +3,7 @@ import { ImpressionAPI } from '../../../shared/api/ImpressionAPI';
 import { HttpMethod } from '../../../shared/interfaces/http';
 import { TestEnvironment } from './mocks/TestEnvironment';
 import type { ImpressionData } from '../../../shared/interfaces/api';
+import { createMockResponse } from '../../utils/testUtils';
 
 const BASE_URL = 'https://test.example.com';
 const mockFetch = jest.fn();
@@ -31,11 +32,15 @@ describe('ImpressionAPI', () => {
     });
 
     mockFetch.mockImplementation(() =>
-      Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve({ success: true, data: mockImpressionData }),
-      } as Response)
+      Promise.resolve(
+        createMockResponse(mockImpressionData, {
+          rateLimit: {
+            limit: '1000',
+            remaining: '999',
+            reset: Date.now().toString(),
+          },
+        })
+      )
     );
   });
 
@@ -106,6 +111,12 @@ describe('ImpressionAPI', () => {
       Promise.resolve({
         ok: false,
         status: 400,
+        headers: new Headers({
+          'content-type': 'application/json',
+          'X-RateLimit-Limit': '1000',
+          'X-RateLimit-Remaining': '999',
+          'X-RateLimit-Reset': Date.now().toString(),
+        }),
         json: () => Promise.resolve({ success: false, error: 'Test error' }),
       } as Response)
     );

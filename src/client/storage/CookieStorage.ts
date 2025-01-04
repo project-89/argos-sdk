@@ -42,7 +42,13 @@ export class CookieStorage implements StorageInterface {
 
     // Handle empty string case
     if (value === '') {
-      Cookies.set(prefixedKey, value, cookieOptions);
+      try {
+        Cookies.set(prefixedKey, value, cookieOptions);
+      } catch (error) {
+        throw new Error(
+          `Failed to set empty cookie value for key "${key}". This might be due to browser cookie settings or storage restrictions.`
+        );
+      }
       return;
     }
 
@@ -50,7 +56,13 @@ export class CookieStorage implements StorageInterface {
       Cookies.set(prefixedKey, value, cookieOptions);
     } catch (error) {
       console.error('Failed to set cookie:', error);
-      throw error;
+      throw new Error(
+        `Failed to store data in cookie "${key}". This might be due to: ` +
+          '1. Cookie size limit exceeded\n' +
+          '2. Browser cookie settings blocking storage\n' +
+          '3. Browser in private/incognito mode\n' +
+          '4. Third-party cookie restrictions'
+      );
     }
   }
 
@@ -65,7 +77,9 @@ export class CookieStorage implements StorageInterface {
       Cookies.remove(prefixedKey, removeOptions);
     } catch (error) {
       console.error('Failed to remove cookie:', error);
-      throw error;
+      throw new Error(
+        `Failed to remove cookie "${key}". This might be due to browser cookie settings or storage restrictions.`
+      );
     }
   }
 

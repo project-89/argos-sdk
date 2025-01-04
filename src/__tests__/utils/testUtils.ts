@@ -10,81 +10,132 @@ import type {
   Fingerprint,
   ImpressionData,
 } from '../../shared/interfaces/api';
-import {
+import type {
   Response as NodeResponse,
   RequestInit as NodeRequestInit,
-  Headers,
   ResponseType,
 } from 'node-fetch';
 
-export function createMockResponse<T>(data: T): NodeResponse {
+export function createMockResponse<T>(
+  data: T,
+  options?: { rateLimit?: { limit: string; remaining: string; reset: string } }
+): NodeResponse {
   const apiResponse: ApiResponse<T> = {
     success: true,
     data,
     error: undefined,
   };
 
-  return {
+  const headers = {
+    get: (name: string) => {
+      const headerMap: Record<string, string | undefined> = {
+        'content-type': 'application/json',
+        ...(options?.rateLimit && {
+          'x-ratelimit-limit': options.rateLimit.limit,
+          'x-ratelimit-remaining': options.rateLimit.remaining,
+          'x-ratelimit-reset': options.rateLimit.reset,
+        }),
+      };
+      return headerMap[name.toLowerCase()] || null;
+    },
+    set: jest.fn(),
+    forEach: (callback: (value: string, key: string) => void) => {
+      const headerMap: Record<string, string | undefined> = {
+        'content-type': 'application/json',
+        ...(options?.rateLimit && {
+          'x-ratelimit-limit': options.rateLimit.limit,
+          'x-ratelimit-remaining': options.rateLimit.remaining,
+          'x-ratelimit-reset': options.rateLimit.reset,
+        }),
+      };
+      Object.entries(headerMap).forEach(([key, value]) => {
+        if (value !== undefined) {
+          callback(value, key);
+        }
+      });
+    },
+  };
+
+  const jsonString = JSON.stringify(apiResponse);
+  const buffer = Buffer.from(jsonString);
+
+  const response = {
     ok: true,
     status: 200,
     statusText: 'OK',
-    headers: new Headers({ 'content-type': 'application/json' }),
-    json: async () => apiResponse,
-    text: () => Promise.resolve(JSON.stringify(apiResponse)),
-    blob: () => Promise.resolve(new Blob()),
-    arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
-    formData: () => Promise.resolve(new FormData()),
-    body: null,
-    bodyUsed: false,
-    clone: function () {
-      return this;
-    },
-    buffer: () => Promise.resolve(Buffer.from('')),
+    headers,
+    size: buffer.length,
+    timeout: 0,
+    url: 'https://test.example.com',
     redirected: false,
     type: 'default' as ResponseType,
-    url: 'https://test.example.com',
-    size: 0,
-    timeout: 0,
-    textConverted: () => Promise.resolve(''),
-  } as unknown as NodeResponse;
+    bodyUsed: false,
+    json: () => Promise.resolve(apiResponse),
+    text: () => Promise.resolve(jsonString),
+    buffer: () => Promise.resolve(buffer),
+    arrayBuffer: () => Promise.resolve(buffer.buffer),
+    blob: () => Promise.resolve(new Blob([buffer])),
+    formData: () => Promise.resolve(new FormData()),
+    clone: function () {
+      return createMockResponse(data, options);
+    },
+    body: null,
+  };
+
+  return response as unknown as NodeResponse;
 }
 
-export function createMockErrorResponse(error: string): NodeResponse {
+export function createMockErrorResponse(
+  error: string,
+  options?: { rateLimit?: { limit: string; remaining: string; reset: string } }
+): NodeResponse {
   const apiResponse: ApiResponse<null> = {
     success: false,
     data: null,
     error,
   };
 
-  return {
+  const headers = new Headers({ 'content-type': 'application/json' });
+
+  if (options?.rateLimit) {
+    headers.set('x-ratelimit-limit', options.rateLimit.limit);
+    headers.set('x-ratelimit-remaining', options.rateLimit.remaining);
+    headers.set('x-ratelimit-reset', options.rateLimit.reset);
+  }
+
+  const jsonString = JSON.stringify(apiResponse);
+  const buffer = Buffer.from(jsonString);
+
+  const response = {
     ok: false,
     status: 400,
     statusText: 'Bad Request',
-    headers: new Headers({ 'content-type': 'application/json' }),
-    json: async () => apiResponse,
-    text: () => Promise.resolve(JSON.stringify(apiResponse)),
-    blob: () => Promise.resolve(new Blob()),
-    arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
-    formData: () => Promise.resolve(new FormData()),
-    body: null,
-    bodyUsed: false,
-    clone: function () {
-      return this;
-    },
-    buffer: () => Promise.resolve(Buffer.from('')),
+    headers,
+    size: buffer.length,
+    timeout: 0,
+    url: 'https://test.example.com',
     redirected: false,
     type: 'default' as ResponseType,
-    url: 'https://test.example.com',
-    size: 0,
-    timeout: 0,
-    textConverted: () => Promise.resolve(''),
-  } as unknown as NodeResponse;
+    bodyUsed: false,
+    json: () => Promise.resolve(apiResponse),
+    text: () => Promise.resolve(jsonString),
+    buffer: () => Promise.resolve(buffer),
+    arrayBuffer: () => Promise.resolve(buffer.buffer),
+    blob: () => Promise.resolve(new Blob([buffer])),
+    formData: () => Promise.resolve(new FormData()),
+    clone: function () {
+      return createMockErrorResponse(error, options);
+    },
+    body: null,
+  };
+
+  return response as unknown as NodeResponse;
 }
 
 export class MockBrowserEnvironment
   implements EnvironmentInterface<Response, RequestInit>
 {
-  type = RuntimeEnvironment.Test;
+  public type = RuntimeEnvironment.Test;
   private apiKey?: string;
   private fingerprint: string;
   private userAgent: string;
@@ -93,12 +144,7 @@ export class MockBrowserEnvironment
   constructor(fingerprint: string, userAgent = 'test-fingerprint') {
     this.fingerprint = fingerprint;
     this.userAgent = userAgent;
-    this.fetch = jest.fn(async (url: string, options?: RequestInit) => {
-      return new Response(JSON.stringify({ success: true }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
-    });
+    this.fetch = jest.fn();
   }
 
   createHeaders(headers?: Record<string, string>): Record<string, string> {
@@ -130,6 +176,26 @@ export class MockBrowserEnvironment
       throw new Error(
         typeof data === 'string' ? data : data.error || 'Request failed'
       );
+    }
+
+    // Extract rate limit info
+    const limit = response.headers.get('x-ratelimit-limit');
+    const remaining = response.headers.get('x-ratelimit-remaining');
+    const reset = response.headers.get('x-ratelimit-reset');
+
+    // Add rate limit info to the response only if all headers are present
+    if (
+      typeof data === 'object' &&
+      data !== null &&
+      limit &&
+      remaining &&
+      reset
+    ) {
+      (data as any).rateLimitInfo = {
+        limit,
+        remaining,
+        reset,
+      };
     }
 
     return data;

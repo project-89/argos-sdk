@@ -22,11 +22,10 @@ The SDK is built on an environment-agnostic architecture that enables seamless o
    - Abstracts storage operations
    - Environment-specific implementations:
      - Browser: 
-       - `LocalStorage` (primary)
-       - `CookieStorage` (fallback)
-       - `MemoryStorage` (last resort)
+       - `CookieStorage` (default)
+       - Custom implementation support
      - Server:
-       - `SecureStorage` (encrypted)
+       - `SecureStorage` (default, encrypted)
        - Custom implementation support
 
 3. **Base API**
@@ -194,7 +193,7 @@ npm run docs:serve
 
 ### Browser Environment
 
-1. Test with different storage types:
+1. Test with custom storage:
    ```typescript
    const sdk = new ArgosSDK({
      baseUrl: 'https://api.example.com',
@@ -202,31 +201,39 @@ npm run docs:serve
    });
    ```
 
-2. Test with cookies disabled:
+2. Configure cookie options:
    ```typescript
    const sdk = new ArgosSDK({
      baseUrl: 'https://api.example.com',
-     storage: new BrowserStorage({ useCookies: false })
+     storage: new CookieStorage({
+       secure: true,
+       sameSite: 'strict',
+       path: '/',
+       domain: 'your-domain.com'
+     })
    });
    ```
 
 ### Server Environment
 
-1. Test with custom storage:
+1. Configure secure storage:
+   ```typescript
+   const sdk = new ArgosServerSDK({
+     baseUrl: 'https://api.example.com',
+     apiKey: 'your-key',
+     storage: new SecureStorage({
+       encryptionKey: 'your-encryption-key',
+       storagePath: '/custom/path/to/storage'
+     })
+   });
+   ```
+
+2. Test with custom storage:
    ```typescript
    const sdk = new ArgosServerSDK({
      baseUrl: 'https://api.example.com',
      apiKey: 'your-key',
      storage: new CustomServerStorage()
-   });
-   ```
-
-2. Test with different environments:
-   ```typescript
-   const sdk = new ArgosServerSDK({
-     baseUrl: 'https://api.example.com',
-     apiKey: 'your-key',
-     environment: new CustomServerEnvironment()
    });
    ```
 

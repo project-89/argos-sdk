@@ -1,5 +1,13 @@
 import { jest } from '@jest/globals';
 
+// Mock fs module for SecureStorage
+jest.mock('fs', () => ({
+  existsSync: jest.fn().mockReturnValue(false),
+  readFileSync: jest.fn().mockReturnValue(''),
+  writeFileSync: jest.fn().mockReturnValue(undefined),
+  mkdirSync: jest.fn().mockReturnValue(undefined),
+}));
+
 // Only set up browser mocks if we're in a jsdom environment
 if (process.env.JEST_ENVIRONMENT === 'jsdom') {
   // Mock crypto for browser environment

@@ -1,6 +1,7 @@
 import { BaseAPI } from '../../../shared/api/BaseAPI';
 import { EnvironmentInterface } from '../../../shared/interfaces/environment';
 import { ApiResponse } from '../../../shared/interfaces/api';
+import { createMockResponse } from '../../utils/testUtils';
 
 interface TestResponse {
   success: boolean;
@@ -13,6 +14,8 @@ export class TestAPI extends BaseAPI<Response, RequestInit> {
   private lastRequestTime = 0;
   private readonly rateLimitWindow = 100; // 100ms window for testing
   private readonly retryDelay = 50; // 50ms retry delay for testing
+  private readonly maxRequestsPerMinute: number;
+  private readonly maxRequestsPerHour: number;
 
   constructor(config: {
     baseUrl: string;
@@ -22,6 +25,8 @@ export class TestAPI extends BaseAPI<Response, RequestInit> {
     environment: EnvironmentInterface<Response, RequestInit>;
   }) {
     super(config);
+    this.maxRequestsPerMinute = config.maxRequestsPerMinute;
+    this.maxRequestsPerHour = config.maxRequestsPerHour;
   }
 
   private async delay(ms: number): Promise<void> {
@@ -70,6 +75,25 @@ export class TestAPI extends BaseAPI<Response, RequestInit> {
 
       this.requestCount++;
       this.lastRequestTime = now;
+
+      // Create a mock response with rate limit headers
+      const { hourly: remaining } =
+        this.rateLimitService.getRemainingRequests();
+      const mockResponse = createMockResponse(
+        { success: true, data: { test: 'data' } },
+        {
+          rateLimit: {
+            limit: this.maxRequestsPerHour.toString(),
+            remaining: remaining.toString(),
+            reset: this.rateLimitService.getNextAllowedTime().toString(),
+          },
+        }
+      );
+
+      // Mock the fetch call
+      (this.environment as any).fetch = jest
+        .fn()
+        .mockResolvedValue(mockResponse);
 
       const response = await this.fetchApi<TestResponse>(path);
       if (!response.success) {

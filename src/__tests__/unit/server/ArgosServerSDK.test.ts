@@ -10,13 +10,25 @@ describe('ArgosServerSDK', () => {
   let mockResponse: any;
 
   const createMockResponse = (data: any) => {
-    const headers = {
-      'content-type': 'application/json',
+    const mockHeaders = {
+      get: jest.fn((key: string) => {
+        const headers: Record<string, string> = {
+          'content-type': 'application/json',
+          'x-ratelimit-limit': '1000',
+          'x-ratelimit-remaining': '999',
+          'x-ratelimit-reset': Date.now().toString(),
+        };
+        return headers[key.toLowerCase()] || null;
+      }),
     };
-    return new Response(JSON.stringify(data), {
+
+    return {
+      ok: true,
       status: 200,
-      headers,
-    });
+      headers: mockHeaders,
+      json: () => Promise.resolve(data),
+      text: () => Promise.resolve(JSON.stringify(data)),
+    } as unknown as Response;
   };
 
   beforeEach(() => {
@@ -40,7 +52,14 @@ describe('ArgosServerSDK', () => {
         metadata: { custom: 'data' },
       });
 
-      expect(result).toEqual(mockResponse);
+      expect(result).toEqual({
+        success: true,
+        rateLimitInfo: {
+          limit: '1000',
+          remaining: '999',
+          reset: expect.any(String),
+        },
+      });
       expect(environment.fetch).toHaveBeenCalledWith(
         'http://localhost:3000/impressions',
         expect.objectContaining({
@@ -48,6 +67,7 @@ describe('ArgosServerSDK', () => {
           headers: expect.objectContaining({
             'content-type': 'application/json',
             'x-api-key': 'test-api-key',
+            'user-agent': expect.any(String),
           }),
           body: expect.objectContaining({
             type: 'pageview',
@@ -66,7 +86,14 @@ describe('ArgosServerSDK', () => {
     it('should register API key with fingerprint in options', async () => {
       const result = await sdk.registerApiKey('test-fingerprint');
 
-      expect(result).toEqual(mockResponse);
+      expect(result).toEqual({
+        success: true,
+        rateLimitInfo: {
+          limit: '1000',
+          remaining: '999',
+          reset: expect.any(String),
+        },
+      });
       expect(environment.fetch).toHaveBeenCalledWith(
         'http://localhost:3000/api-key/register',
         expect.objectContaining({

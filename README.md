@@ -175,7 +175,7 @@ const { createImpression, getImpressions } = useImpressions();
 interface SDKOptions {
   baseUrl: string; // Required: API endpoint
   debug?: boolean; // Optional: Enable debug logging
-  storage?: StorageInterface; // Optional: Custom storage implementation
+  storage?: StorageInterface; // Optional: Custom storage implementation (defaults to CookieStorage for client, SecureStorage for server)
   environment?: RuntimeEnvironment | EnvironmentInterface; // Optional: Environment configuration
   maxRequestsPerMinute?: number; // Optional: Rate limiting (default varies by environment)
 }
@@ -186,6 +186,8 @@ interface SDKOptions {
 ```typescript
 interface ServerSDKOptions extends SDKOptions {
   apiKey: string; // Required: Server-side API key
+  encryptionKey?: string; // Required if using default SecureStorage
+  storagePath?: string; // Optional: Custom path for SecureStorage
 }
 ```
 
@@ -206,3 +208,50 @@ The SDK includes sophisticated request handling features for production reliabil
 - Smart retry after rate limit window expires
 - Different default limits for browser and server environments
 - Respects server's rate limit responses (429)
+
+## Storage Mechanisms
+
+### Client-Side Storage (CookieStorage)
+
+The client SDK uses `CookieStorage` by default for storing data, including API keys and fingerprints. This provides persistent storage across sessions and better security:
+
+```typescript
+// CookieStorage is used by default in the client SDK
+const sdk = new ArgosClientSDK({
+  baseUrl: 'https://api.example.com'
+});
+
+// You can configure cookie options
+const sdk = new ArgosClientSDK({
+  baseUrl: 'https://api.example.com',
+  storage: new CookieStorage({
+    secure: true,
+    sameSite: 'strict',
+    path: '/',
+    domain: 'your-domain.com'
+  })
+});
+```
+
+### Server-Side Storage (SecureStorage)
+
+The server SDK uses `SecureStorage` by default for secure, encrypted storage of sensitive data:
+
+```typescript
+// SecureStorage is used by default in the server SDK
+const sdk = new ArgosServerSDK({
+  baseUrl: 'https://api.example.com',
+  apiKey: 'your-api-key',
+  encryptionKey: 'your-encryption-key' // Required for SecureStorage
+});
+
+// You can configure storage options
+const sdk = new ArgosServerSDK({
+  baseUrl: 'https://api.example.com',
+  apiKey: 'your-api-key',
+  storage: new SecureStorage({
+    encryptionKey: 'your-encryption-key',
+    storagePath: '/custom/path/to/storage'
+  })
+});
+```
