@@ -86,18 +86,18 @@ cp .env.example .env.test
 # Build SDK
 npm run build
 
-# Start development server
-npm run dev
+# Run tests in watch mode
+npm run test:watch
 ```
 
 2. **Testing**
 
 ```bash
-# Unit tests
-npm run test:unit
+# Run all tests
+npm test
 
-# Integration tests (requires API server)
-npm run test:integration
+# Run specific test file
+npm test path/to/test.ts
 
 # Coverage report
 npm run test:coverage
@@ -116,14 +116,170 @@ npm run type-check
 npm run format
 ```
 
-4. **Documentation**
+## Security Guidelines
 
-```bash
-# Generate API documentation
-npm run docs
+1. **API Key Management**
+   - Store API keys using environment variables
+   - Never commit API keys to version control
+   - Implement proper key rotation
+   - Use short-lived keys when possible
 
-# Serve documentation locally
-npm run docs:serve
+2. **Storage Security**
+   - Server:
+     - Use `SecureStorage` with proper encryption
+     - Store encryption keys securely
+     - Implement proper file permissions
+   - Browser:
+     - Prefer `HttpOnly` cookies when possible
+     - Implement XSS protections
+     - Clear sensitive data on logout
+
+3. **Rate Limiting**
+   - Configure appropriate limits:
+     ```typescript
+     const sdk = new ArgosSDK({
+       baseUrl: 'https://api.example.com',
+       maxRequestsPerHour: 1000,
+       maxRequestsPerMinute: 60
+     });
+     ```
+   - Handle rate limit errors:
+     ```typescript
+     try {
+       await sdk.track('event', data);
+     } catch (error) {
+       if (error.retryAfter) {
+         // Implement retry logic
+       }
+     }
+     ```
+
+4. **Error Handling**
+   - Never log sensitive data:
+     ```typescript
+     // Good
+     console.error('API error:', error.message);
+     
+     // Bad
+     console.error('API error:', error); // Might contain sensitive data
+     ```
+   - Sanitize error messages:
+     ```typescript
+     const sanitizeError = (error: Error) => ({
+       message: error.message,
+       code: error.code,
+       // Exclude stack traces and sensitive fields
+     });
+     ```
+
+5. **Testing Security**
+   - Use mock API keys in tests
+   - Test error scenarios
+   - Validate security headers
+   - Test rate limiting
+   ```typescript
+   describe('Security', () => {
+     it('should handle invalid API keys', async () => {
+       expect.assertions(1);
+       try {
+         await sdk.validateAPIKey('invalid-key');
+       } catch (error) {
+         expect(error.message).toContain('Invalid API key');
+       }
+     });
+   });
+   ```
+
+## Environment-Specific Development
+
+### Browser Environment
+
+1. Test with secure cookie storage:
+   ```typescript
+   const sdk = new ArgosSDK({
+     baseUrl: 'https://api.example.com',
+     storage: new CookieStorage({
+       secure: true, // Requires HTTPS
+       sameSite: 'strict',
+       httpOnly: true, // When possible
+       path: '/',
+       domain: 'your-domain.com'
+     })
+   });
+   ```
+
+2. Implement proper error boundaries:
+   ```typescript
+   <ArgosProvider
+     config={{
+       baseUrl: 'https://api.example.com',
+       onError: (error) => {
+         // Handle errors securely
+         reportError(sanitizeError(error));
+       }
+     }}
+   >
+     <App />
+   </ArgosProvider>
+   ```
+
+### Server Environment
+
+1. Configure secure storage with environment variables:
+   ```typescript
+   const sdk = new ArgosServerSDK({
+     baseUrl: process.env.ARGOS_API_URL,
+     apiKey: process.env.ARGOS_API_KEY,
+     storage: new SecureStorage({
+       encryptionKey: process.env.ARGOS_ENCRYPTION_KEY,
+       storagePath: process.env.ARGOS_STORAGE_PATH
+     })
+   });
+   ```
+
+2. Implement proper key rotation:
+   ```typescript
+   class KeyRotationManager {
+     private readonly sdk: ArgosServerSDK;
+     private rotationInterval: number;
+
+     async rotateKey(): Promise<void> {
+       try {
+         const result = await this.sdk.rotateAPIKey();
+         if (result.success) {
+           process.env.ARGOS_API_KEY = result.data.key;
+         }
+       } catch (error) {
+         // Handle rotation failure
+       }
+     }
+   }
+   ```
+
+## Debugging
+
+Enable debug mode only in development:
+
+```typescript
+const sdk = new ArgosSDK({
+  baseUrl: 'https://api.example.com',
+  debug: process.env.NODE_ENV === 'development'
+});
+```
+
+For production debugging, implement secure logging:
+```typescript
+const sdk = new ArgosSDK({
+  baseUrl: 'https://api.example.com',
+  onError: (error) => {
+    // Log only safe information
+    logger.error({
+      message: error.message,
+      code: error.code,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
 ```
 
 ## Best Practices
@@ -188,71 +344,6 @@ npm run docs:serve
 4. Add tests
 5. Update documentation
 6. Submit pull request
-
-## Environment-Specific Development
-
-### Browser Environment
-
-1. Test with custom storage:
-   ```typescript
-   const sdk = new ArgosSDK({
-     baseUrl: 'https://api.example.com',
-     storage: new CustomBrowserStorage()
-   });
-   ```
-
-2. Configure cookie options:
-   ```typescript
-   const sdk = new ArgosSDK({
-     baseUrl: 'https://api.example.com',
-     storage: new CookieStorage({
-       secure: true,
-       sameSite: 'strict',
-       path: '/',
-       domain: 'your-domain.com'
-     })
-   });
-   ```
-
-### Server Environment
-
-1. Configure secure storage:
-   ```typescript
-   const sdk = new ArgosServerSDK({
-     baseUrl: 'https://api.example.com',
-     apiKey: 'your-key',
-     storage: new SecureStorage({
-       encryptionKey: 'your-encryption-key',
-       storagePath: '/custom/path/to/storage'
-     })
-   });
-   ```
-
-2. Test with custom storage:
-   ```typescript
-   const sdk = new ArgosServerSDK({
-     baseUrl: 'https://api.example.com',
-     apiKey: 'your-key',
-     storage: new CustomServerStorage()
-   });
-   ```
-
-## Debugging
-
-Enable debug mode for detailed logs:
-
-```typescript
-const sdk = new ArgosSDK({
-  baseUrl: 'https://api.example.com',
-  debug: true
-});
-```
-
-Debug information includes:
-- API requests and responses
-- Environment detection
-- Storage operations
-- Error details
 
 ## Common Issues
 

@@ -198,22 +198,46 @@ The SDK includes sophisticated request handling features for production reliabil
 ### Rate Limiting
 
 - Built-in rate limiting with configurable requests per minute and hour
-- Default limits:
-  - Server environment: 1000 requests per hour (aligned with server fingerprint limit)
-  - Browser environment: 300 requests per hour (aligned with server IP limit)
-- Configurable via environment variables or SDK options:
-  - `ARGOS_MAX_REQUESTS_PER_HOUR`: Maximum requests per hour (default: 1000)
-  - `ARGOS_MAX_REQUESTS_PER_MINUTE`: Maximum requests per minute (default: 100)
-- Automatic request queueing when rate limit is reached
-- Smart retry after rate limit window expires
-- Different default limits for browser and server environments
-- Respects server's rate limit responses (429)
+- Default limits must be explicitly set via environment variables or SDK options:
+  - `ARGOS_MAX_REQUESTS_PER_HOUR`
+  - `ARGOS_MAX_REQUESTS_PER_MINUTE`
+- Recommended defaults:
+  - Server environment: 1000 requests per hour
+  - Browser environment: 300 requests per hour
+- Rate limit handling:
+  - When limits are exceeded, requests will be rejected with an error
+  - Your application should implement appropriate retry logic or queueing if needed
+  - The SDK respects server's rate limit responses (429)
+
+### Error Handling and Logging
+
+The SDK includes built-in error handling and logging capabilities:
+
+- Debug logging can be enabled for development but should be disabled in production
+- Sensitive data (like full API keys) is never logged
+- Error messages are sanitized to prevent data leakage
+- Custom error handlers can be provided for specific error scenarios
+
+```typescript
+const sdk = new ArgosClientSDK({
+  baseUrl: 'https://api.example.com',
+  debug: process.env.NODE_ENV === 'development', // Enable only in development
+  onError: (error) => {
+    // Custom error handling
+    console.error('SDK error:', error.message);
+  }
+});
+```
 
 ## Storage Mechanisms
 
 ### Client-Side Storage (CookieStorage)
 
-The client SDK uses `CookieStorage` by default for storing data, including API keys and fingerprints. This provides persistent storage across sessions and better security:
+The client SDK uses `CookieStorage` by default for storing data, including API keys and fingerprints. While cookies provide some advantages over localStorage, please note the following security considerations:
+
+- Cookies are still vulnerable to XSS attacks unless set as `HttpOnly`
+- For maximum security, consider storing API keys server-side or using `HttpOnly` cookies
+- If using client-side storage, ensure your application has proper XSS protections in place
 
 ```typescript
 // CookieStorage is used by default in the client SDK
@@ -221,11 +245,11 @@ const sdk = new ArgosClientSDK({
   baseUrl: 'https://api.example.com'
 });
 
-// You can configure cookie options
+// Configure cookie options for better security
 const sdk = new ArgosClientSDK({
   baseUrl: 'https://api.example.com',
   storage: new CookieStorage({
-    secure: true,
+    secure: true, // Requires HTTPS
     sameSite: 'strict',
     path: '/',
     domain: 'your-domain.com'
@@ -235,23 +259,42 @@ const sdk = new ArgosClientSDK({
 
 ### Server-Side Storage (SecureStorage)
 
-The server SDK uses `SecureStorage` by default for secure, encrypted storage of sensitive data:
+The server SDK uses `SecureStorage` by default for secure, encrypted storage of sensitive data. Important security considerations:
+
+- The `encryptionKey` is required when using `SecureStorage`
+- Never commit encryption keys to version control
+- Use environment variables or a secure secrets management system
+- Ensure proper access controls for the storage file location
 
 ```typescript
-// SecureStorage is used by default in the server SDK
+// SecureStorage with proper key management
 const sdk = new ArgosServerSDK({
   baseUrl: 'https://api.example.com',
-  apiKey: 'your-api-key',
-  encryptionKey: 'your-encryption-key' // Required for SecureStorage
-});
-
-// You can configure storage options
-const sdk = new ArgosServerSDK({
-  baseUrl: 'https://api.example.com',
-  apiKey: 'your-api-key',
-  storage: new SecureStorage({
-    encryptionKey: 'your-encryption-key',
-    storagePath: '/custom/path/to/storage'
-  })
+  apiKey: process.env.ARGOS_API_KEY,
+  encryptionKey: process.env.ARGOS_ENCRYPTION_KEY // Required for SecureStorage
 });
 ```
+
+## Security Best Practices
+
+1. API Key Management
+   - Store API keys securely using environment variables
+   - Use different keys for development and production
+   - Rotate keys regularly and revoke compromised keys immediately
+   - Consider using short-lived keys with automatic refresh
+
+2. Storage Security
+   - Use `HttpOnly` cookies when possible for client-side storage
+   - Implement proper XSS protections in your application
+   - Use encryption for server-side storage
+   - Regularly audit stored data and clean up unused keys
+
+3. Rate Limiting
+   - Set appropriate rate limits for your use case
+   - Implement proper retry logic for rate limit errors
+   - Monitor rate limit usage in production
+
+4. Error Handling
+   - Never log sensitive data
+   - Implement proper error handling for all SDK operations
+   - Monitor errors in production for security incidents
